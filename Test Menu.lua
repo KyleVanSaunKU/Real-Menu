@@ -23,21 +23,36 @@ local success, err = pcall(function()
     GH.bindingBtn = nil
     GH.bindingOrigText = ""
 
+    -- KEYBIND LOGIC OVERHAUL
     UserInputService.InputBegan:Connect(function(input, gpe)
         if GH.bindingBtn then
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 local key = input.KeyCode
-                for k, v in pairs(GH.Keybinds) do
-                    if v.btn == GH.bindingBtn then
-                        GH.Keybinds[k] = nil
+                
+                -- Unbind if they press Escape or Backspace
+                if key == Enum.KeyCode.Escape or key == Enum.KeyCode.Backspace then
+                    for k, v in pairs(GH.Keybinds) do
+                        if v.btn == GH.bindingBtn then GH.Keybinds[k] = nil end
                     end
-                end
-                if key ~= Enum.KeyCode.Escape and key ~= Enum.KeyCode.Backspace then
-                    GH.Keybinds[key] = {func = GH.ButtonLogics[GH.bindingBtn], btn = GH.bindingBtn}
-                    GH.bindingBtn.Text = GH.bindingOrigText .. " [" .. key.Name .. "]"
-                else
                     GH.bindingBtn.Text = GH.bindingOrigText
+                    GH.bindingBtn = nil
+                    return
                 end
+                
+                -- Check for and remove overlapping binds on other buttons
+                if GH.Keybinds[key] and GH.Keybinds[key].btn ~= GH.bindingBtn then
+                    local oldBtn = GH.Keybinds[key].btn
+                    GH.Keybinds[key] = nil
+                    oldBtn.Text = string.split(oldBtn.Text, " [")[1]
+                end
+
+                -- Remove old binds for the current button
+                for k, v in pairs(GH.Keybinds) do
+                    if v.btn == GH.bindingBtn then GH.Keybinds[k] = nil end
+                end
+
+                GH.Keybinds[key] = {func = GH.ButtonLogics[GH.bindingBtn], btn = GH.bindingBtn}
+                GH.bindingBtn.Text = GH.bindingOrigText .. " [" .. key.Name .. "]"
                 GH.bindingBtn = nil
             end
         elseif not gpe then
@@ -118,7 +133,34 @@ local success, err = pcall(function()
 
     GH.RegisterButton = function(btn, logicFunc)
         GH.ButtonLogics[btn] = logicFunc
+        
+        -- AUTO-APPEND KEYBIND VISUAL
+        local isUpdatingText = false
+        btn:GetPropertyChangedSignal("Text"):Connect(function()
+            if isUpdatingText then return end
+            if btn.Text == "[PRESS KEY]" then return end
+            if string.match(btn.Text, " %[[^%]]+]$") then return end
+            
+            local boundKey = nil
+            for k, v in pairs(GH.Keybinds) do
+                if v.btn == btn then boundKey = k.Name; break end
+            end
+            
+            if boundKey then
+                isUpdatingText = true
+                btn.Text = btn.Text .. " [" .. boundKey .. "]"
+                isUpdatingText = false
+            end
+        end)
+
         btn.MouseButton1Click:Connect(function()
+            -- CANCEL BIND IF ACCIDENTALLY CLICKED
+            if GH.bindingBtn == btn then
+                GH.bindingBtn.Text = GH.bindingOrigText
+                GH.bindingBtn = nil
+                return
+            end
+            
             if BlockClicks[btn] then BlockClicks[btn] = false; return end
             local s = Instance.new("Sound", btn)
             s.SoundId = "rbxassetid://4590662766"; s.Volume = 1; s:Play(); s.PlayOnRemove = true; s:Destroy()
@@ -131,13 +173,18 @@ local success, err = pcall(function()
 
         btn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton2 then
-                if GH.bindingBtn then GH.bindingBtn.Text = GH.bindingOrigText end
+                if GH.bindingBtn and GH.bindingBtn ~= btn then 
+                    GH.bindingBtn.Text = GH.bindingOrigText 
+                end
+                
                 GH.bindingBtn = btn
                 GH.bindingOrigText = string.split(btn.Text, " [")[1]
                 btn.Text = "[PRESS KEY]"
             end
 
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if GH.bindingBtn == btn then return end 
+                
                 isHolding = true; startTime = tick()
                 local startCanvasPos = parentScroll and parentScroll.CanvasPosition or Vector2.new(0, 0)
                 
@@ -449,7 +496,6 @@ local success, err = pcall(function()
     GH.UserInputService.InputChanged:Connect(function(i) if dragFly and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setFly(i) end end)
     GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragFly = false end end)
 
-    -- NOCLIP FIX APPLIED HERE
     local btnNoclip = GH.createBtn("NOCLIP: OFF", Color3.fromRGB(200, 60, 60), 5)
     local noclip_on = false
     local noclipConnection = nil
@@ -685,7 +731,6 @@ local success, err = pcall(function()
             end)
         end
         
-        -- RESET TOGGLE FIX APPLIED HERE
         if noclip_on then 
             noclip_on = false
             pcall(function() 
