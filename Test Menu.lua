@@ -257,6 +257,11 @@ local success, err = pcall(function()
                                     if c:IsA("LocalScript") or c:IsA("UIPadding") or c:IsA("Frame") or (c:IsA("TextButton") and c.Name == "ArrowToggle") then c:Destroy() end 
                                 end
                                 
+                                -- Outline for the main pinned button
+                                local cloneStroke = Instance.new("UIStroke", clone)
+                                cloneStroke.Color = Color3.fromRGB(40, 40, 40)
+                                cloneStroke.Thickness = 1.5
+                                
                                 clone.TextYAlignment = Enum.TextYAlignment.Center
                                 GH.makeDraggable(clone, function() logicFunc() end)
                                 
@@ -276,6 +281,11 @@ local success, err = pcall(function()
                                 closeCloneBtn.TextSize = 12
                                 closeCloneBtn.ZIndex = 10
                                 Instance.new("UICorner", closeCloneBtn).CornerRadius = UDim.new(0, 6)
+
+                                -- Outline specifically for the X button to separate the reds
+                                local closeStroke = Instance.new("UIStroke", closeCloneBtn)
+                                closeStroke.Color = Color3.fromRGB(30, 30, 30)
+                                closeStroke.Thickness = 1.5
 
                                 closeCloneBtn.MouseButton1Click:Connect(function()
                                     GH.playSound()
