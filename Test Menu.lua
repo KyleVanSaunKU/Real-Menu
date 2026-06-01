@@ -21,9 +21,9 @@ local success, err = pcall(function()
     local CoreGui = game:GetService("CoreGui") -- Hidden GUI container for exploit scripts
     local Debris = game:GetService("Debris") -- Used to clean up instances automatically
     local player = Players.LocalPlayer -- Get your local Player
-    local camera = Workspace.CurrentCamera -- Get your camera
+    local camera = Workspace.CurrentCamera -- Get your Players camera
 
-    -- Store references in our global GH table for easy access inside functions
+    -- Store references in the global GH table for easy access inside functions
     GH.Players = Players -- Players
     GH.RunService = RunService -- Frames
     GH.UserInputService = UserInputService -- Key Presses
@@ -55,11 +55,11 @@ local success, err = pcall(function()
                     return
                 end
                 
-                -- Check for and remove overlapping binds, basically if the key is already used by another button
+                -- Check for and remove overlapping binds if the key is already used by another button
                 if GH.Keybinds[key] and GH.Keybinds[key].btn ~= GH.bindingBtn then
                     local oldBtn = GH.Keybinds[key].btn
                     GH.Keybinds[key] = nil
-                    oldBtn.Text = string.split(oldBtn.Text, " [")[1] -- Remove the "[Key]" text from the UI Visually
+                    oldBtn.Text = string.split(oldBtn.Text, " [")[1] -- Remove the "[Key]" text from the UI visually
                 end
 
                 -- Remove any old binds for the current button before assigning the new one
@@ -72,9 +72,8 @@ local success, err = pcall(function()
                 GH.bindingBtn.Text = GH.bindingOrigText .. " [" .. key.Name .. "]"
                 GH.bindingBtn = nil
             end
-        -- If not binding, and not typing in chat
+        -- If not currently binding and not typing in chat then execute the mapped function if the pressed key is in the Keybinds table
         elseif not gpe then
-            -- Execute the mapped function if the pressed key is in our Keybinds table
             if input.UserInputType == Enum.UserInputType.Keyboard and GH.Keybinds[input.KeyCode] then
                 GH.playSound()
                 GH.Keybinds[input.KeyCode].func()
@@ -176,8 +175,7 @@ local success, err = pcall(function()
     GH.RegisterButton = function(btn, logicFunc)
         GH.ButtonLogics[btn] = logicFunc
         
-        -- Auto add any KeyBinds to the UI
-        -- Updates the button text to display the assigned hotkey (e.g., "SPEED: OFF [X]")
+        -- Auto add any keybinds to the UI and updates the button text to display the assigned hotkey (e.g., "SPEED: OFF [X]")
         local isUpdatingText = false
         btn:GetPropertyChangedSignal("Text"):Connect(function()
             if isUpdatingText then return end
@@ -196,7 +194,7 @@ local success, err = pcall(function()
             end
         end)
 
-        -- Execute the button/functions on Left Click
+        -- Execute the button/functions on left-clicks
         btn.MouseButton1Click:Connect(function()
             -- Cancel binding if they accidentally clicked the button itself
             if GH.bindingBtn == btn then
@@ -216,7 +214,7 @@ local success, err = pcall(function()
         local parentScroll = btn:FindFirstAncestorOfClass("ScrollingFrame")
 
         btn.InputBegan:Connect(function(input)
-            -- Start Keybind Listener on Right Click
+            -- Start the Keybind Listener on right-clicks
             if input.UserInputType == Enum.UserInputType.MouseButton2 then
                 if GH.bindingBtn and GH.bindingBtn ~= btn then 
                     GH.bindingBtn.Text = GH.bindingOrigText 
@@ -227,7 +225,7 @@ local success, err = pcall(function()
                 btn.Text = "[PRESS KEY]"
             end
 
-            -- UI Mover logic on Left Click
+            -- UI Mover logic on left-clicks
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 if GH.bindingBtn == btn then return end 
                 
@@ -265,9 +263,7 @@ local success, err = pcall(function()
                                 btn:GetPropertyChangedSignal("Text"):Connect(function() if clone.Parent then clone.Text = btn.Text end end)
                                 btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function() if clone.Parent then clone.BackgroundColor3 = btn.BackgroundColor3 end end)
                                 
-                                -- ==========================================
-                                -- CLOSE (X) BUTTON FOR CLONE
-                                -- ==========================================
+                               -- Close Button for the "Pinned" buttons
                                 local closeCloneBtn = Instance.new("TextButton", clone)
                                 closeCloneBtn.Name = "CloseBtn"
                                 closeCloneBtn.Size = UDim2.new(0, 20, 0, 20) -- Smaller square size
@@ -285,8 +281,6 @@ local success, err = pcall(function()
                                     clone:Destroy()
                                     PinnedItems[btn] = nil -- Free up the table reference
                                 end)
-                                -- ==========================================
-                                
                                 PinnedItems[btn] = clone
                             end 
                             break
@@ -581,7 +575,7 @@ local success, err = pcall(function()
     GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragFly = false end end)
 
     -- === NOCLIP ===
-    -- Allows walking through walls by dynamically setting character part collisions to false
+    -- Allows walking through walls by setting character part collisions to false
     local btnNoclip = GH.createBtn("NOCLIP: OFF", Color3.fromRGB(200, 60, 60), 4)
     local noclip_on = false
     local noclipConnection = nil
@@ -778,7 +772,7 @@ local success, err = pcall(function()
     end)
 
     -- === FPS BOOST ===
-    -- Removes shadows, fog, and complex materials to boost frame rates
+    -- Removes shadows, fog, and complex materials to boost frame rate
     local btnFps = GH.createBtn("FPS BOOST: OFF", Color3.fromRGB(200, 60, 60), 10)
     local fps_on, fps_cache, lighting_cache = false, {}, {}
     GH.RegisterButton(btnFps, function() fps_on = not fps_on; btnFps.Text = fps_on and "FPS BOOST: ON" or "FPS BOOST: OFF"; btnFps.BackgroundColor3 = fps_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
@@ -787,7 +781,7 @@ local success, err = pcall(function()
     end)
 
     -- === UNLOCK JUMP ===
-    -- Forces jumping and overrides anti-jump constraints
+    -- Forces jumping and overrides anti-jump constraints (Will lock jump if disabled after menu launch)
     local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(0, 120, 215), 11); local jump_unlock_on, jumpLoop = false, nil
     GH.RegisterButton(btnJump, function()
         jump_unlock_on = not jump_unlock_on
@@ -796,7 +790,7 @@ local success, err = pcall(function()
     end)
 
     -- === SET / LOAD WAYPOINT ===
-    -- Records current position and teleports back to it later
+    -- Records current position for teleporting back to later
     local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(40, 40, 40), 12); local SavedCFrame = nil
     GH.RegisterButton(btnSetCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then SavedCFrame = GH.player.Character.HumanoidRootPart.CFrame; btnSetCP.Text = "SAVED!"; btnSetCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.5); btnSetCP.Text = "SET POINT"; btnSetCP.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end end)
 
@@ -804,7 +798,7 @@ local success, err = pcall(function()
     GH.RegisterButton(btnLoadCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") and SavedCFrame then GH.player.Character.HumanoidRootPart.CFrame = SavedCFrame; btnLoadCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.2); btnLoadCP.BackgroundColor3 = Color3.fromRGB(40, 40, 40) else btnLoadCP.Text = "NO POINT!"; task.wait(0.5); btnLoadCP.Text = "LOAD POINT" end end)
 
     -- === POCKET INVENTORY ===
-    -- Creates a custom UI window to manually manage Backpack tools (useful if game disables inventory)
+    -- Creates a custom UI window to manually manage Backpack tools (useful if the game disables inventory)
     local btnPocket = GH.createBtn("POCKET INV: OFF", Color3.fromRGB(200, 60, 60), 14)
     local invFrame, iScroll = nil, nil
     local invConnections = {}
@@ -970,5 +964,5 @@ local success, err = pcall(function()
     print("REAL MENU LOADED")
 end)
 
--- Error reporting block if the script fails to execute
+-- Error message if the script fails to execute
 if not success then warn("ERROR: " .. tostring(err)) end
