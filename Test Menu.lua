@@ -391,7 +391,7 @@ local success, err = pcall(function()
 
     -- === INFO MENU ===
     -- Toggles a separate GUI window explaining the script's features and UI controls
-    local btnInfo = GH.createBtn("INFO: OFF", Color3.fromRGB(80, 120, 200), 0)
+    local btnInfo = GH.createBtn("MENU INFO: OFF", Color3.fromRGB(80, 120, 200), 0)
     local infoFrame = nil
 
     GH.RegisterButton(btnInfo, function()
@@ -399,13 +399,13 @@ local success, err = pcall(function()
         if infoFrame then
             infoFrame:Destroy()
             infoFrame = nil
-            btnInfo.Text = "INFO: OFF"
+            btnInfo.Text = "MENU INFO: OFF"
             btnInfo.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
             return
         end
 
         -- Open the menu
-        btnInfo.Text = "INFO: ON"
+        btnInfo.Text = "MENU INFO: ON"
         btnInfo.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 
         infoFrame = Instance.new("Frame", GH.mainGui)
@@ -464,20 +464,20 @@ local success, err = pcall(function()
 [UI CONTROLS]
 • Right-Click: Bind a custom hotkey to any button. Press Escape or Backspace to clear it.
 • Hold Left-Click (0.5s): Clone and pin a button directly to your screen so you can close the main menu.
-• Dropdown Arrows (V): Expands the button to reveal sliders for speed or offsets.
+• Dropdown Arrows (v): Expands the button to reveal sliders for speed or offsets.
 
 [CHEATS EXPLAINED]
-• INVIS: Hides your character using a seat weld trick. Expand to adjust the Y-Offset underneath the map.
-• SPEED: Overrides your walk speed every frame to bypass anti-cheats.
-• FLY: Custom flight using BodyGyro and BodyVelocity physics.
-• NOCLIP: Disables character collisions to walk through solid walls.
-• AIMBOT: Camera lock targeting the nearest player's head.
+• INVIS: Hides your character. Expand to adjust the Y-Offset to put your real character underneath or above the map.
+• SPEED: Changes your walk speed. Expand to adjust the speed.
+• FLY: Allows you to fly. Expand to adjust the speed.
+• NOCLIP: Allows noclip, disabling your collisions.
+• AIMBOT: Locks your camera to the nearest player's head.
 • PLAYERS/NPC ESP: Highlights entities through walls and shows a dot if they are far away.
-• LIGHT: Attaches a bright point light to your character.
+• LIGHT: Attaches a bright point light to your character for seeing in dark areas.
 • FPS BOOST: Disables shadows, fog, and simplifies materials to increase frame rate.
-• UNLOCK JUMP: Forces your JumpPower/Height to bypass game jump restrictions.
-• SCAN BODY: Deletes unneeded blocky/gray accessories for a clean avatar.
-• SET/LOAD POINT: Saves your exact CFrame position to teleport back to later.
+• UNLOCK JUMP: Forces your JumpPower/Height to bypass game jump restrictions, if disabled after menu launch your jump can be locked.
+• SCAN BODY: Deletes unneeded accessories for a clean avatar.
+• SET/LOAD POINT: Saves your exact position to teleport back to later.
 • POCKET INV: A custom UI to equip/unequip tools if the game hides the default backpack.
 • ROBLOX INV: Force toggles the default CoreGui Roblox backpack.
         ]]
