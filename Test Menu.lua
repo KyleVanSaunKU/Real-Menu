@@ -270,13 +270,13 @@ local success, err = pcall(function()
                                 -- ==========================================
                                 local closeCloneBtn = Instance.new("TextButton", clone)
                                 closeCloneBtn.Name = "CloseBtn"
-                                closeCloneBtn.Size = UDim2.new(0, 30, 1, 0)
-                                closeCloneBtn.Position = UDim2.new(1, -30, 0, 0) -- Anchor to the far right
+                                closeCloneBtn.Size = UDim2.new(0, 20, 0, 20) -- Smaller square size
+                                closeCloneBtn.Position = UDim2.new(1, -20, 0, 0) -- Anchor directly in the top right corner
                                 closeCloneBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
                                 closeCloneBtn.Text = "X"
                                 closeCloneBtn.TextColor3 = Color3.new(1, 1, 1)
                                 closeCloneBtn.Font = Enum.Font.Arcade
-                                closeCloneBtn.TextSize = 14
+                                closeCloneBtn.TextSize = 12 -- Slightly smaller text to fit
                                 closeCloneBtn.ZIndex = 10 -- Ensure it renders above the main clone text
                                 Instance.new("UICorner", closeCloneBtn).CornerRadius = UDim.new(0, 6)
 
@@ -318,8 +318,8 @@ local success, err = pcall(function()
     -- Main Hub Window
     local mainFrame = Instance.new("Frame", screenGui)
     mainFrame.Name = "MainHubFrame"
-    mainFrame.Size = UDim2.new(0, 145, 0, 185) 
-    mainFrame.Position = UDim2.new(0.5, -72, 0.5, -90)
+    mainFrame.Size = UDim2.new(0, 180, 0, 185) -- Widened from 145 to 180
+    mainFrame.Position = UDim2.new(0.5, -90, 0.5, -90) -- Adjusted position for new width
     mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     mainFrame.Active = true
     mainFrame.Draggable = true
@@ -353,9 +353,9 @@ local success, err = pcall(function()
     -- Handles tweening (smooth animation) to hide/show the menu
     minBtn.MouseButton1Click:Connect(function() 
         if mainFrame.Size.Y.Offset > 50 then 
-            mainFrame:TweenSize(UDim2.new(0, 145, 0, 30), "Out", "Quad", 0.3, true); minBtn.Text = "+" 
+            mainFrame:TweenSize(UDim2.new(0, 180, 0, 30), "Out", "Quad", 0.3, true); minBtn.Text = "+" 
         else 
-            mainFrame:TweenSize(UDim2.new(0, 145, 0, 185), "Out", "Quad", 0.3, true); minBtn.Text = "-" 
+            mainFrame:TweenSize(UDim2.new(0, 180, 0, 185), "Out", "Quad", 0.3, true); minBtn.Text = "-" 
         end 
     end)
 
@@ -866,7 +866,7 @@ local success, err = pcall(function()
             return 
         end 
         btnPocket.Text = "POCKET INV: ON"; btnPocket.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
-        invFrame = Instance.new("Frame", GH.mainGui); invFrame.Size = UDim2.new(0, 145, 0, 175); invFrame.Position = UDim2.new(0.5, 80, 0.5, -90); invFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38); invFrame.Active = true; invFrame.Draggable = true; Instance.new("UICorner", invFrame).CornerRadius = UDim.new(0, 12)        
+        invFrame = Instance.new("Frame", GH.mainGui); invFrame.Size = UDim2.new(0, 180, 0, 175); invFrame.Position = UDim2.new(0.5, 100, 0.5, -90); invFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38); invFrame.Active = true; invFrame.Draggable = true; Instance.new("UICorner", invFrame).CornerRadius = UDim.new(0, 12)        
         local h = Instance.new("Frame", invFrame); h.Size = UDim2.new(1, 0, 0, 34); h.BackgroundColor3 = Color3.fromRGB(38, 40, 46); local t = Instance.new("TextLabel", h); t.Text = "Inventory"; t.Font = Enum.Font.Arcade; t.TextSize = 12; t.TextColor3 = Color3.new(1, 1, 1); t.Size = UDim2.new(1, -10, 1, 0); t.Position = UDim2.new(0, 10, 0, 0); t.BackgroundTransparency = 1; t.TextXAlignment = Enum.TextXAlignment.Left
         local c = Instance.new("Frame", invFrame); c.Size = UDim2.new(1, -6, 1, -40); c.Position = UDim2.new(0, 3, 0, 37); c.BackgroundTransparency = 1; iScroll = Instance.new("ScrollingFrame", c); iScroll.Size = UDim2.new(1, 0, 1, 0); iScroll.BackgroundTransparency = 1; iScroll.ScrollBarThickness = 2; iScroll.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 80); iScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; iScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         local il = Instance.new("UIListLayout", iScroll); il.Padding = UDim.new(0, 4); il.SortOrder = Enum.SortOrder.LayoutOrder
