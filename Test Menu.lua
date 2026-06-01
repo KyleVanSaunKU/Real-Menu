@@ -680,21 +680,9 @@ local success, err = pcall(function()
         end
     end)
 
-    -- === SCAN BODY ===
-    -- Deletes unneeded character accessories visually to clean up avatar
-    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(45, 45, 45), 6)
-    GH.RegisterButton(btnScan, function()
-        if not GH.player.Character then return end; local cnt = 0
-        for _, v in pairs(GH.player.Character:GetDescendants()) do 
-            if v:IsA("BasePart") and (v.Name == "HumanoidRootPart" or v.BrickColor == BrickColor.new("Medium stone grey")) and not v:IsA("MeshPart") then v.Transparency = 1; cnt = cnt + 1 end 
-        end
-        btnScan.Text = "CLEAN: " .. cnt; btnScan.BackgroundColor3 = Color3.fromRGB(0, 180, 100); task.wait(1)
-        btnScan.Text = "SCAN BODY"; btnScan.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    end)
-
     -- === PLAYER ESP ===
     -- Draws outlines around players and a dot over their head if they are far away
-    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 7)
+    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 6)
     local esp_on = false
     local minDotDistance = 40
 
@@ -763,6 +751,18 @@ local success, err = pcall(function()
                 end
             end
         end
+    end)
+
+    -- === SCAN BODY ===
+    -- Deletes unneeded character accessories visually to clean up avatar
+    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(45, 45, 45), 7)
+    GH.RegisterButton(btnScan, function()
+        if not GH.player.Character then return end; local cnt = 0
+        for _, v in pairs(GH.player.Character:GetDescendants()) do 
+            if v:IsA("BasePart") and (v.Name == "HumanoidRootPart" or v.BrickColor == BrickColor.new("Medium stone grey")) and not v:IsA("MeshPart") then v.Transparency = 1; cnt = cnt + 1 end 
+        end
+        btnScan.Text = "CLEAN: " .. cnt; btnScan.BackgroundColor3 = Color3.fromRGB(0, 180, 100); task.wait(1)
+        btnScan.Text = "SCAN BODY"; btnScan.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     end)
 
     -- === NPC ESP ===
