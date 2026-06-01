@@ -975,4 +975,4 @@ local success, err = pcall(function()
 end)
 
 -- Error message if the script fails to execute
-if not success then warn("ERROR: " .. tostring(err)) end
+if not success then warn("MENU ERROR: " .. tostring(err)) end
