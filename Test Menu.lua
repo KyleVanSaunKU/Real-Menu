@@ -131,31 +131,38 @@ local success, err = pcall(function()
         
     -- Makes UI elements draggable across the screen
     GH.makeDraggable = function(obj, callback)
-        local dragStart = nil
-        local startPos = nil
+        local dragging = false
+        local dragInput
+        local dragStart
+        local startPos
         local isClick = true
-        local capturedInput = nil
 
         obj.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                capturedInput = input; isClick = true
-                dragStart = input.Position; startPos = obj.Position
+                dragging = true
+                isClick = true
+                dragStart = input.Position
+                startPos = obj.Position
                 
-                -- Wait to see if they let go, registering as a click
                 local con
                 con = input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then
-                        con:Disconnect(); capturedInput = nil
-                        if isClick then GH.playSound(); callback() end
+                        con:Disconnect()
+                        dragging = false
+                        if isClick and callback then GH.playSound(); callback() end
                     end
                 end)
             end
         end)
 
-        -- Move the UI element if the mouse moves while held
+        obj.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+
         UserInputService.InputChanged:Connect(function(input)
-            -- Only trigger movement if a click is active, without demanding exact input object matching
-            if capturedInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            if input == dragInput and dragging then
                 local delta = input.Position - dragStart
                 if delta.Magnitude > 5 then
                     isClick = false
