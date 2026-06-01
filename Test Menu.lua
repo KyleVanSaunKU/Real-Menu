@@ -443,7 +443,7 @@ local success, err = pcall(function()
         Instance.new("UICorner", closeInfo).CornerRadius = UDim.new(0, 6)
         closeInfo.MouseButton1Click:Connect(function()
             if infoFrame then infoFrame:Destroy(); infoFrame = nil end
-            btnInfo.Text = "INFO: OFF"
+            btnInfo.Text = "MENU INFO: OFF"
             btnInfo.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
         end)
 
