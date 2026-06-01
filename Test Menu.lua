@@ -622,8 +622,8 @@ local success, err = pcall(function()
         end
     end)
 
-    -- === AUTOLOCK (AIMBOT/CAMERALOCK) ===
-    local btnAutoLock = GH.createBtn("AUTO-LOCK: OFF", Color3.fromRGB(200, 60, 60), 5)
+    -- === AIMBOT (AUTO-LOCK/CAMERA-LOCK to Closest Player's Head) ===
+    local btnAutoLock = GH.createBtn("AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 5)
     local lock_on = false
     local lockConnection = nil
 
@@ -657,7 +657,7 @@ local success, err = pcall(function()
 
     GH.RegisterButton(btnAutoLock, function()
         lock_on = not lock_on
-        btnAutoLock.Text = lock_on and "AUTO-LOCK: ON" or "AUTO-LOCK: OFF"
+        btnAutoLock.Text = lock_on and "AIMBOT: ON" or "AIMBOT: OFF"
         btnAutoLock.BackgroundColor3 = lock_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
 
         if lock_on then
@@ -928,7 +928,7 @@ local success, err = pcall(function()
         if lock_on then
             lock_on = false
             pcall(function()
-                btnAutoLock.Text = "AUTO-LOCK: OFF"
+                btnAutoLock.Text = "AIMBOT: OFF"
                 btnAutoLock.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
                 if lockConnection then 
                     lockConnection:Disconnect() 
