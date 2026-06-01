@@ -131,7 +131,6 @@ local success, err = pcall(function()
         
     -- Makes UI elements draggable across the screen
     GH.makeDraggable = function(obj, callback)
-        local dragging = false
         local dragStart = nil
         local startPos = nil
         local isClick = true
@@ -139,7 +138,7 @@ local success, err = pcall(function()
 
         obj.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                capturedInput = input; dragging = false; isClick = true
+                capturedInput = input; isClick = true
                 dragStart = input.Position; startPos = obj.Position
                 
                 -- Wait to see if they let go, registering as a click
@@ -155,10 +154,11 @@ local success, err = pcall(function()
 
         -- Move the UI element if the mouse moves while held
         UserInputService.InputChanged:Connect(function(input)
-            if input == capturedInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            -- Only trigger movement if a click is active, without demanding exact input object matching
+            if capturedInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local delta = input.Position - dragStart
                 if delta.Magnitude > 5 then
-                    isClick = false; dragging = true
+                    isClick = false
                     obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
                 end
             end
