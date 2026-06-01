@@ -380,7 +380,7 @@ local success, err = pcall(function()
     -- === INVISIBILITY ===
     local btnInvis = Instance.new("TextButton", scroll)
     btnInvis.Name = ""; -- Obfuscated
-    btnInvis.Size = UDim2.new(0.95, 0, 0, 30); btnInvis.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    btnInvis.Size = UDim2.new(0.95, 0, 0, 30); btnInvis.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     btnInvis.Text = "INVIS: OFF"; btnInvis.TextColor3 = Color3.new(1, 1, 1); btnInvis.Font = Enum.Font.Arcade
     btnInvis.TextSize = 12; btnInvis.LayoutOrder = 1; btnInvis.ClipsDescendants = true
     btnInvis.AutoLocalize = false; btnInvis.TextYAlignment = Enum.TextYAlignment.Center
@@ -446,8 +446,8 @@ local success, err = pcall(function()
 
     GH.RegisterButton(btnInvis, function()
         invis_on = not invis_on
-        if invis_on then btnInvis.Text = "INVIS: ON"; btnInvis.BackgroundColor3 = Color3.fromRGB(0, 200, 100); setInvisState(true) 
-        else btnInvis.Text = "INVIS: OFF"; btnInvis.BackgroundColor3 = Color3.fromRGB(0, 120, 215); setInvisState(false) end
+        if invis_on then btnInvis.Text = "INVIS: ON"; btnInvis.BackgroundColor3 = Color3.fromRGB(0, 180, 100); setInvisState(true) 
+        else btnInvis.Text = "INVIS: OFF"; btnInvis.BackgroundColor3 = Color3.fromRGB(200, 60, 60); setInvisState(false) end
     end)
 
     local function setInvisScale(input)
@@ -464,7 +464,7 @@ local success, err = pcall(function()
     -- Slider UI and execution logic for forcing the player's walkspeed on every frame
     local btnSpeed = Instance.new("TextButton", scroll)
     btnSpeed.Name = ""; -- Obfuscated
-    btnSpeed.Size = UDim2.new(0.95, 0, 0, 30); btnSpeed.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+    btnSpeed.Size = UDim2.new(0.95, 0, 0, 30); btnSpeed.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     btnSpeed.Text = "SPEED: OFF"; btnSpeed.TextColor3 = Color3.new(1, 1, 1); btnSpeed.Font = Enum.Font.Arcade
     btnSpeed.TextSize = 12; btnSpeed.LayoutOrder = 2; btnSpeed.ClipsDescendants = true; btnSpeed.AutoLocalize = false; btnSpeed.TextYAlignment = Enum.TextYAlignment.Center
 
@@ -509,7 +509,7 @@ local success, err = pcall(function()
             -- Binds to Stepped to continuously force speed, overriding anti-cheats or game scripts that reset it
             speedLoop = GH.RunService.Stepped:Connect(function() if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") and GH.player.Character.Humanoid.WalkSpeed ~= walkSpeedVal then GH.player.Character.Humanoid.WalkSpeed = walkSpeedVal end end)
         else
-            btnSpeed.Text = "SPEED: OFF"; btnSpeed.BackgroundColor3 = Color3.fromRGB(255, 170, 0); if speedLoop then speedLoop:Disconnect(); speedLoop = nil end
+            btnSpeed.Text = "SPEED: OFF"; btnSpeed.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if speedLoop then speedLoop:Disconnect(); speedLoop = nil end
             if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.WalkSpeed = 16 end
         end
     end)
@@ -755,14 +755,14 @@ local success, err = pcall(function()
 
     -- === SCAN BODY ===
     -- Deletes unneeded character accessories visually to clean up avatar
-    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(45, 45, 45), 7)
+    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(200, 60, 60), 7)
     GH.RegisterButton(btnScan, function()
         if not GH.player.Character then return end; local cnt = 0
         for _, v in pairs(GH.player.Character:GetDescendants()) do 
             if v:IsA("BasePart") and (v.Name == "HumanoidRootPart" or v.BrickColor == BrickColor.new("Medium stone grey")) and not v:IsA("MeshPart") then v.Transparency = 1; cnt = cnt + 1 end 
         end
         btnScan.Text = "CLEAN: " .. cnt; btnScan.BackgroundColor3 = Color3.fromRGB(0, 180, 100); task.wait(1)
-        btnScan.Text = "SCAN BODY"; btnScan.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        btnScan.Text = "SCAN BODY"; btnScan.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     end)
 
     -- === NPC ESP ===
@@ -792,20 +792,20 @@ local success, err = pcall(function()
 
     -- === UNLOCK JUMP ===
     -- Forces jumping and overrides anti-jump constraints (Will lock jump if disabled after menu launch)
-    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(0, 120, 215), 11); local jump_unlock_on, jumpLoop = false, nil
+    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 11); local jump_unlock_on, jumpLoop = false, nil
     GH.RegisterButton(btnJump, function()
         jump_unlock_on = not jump_unlock_on
         if jump_unlock_on then btnJump.Text = "UNLOCK JUMP: ON"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if jumpLoop then jumpLoop:Disconnect() end; jumpLoop = GH.RunService.Stepped:Connect(function() if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then if GH.player.Character.Humanoid.JumpPower < 50 then GH.player.Character.Humanoid.JumpPower = 50 end; if GH.player.Character.Humanoid.JumpHeight < 7.2 then GH.player.Character.Humanoid.JumpHeight = 7.2 end; GH.player.Character.Humanoid.UseJumpPower = true; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end end)
-        else btnJump.Text = "UNLOCK JUMP: OFF"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 120, 215); if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end; if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.JumpPower = 0; GH.player.Character.Humanoid.JumpHeight = 0; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end end
+        else btnJump.Text = "UNLOCK JUMP: OFF"; btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end; if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.JumpPower = 0; GH.player.Character.Humanoid.JumpHeight = 0; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end end
     end)
 
     -- === SET / LOAD WAYPOINT ===
     -- Records current position for teleporting back to later
-    local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(40, 40, 40), 12); local SavedCFrame = nil
-    GH.RegisterButton(btnSetCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then SavedCFrame = GH.player.Character.HumanoidRootPart.CFrame; btnSetCP.Text = "SAVED!"; btnSetCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.5); btnSetCP.Text = "SET POINT"; btnSetCP.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end end)
+    local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(200, 60, 60), 12); local SavedCFrame = nil
+    GH.RegisterButton(btnSetCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then SavedCFrame = GH.player.Character.HumanoidRootPart.CFrame; btnSetCP.Text = "SAVED!"; btnSetCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.5); btnSetCP.Text = "SET POINT"; btnSetCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end end)
 
-    local btnLoadCP = GH.createBtn("LOAD POINT", Color3.fromRGB(40, 40, 40), 13)
-    GH.RegisterButton(btnLoadCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") and SavedCFrame then GH.player.Character.HumanoidRootPart.CFrame = SavedCFrame; btnLoadCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.2); btnLoadCP.BackgroundColor3 = Color3.fromRGB(40, 40, 40) else btnLoadCP.Text = "NO POINT!"; task.wait(0.5); btnLoadCP.Text = "LOAD POINT" end end)
+    local btnLoadCP = GH.createBtn("LOAD POINT", Color3.fromRGB(200, 60, 60), 13)
+    GH.RegisterButton(btnLoadCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") and SavedCFrame then GH.player.Character.HumanoidRootPart.CFrame = SavedCFrame; btnLoadCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.2); btnLoadCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) else btnLoadCP.Text = "NO POINT!"; task.wait(0.5); btnLoadCP.Text = "LOAD POINT" end end)
 
     -- === POCKET INVENTORY ===
     -- Creates a custom UI window to manually manage Backpack tools (useful if the game disables inventory)
@@ -896,13 +896,13 @@ local success, err = pcall(function()
         if invis_on then
             invis_on = false
             pcall(function() 
-                btnInvis.Text = "INVIS: OFF"; btnInvis.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+                btnInvis.Text = "INVIS: OFF"; btnInvis.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
                 for _, o in pairs(workspace:GetChildren()) do if o.Name == 'invischair' then pcall(function() o:Destroy() end) end end
             end)
         end
         if isSpeedBoosted then
             isSpeedBoosted = false
-            pcall(function() btnSpeed.Text = "SPEED: OFF"; btnSpeed.BackgroundColor3 = Color3.fromRGB(255, 170, 0); if speedLoop then speedLoop:Disconnect(); speedLoop = nil end end)
+            pcall(function() btnSpeed.Text = "SPEED: OFF"; btnSpeed.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if speedLoop then speedLoop:Disconnect(); speedLoop = nil end end)
         end
         if fly_on then
             fly_on = false
