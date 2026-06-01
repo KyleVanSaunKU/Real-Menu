@@ -13,22 +13,22 @@ local success, err = pcall(function()
     -- ==========================================
         
     -- Fetch the required Roblox services for the script to function
-    local Players = game:GetService("Players") -- Players
+    local Players = game:GetService("Players")
     local RunService = game:GetService("RunService") -- Used for loops tied to game frames (Stepped, RenderStepped)
     local UserInputService = game:GetService("UserInputService") -- Detects key presses and mouse clicks
-    local StarterGui = game:GetService("StarterGui") -- GUI
-    local Workspace = game:GetService("Workspace") -- WorkSpace
+    local StarterGui = game:GetService("StarterGui")
+    local Workspace = game:GetService("Workspace")
     local CoreGui = game:GetService("CoreGui") -- Hidden GUI container for exploit scripts
     local Debris = game:GetService("Debris") -- Used to clean up instances automatically
-    local player = Players.LocalPlayer -- Get your local Player
-    local camera = Workspace.CurrentCamera -- Get your Players camera
+    local player = Players.LocalPlayer
+    local camera = Workspace.CurrentCamera
 
     -- Store references in the global GH table for easy access inside functions
-    GH.Players = Players -- Players
-    GH.RunService = RunService -- Frames
-    GH.UserInputService = UserInputService -- Key Presses
-    GH.player = player -- Player
-    GH.camera = camera -- Camera
+    GH.Players = Players
+    GH.RunService = RunService
+    GH.UserInputService = UserInputService
+    GH.player = player
+    GH.camera = camera
     GH.Keybinds = {} -- Stores the currently active keybinds
     GH.ButtonLogics = {} -- Maps a UI button to its specific function
     GH.bindingBtn = nil -- Tracks which button is currently waiting for a keybind input
