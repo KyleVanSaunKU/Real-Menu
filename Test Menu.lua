@@ -100,7 +100,7 @@ local success, err = pcall(function()
 
     -- Create the GUI layer for buttons dragged out of the main menu
     local pinGui = Instance.new("ScreenGui")
-    pinGui.Name = "PinnedButtonsGui" -- Kept as string for cleanup logic
+    pinGui.Name = "PinnedButtonsGui"
     
     -- Attempt to put it in CoreGui (hidden from game detection), fallback to PlayerGui
     if not pcall(function() pinGui.Parent = CoreGui end) then 
@@ -304,7 +304,7 @@ local success, err = pcall(function()
         
     local screenGui = Instance.new("ScreenGui")
     screenGui.Parent = GH.pinGui.Parent 
-    screenGui.Name = "UnifiedModernGui" -- Kept as string for cleanup logic
+    screenGui.Name = "UnifiedModernGui"
     screenGui.ResetOnSpawn = false
     screenGui.AutoLocalize = false 
     screenGui.DisplayOrder = 100 
@@ -390,7 +390,7 @@ local success, err = pcall(function()
 
     -- Dropdown arrow for slider
     local arrowInvis = Instance.new("TextButton", btnInvis)
-    arrowInvis.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    arrowInvis.Name = "ArrowToggle";
     arrowInvis.Size = UDim2.new(0, 30, 0, 30); arrowInvis.Position = UDim2.new(1, -30, 0, 0)
     arrowInvis.BackgroundTransparency = 1; arrowInvis.Text = "V"; arrowInvis.TextColor3 = Color3.fromRGB(255, 255, 255)
     arrowInvis.Font = Enum.Font.Arcade; arrowInvis.TextSize = 14; arrowInvis.AutoLocalize = false
@@ -471,7 +471,7 @@ local success, err = pcall(function()
     local speedPadding = Instance.new("UIPadding", btnSpeed); speedPadding.PaddingTop = UDim.new(0, 0)
     Instance.new("UICorner", btnSpeed).CornerRadius = UDim.new(0, 6)
     local arrowSpeed = Instance.new("TextButton", btnSpeed)
-    arrowSpeed.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    arrowSpeed.Name = "ArrowToggle";
     arrowSpeed.Size = UDim2.new(0, 30, 0, 30); arrowSpeed.Position = UDim2.new(1, -30, 0, 0)
     arrowSpeed.BackgroundTransparency = 1; arrowSpeed.Text = "V"; arrowSpeed.TextColor3 = Color3.fromRGB(255, 255, 255); arrowSpeed.Font = Enum.Font.Arcade; arrowSpeed.TextSize = 14; arrowSpeed.AutoLocalize = false
     local speedSliderC = Instance.new("Frame", btnSpeed)
@@ -533,7 +533,7 @@ local success, err = pcall(function()
     btnFly.LayoutOrder = 3; btnFly.ClipsDescendants = true; btnFly.AutoLocalize = false; btnFly.TextYAlignment = Enum.TextYAlignment.Center
 
     local flyPadding = Instance.new("UIPadding", btnFly); flyPadding.PaddingTop = UDim.new(0, 0); Instance.new("UICorner", btnFly).CornerRadius = UDim.new(0, 6)
-    local arrowFly = Instance.new("TextButton", btnFly); arrowFly.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    local arrowFly = Instance.new("TextButton", btnFly); arrowFly.Name = "ArrowToggle";
     arrowFly.Size = UDim2.new(0, 30, 0, 30); arrowFly.Position = UDim2.new(1, -30, 0, 0)
     arrowFly.BackgroundTransparency = 1; arrowFly.Text = "V"; arrowFly.TextColor3 = Color3.fromRGB(255, 255, 255); arrowFly.Font = Enum.Font.Arcade; arrowFly.TextSize = 14; arrowFly.AutoLocalize = false
 
