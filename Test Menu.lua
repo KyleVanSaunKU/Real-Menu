@@ -709,6 +709,63 @@ local success, err = pcall(function()
         else pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end); btnRobloxInv.Text = "ROBLOX INV: OFF"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end    
     end)
 
+    -- AUTO-LOCK LOGIC
+    local btnAutoLock = GH.createBtn("AUTO-LOCK: OFF", Color3.fromRGB(200, 60, 60), 15)
+    local lock_on = false
+    local lockConnection = nil
+
+    local function getNearestPlayerHead()
+        local closestHead = nil
+        local shortestDistance = math.huge
+        local localChar = GH.player.Character
+        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+
+        if not localRoot then return nil end
+
+        for _, p in pairs(GH.Players:GetPlayers()) do
+            if p ~= GH.player and p.Character then
+                local head = p.Character:FindFirstChild("Head")
+                local root = p.Character:FindFirstChild("HumanoidRootPart")
+                local hum = p.Character:FindFirstChild("Humanoid")
+
+                -- Ensure the target is alive and has the required parts
+                if head and root and hum and hum.Health > 0 then
+                    local distance = (localRoot.Position - root.Position).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestHead = head
+                    end
+                end
+            end
+        end
+        return closestHead
+    end
+
+    GH.RegisterButton(btnAutoLock, function()
+        lock_on = not lock_on
+        btnAutoLock.Text = lock_on and "AUTO-LOCK: ON" or "AUTO-LOCK: OFF"
+        btnAutoLock.BackgroundColor3 = lock_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
+
+        if lock_on then
+            if not lockConnection then
+                lockConnection = GH.RunService.RenderStepped:Connect(function()
+                    local targetHead = getNearestPlayerHead()
+                    local currentCamera = workspace.CurrentCamera
+                    
+                    if targetHead and currentCamera then
+                        -- Forces the camera to look directly at the target's head
+                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, targetHead.Position)
+                    end
+                end)
+            end
+        else
+            if lockConnection then
+                lockConnection:Disconnect()
+                lockConnection = nil
+            end
+        end
+    end)
+    
     local function resetToggles()
         if invis_on then
             invis_on = false
@@ -730,7 +787,6 @@ local success, err = pcall(function()
                 if flyBodyGyro then flyBodyGyro:Destroy(); flyBodyGyro = nil end
             end)
         end
-        
         if noclip_on then 
             noclip_on = false
             pcall(function() 
@@ -742,8 +798,18 @@ local success, err = pcall(function()
                 end
             end) 
         end
-        
         if invFrame then updateInvList() end 
+        if lock_on then
+            lock_on = false
+            pcall(function()
+                btnAutoLock.Text = "AUTO-LOCK: OFF"
+                btnAutoLock.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if lockConnection then 
+                    lockConnection:Disconnect() 
+                    lockConnection = nil 
+                end
+            end)
+        end
     end
 
     if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.Died:Connect(resetToggles) end
