@@ -389,6 +389,112 @@ local success, err = pcall(function()
     -- CHEAT FUNCTIONS
     -- ==========================================
 
+    -- === INFO MENU ===
+    -- Toggles a separate GUI window explaining the script's features and UI controls
+    local btnInfo = GH.createBtn("INFO: OFF", Color3.fromRGB(80, 120, 200), 0)
+    local infoFrame = nil
+
+    GH.RegisterButton(btnInfo, function()
+        -- If the menu is already open, destroy it and reset the button
+        if infoFrame then
+            infoFrame:Destroy()
+            infoFrame = nil
+            btnInfo.Text = "INFO: OFF"
+            btnInfo.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
+            return
+        end
+
+        -- Open the menu
+        btnInfo.Text = "INFO: ON"
+        btnInfo.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+
+        infoFrame = Instance.new("Frame", GH.mainGui)
+        infoFrame.Size = UDim2.new(0, 240, 0, 280)
+        infoFrame.Position = UDim2.new(0.5, -340, 0.5, -90) -- Spawns to the left of the main menu
+        infoFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38)
+        infoFrame.Active = true
+        infoFrame.Draggable = true
+        Instance.new("UICorner", infoFrame).CornerRadius = UDim.new(0, 12)
+
+        -- Header
+        local header = Instance.new("Frame", infoFrame)
+        header.Size = UDim2.new(1, 0, 0, 34)
+        header.BackgroundColor3 = Color3.fromRGB(38, 40, 46)
+        Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
+
+        local title = Instance.new("TextLabel", header)
+        title.Text = "Script Info & Controls"
+        title.Font = Enum.Font.Arcade
+        title.TextSize = 12
+        title.TextColor3 = Color3.new(1, 1, 1)
+        title.Size = UDim2.new(1, -10, 1, 0)
+        title.Position = UDim2.new(0, 10, 0, 0)
+        title.BackgroundTransparency = 1
+        title.TextXAlignment = Enum.TextXAlignment.Left
+
+        -- Close Button
+        local closeInfo = Instance.new("TextButton", header)
+        closeInfo.Size = UDim2.new(0, 20, 0, 20)
+        closeInfo.Position = UDim2.new(1, -25, 0, 7)
+        closeInfo.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        closeInfo.Text = "X"
+        closeInfo.TextColor3 = Color3.new(1, 1, 1)
+        closeInfo.Font = Enum.Font.Arcade
+        Instance.new("UICorner", closeInfo).CornerRadius = UDim.new(0, 6)
+        closeInfo.MouseButton1Click:Connect(function()
+            if infoFrame then infoFrame:Destroy(); infoFrame = nil end
+            btnInfo.Text = "INFO: OFF"
+            btnInfo.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
+        end)
+
+        -- Scrolling Container for the Text
+        local iScroll = Instance.new("ScrollingFrame", infoFrame)
+        iScroll.Size = UDim2.new(1, -10, 1, -40)
+        iScroll.Position = UDim2.new(0, 5, 0, 35)
+        iScroll.BackgroundTransparency = 1
+        iScroll.ScrollBarThickness = 3
+        iScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        iScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        
+        local layout = Instance.new("UIListLayout", iScroll)
+        layout.Padding = UDim.new(0, 5)
+
+        -- The Information Content
+        local infoText = [[
+[UI CONTROLS]
+• Right-Click: Bind a custom hotkey to any button. Press Escape or Backspace to clear it.
+• Hold Left-Click (0.5s): Clone and pin a button directly to your screen so you can close the main menu.
+• Dropdown Arrows (V): Expands the button to reveal sliders for speed or offsets.
+
+[CHEATS EXPLAINED]
+• INVIS: Hides your character using a seat weld trick. Expand to adjust the Y-Offset underneath the map.
+• SPEED: Overrides your walk speed every frame to bypass anti-cheats.
+• FLY: Custom flight using BodyGyro and BodyVelocity physics.
+• NOCLIP: Disables character collisions to walk through solid walls.
+• AIMBOT: Camera lock targeting the nearest player's head.
+• PLAYERS/NPC ESP: Highlights entities through walls and shows a dot if they are far away.
+• LIGHT: Attaches a bright point light to your character.
+• FPS BOOST: Disables shadows, fog, and simplifies materials to increase frame rate.
+• UNLOCK JUMP: Forces your JumpPower/Height to bypass game jump restrictions.
+• SCAN BODY: Deletes unneeded blocky/gray accessories for a clean avatar.
+• SET/LOAD POINT: Saves your exact CFrame position to teleport back to later.
+• POCKET INV: A custom UI to equip/unequip tools if the game hides the default backpack.
+• ROBLOX INV: Force toggles the default CoreGui Roblox backpack.
+        ]]
+
+        local textLabel = Instance.new("TextLabel", iScroll)
+        textLabel.Size = UDim2.new(1, -5, 0, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = infoText
+        textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        textLabel.Font = Enum.Font.Code
+        textLabel.TextSize = 11
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.TextYAlignment = Enum.TextYAlignment.Top
+        textLabel.TextWrapped = true
+        textLabel.AutomaticSize = Enum.AutomaticSize.Y
+    end)
+
     -- === INVISIBILITY ===
     local btnInvis = Instance.new("TextButton", scroll)
     btnInvis.Name = "";
