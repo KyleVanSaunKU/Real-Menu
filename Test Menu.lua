@@ -100,7 +100,7 @@ local success, err = pcall(function()
 
     -- Create the GUI layer for buttons dragged out of the main menu
     local pinGui = Instance.new("ScreenGui")
-    pinGui.Name = "PinnedButtonsGui"
+    pinGui.Name = "PinnedButtonsGui" -- Kept as string for cleanup logic
     
     -- Attempt to put it in CoreGui (hidden from game detection), fallback to PlayerGui
     if not pcall(function() pinGui.Parent = CoreGui end) then 
@@ -116,7 +116,7 @@ local success, err = pcall(function()
     -- Function to play a UI click sound (chefs kiss)
     GH.playSound = function()
         local s = Instance.new("Sound")
-        s.Name = "GH_Sound"
+        s.Name = ""
         s.SoundId = "rbxassetid://4590662766"
         s.Volume = 1
         s.Parent = pinGui
@@ -247,7 +247,8 @@ local success, err = pcall(function()
                                 PinnedItems[btn]:Destroy(); PinnedItems[btn] = nil 
                             else
                                 local clone = btn:Clone()
-                                clone.Name = btn.Name .. "_W"; clone.Parent = pinGui
+                                clone.Name = "" -- Obfuscated
+                                clone.Parent = pinGui
                                 clone.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 30)
                                 clone.Position = UDim2.new(0.5, -(btn.AbsoluteSize.X / 2), 0.5, -50)
                                 
@@ -265,21 +266,21 @@ local success, err = pcall(function()
                                 
                                -- Close Button for the "Pinned" buttons
                                 local closeCloneBtn = Instance.new("TextButton", clone)
-                                closeCloneBtn.Name = "CloseBtn"
-                                closeCloneBtn.Size = UDim2.new(0, 20, 0, 20) -- Smaller square size
-                                closeCloneBtn.Position = UDim2.new(1, -20, 0, 0) -- Anchor directly in the top right corner
+                                closeCloneBtn.Name = "" -- Obfuscated
+                                closeCloneBtn.Size = UDim2.new(0, 20, 0, 20) 
+                                closeCloneBtn.Position = UDim2.new(1, -20, 0, 0)
                                 closeCloneBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
                                 closeCloneBtn.Text = "X"
                                 closeCloneBtn.TextColor3 = Color3.new(1, 1, 1)
                                 closeCloneBtn.Font = Enum.Font.Arcade
-                                closeCloneBtn.TextSize = 12 -- Slightly smaller text to fit
-                                closeCloneBtn.ZIndex = 10 -- Ensure it renders above the main clone text
+                                closeCloneBtn.TextSize = 12
+                                closeCloneBtn.ZIndex = 10
                                 Instance.new("UICorner", closeCloneBtn).CornerRadius = UDim.new(0, 6)
 
                                 closeCloneBtn.MouseButton1Click:Connect(function()
                                     GH.playSound()
                                     clone:Destroy()
-                                    PinnedItems[btn] = nil -- Free up the table reference
+                                    PinnedItems[btn] = nil
                                 end)
                                 PinnedItems[btn] = clone
                             end 
@@ -303,7 +304,7 @@ local success, err = pcall(function()
         
     local screenGui = Instance.new("ScreenGui")
     screenGui.Parent = GH.pinGui.Parent 
-    screenGui.Name = "UnifiedModernGui"
+    screenGui.Name = "UnifiedModernGui" -- Kept as string for cleanup logic
     screenGui.ResetOnSpawn = false
     screenGui.AutoLocalize = false 
     screenGui.DisplayOrder = 100 
@@ -311,9 +312,9 @@ local success, err = pcall(function()
 
     -- Main Hub Window
     local mainFrame = Instance.new("Frame", screenGui)
-    mainFrame.Name = "MainHubFrame"
-    mainFrame.Size = UDim2.new(0, 180, 0, 185) -- Widened from 145 to 180
-    mainFrame.Position = UDim2.new(0.5, -90, 0.5, -90) -- Adjusted position for new width
+    mainFrame.Name = "" -- Obfuscated
+    mainFrame.Size = UDim2.new(0, 180, 0, 185) 
+    mainFrame.Position = UDim2.new(0.5, -90, 0.5, -90)
     mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     mainFrame.Active = true
     mainFrame.Draggable = true
@@ -378,7 +379,8 @@ local success, err = pcall(function()
 
     -- === INVISIBILITY ===
     local btnInvis = Instance.new("TextButton", scroll)
-    btnInvis.Name = "InvisButton"; btnInvis.Size = UDim2.new(0.95, 0, 0, 30); btnInvis.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    btnInvis.Name = ""; -- Obfuscated
+    btnInvis.Size = UDim2.new(0.95, 0, 0, 30); btnInvis.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
     btnInvis.Text = "INVIS: OFF"; btnInvis.TextColor3 = Color3.new(1, 1, 1); btnInvis.Font = Enum.Font.Arcade
     btnInvis.TextSize = 12; btnInvis.LayoutOrder = 1; btnInvis.ClipsDescendants = true
     btnInvis.AutoLocalize = false; btnInvis.TextYAlignment = Enum.TextYAlignment.Center
@@ -388,13 +390,15 @@ local success, err = pcall(function()
 
     -- Dropdown arrow for slider
     local arrowInvis = Instance.new("TextButton", btnInvis)
-    arrowInvis.Name = "ArrowToggle"; arrowInvis.Size = UDim2.new(0, 30, 0, 30); arrowInvis.Position = UDim2.new(1, -30, 0, 0)
+    arrowInvis.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    arrowInvis.Size = UDim2.new(0, 30, 0, 30); arrowInvis.Position = UDim2.new(1, -30, 0, 0)
     arrowInvis.BackgroundTransparency = 1; arrowInvis.Text = "V"; arrowInvis.TextColor3 = Color3.fromRGB(255, 255, 255)
     arrowInvis.Font = Enum.Font.Arcade; arrowInvis.TextSize = 14; arrowInvis.AutoLocalize = false
 
     -- Slider UI elements
     local invisSliderC = Instance.new("Frame", btnInvis)
-    invisSliderC.Name = "SliderContainer"; invisSliderC.Size = UDim2.new(1, 0, 0, 35)
+    invisSliderC.Name = ""; -- Obfuscated
+    invisSliderC.Size = UDim2.new(1, 0, 0, 35)
     invisSliderC.Position = UDim2.new(0, 0, 0, 18); invisSliderC.BackgroundTransparency = 1; invisSliderC.Visible = false
     local invisSliderBg = Instance.new("Frame", invisSliderC)
     invisSliderBg.Size = UDim2.new(0.8, 0, 0, 4); invisSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
@@ -459,17 +463,20 @@ local success, err = pcall(function()
     -- === SPEED ===
     -- Slider UI and execution logic for forcing the player's walkspeed on every frame
     local btnSpeed = Instance.new("TextButton", scroll)
-    btnSpeed.Name = "SpeedButton"; btnSpeed.Size = UDim2.new(0.95, 0, 0, 30); btnSpeed.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+    btnSpeed.Name = ""; -- Obfuscated
+    btnSpeed.Size = UDim2.new(0.95, 0, 0, 30); btnSpeed.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
     btnSpeed.Text = "SPEED: OFF"; btnSpeed.TextColor3 = Color3.new(1, 1, 1); btnSpeed.Font = Enum.Font.Arcade
     btnSpeed.TextSize = 12; btnSpeed.LayoutOrder = 2; btnSpeed.ClipsDescendants = true; btnSpeed.AutoLocalize = false; btnSpeed.TextYAlignment = Enum.TextYAlignment.Center
 
     local speedPadding = Instance.new("UIPadding", btnSpeed); speedPadding.PaddingTop = UDim.new(0, 0)
     Instance.new("UICorner", btnSpeed).CornerRadius = UDim.new(0, 6)
     local arrowSpeed = Instance.new("TextButton", btnSpeed)
-    arrowSpeed.Name = "ArrowToggle"; arrowSpeed.Size = UDim2.new(0, 30, 0, 30); arrowSpeed.Position = UDim2.new(1, -30, 0, 0)
+    arrowSpeed.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    arrowSpeed.Size = UDim2.new(0, 30, 0, 30); arrowSpeed.Position = UDim2.new(1, -30, 0, 0)
     arrowSpeed.BackgroundTransparency = 1; arrowSpeed.Text = "V"; arrowSpeed.TextColor3 = Color3.fromRGB(255, 255, 255); arrowSpeed.Font = Enum.Font.Arcade; arrowSpeed.TextSize = 14; arrowSpeed.AutoLocalize = false
     local speedSliderC = Instance.new("Frame", btnSpeed)
-    speedSliderC.Name = "SliderContainer"; speedSliderC.Size = UDim2.new(1, 0, 0, 35); speedSliderC.Position = UDim2.new(0, 0, 0, 18); speedSliderC.BackgroundTransparency = 1; speedSliderC.Visible = false
+    speedSliderC.Name = ""; -- Obfuscated
+    speedSliderC.Size = UDim2.new(1, 0, 0, 35); speedSliderC.Position = UDim2.new(0, 0, 0, 18); speedSliderC.BackgroundTransparency = 1; speedSliderC.Visible = false
     local speedSliderBg = Instance.new("Frame", speedSliderC)
     speedSliderBg.Size = UDim2.new(0.8, 0, 0, 4); speedSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0); speedSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40); speedSliderBg.BorderSizePixel = 0
     Instance.new("UICorner", speedSliderBg).CornerRadius = UDim.new(1, 0)
@@ -520,15 +527,18 @@ local success, err = pcall(function()
     -- === FLY ===
     -- Employs BodyGyro and BodyVelocity physics to manipulate character movement mid-air
     local btnFly = Instance.new("TextButton", scroll)
-    btnFly.Name = "FlyButton"; btnFly.Size = UDim2.new(0.95, 0, 0, 30); btnFly.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    btnFly.Name = ""; -- Obfuscated
+    btnFly.Size = UDim2.new(0.95, 0, 0, 30); btnFly.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     btnFly.Text = "FLY: OFF"; btnFly.TextColor3 = Color3.new(1, 1, 1); btnFly.Font = Enum.Font.Arcade; btnFly.TextSize = 12
     btnFly.LayoutOrder = 3; btnFly.ClipsDescendants = true; btnFly.AutoLocalize = false; btnFly.TextYAlignment = Enum.TextYAlignment.Center
 
     local flyPadding = Instance.new("UIPadding", btnFly); flyPadding.PaddingTop = UDim.new(0, 0); Instance.new("UICorner", btnFly).CornerRadius = UDim.new(0, 6)
-    local arrowFly = Instance.new("TextButton", btnFly); arrowFly.Name = "ArrowToggle"; arrowFly.Size = UDim2.new(0, 30, 0, 30); arrowFly.Position = UDim2.new(1, -30, 0, 0)
+    local arrowFly = Instance.new("TextButton", btnFly); arrowFly.Name = "ArrowToggle"; -- Kept as string for cleanup clone logic
+    arrowFly.Size = UDim2.new(0, 30, 0, 30); arrowFly.Position = UDim2.new(1, -30, 0, 0)
     arrowFly.BackgroundTransparency = 1; arrowFly.Text = "V"; arrowFly.TextColor3 = Color3.fromRGB(255, 255, 255); arrowFly.Font = Enum.Font.Arcade; arrowFly.TextSize = 14; arrowFly.AutoLocalize = false
 
-    local flySliderC = Instance.new("Frame", btnFly); flySliderC.Name = "SliderContainer"; flySliderC.Size = UDim2.new(1, 0, 0, 35); flySliderC.Position = UDim2.new(0, 0, 0, 18); flySliderC.BackgroundTransparency = 1; flySliderC.Visible = false
+    local flySliderC = Instance.new("Frame", btnFly); flySliderC.Name = ""; -- Obfuscated
+    flySliderC.Size = UDim2.new(1, 0, 0, 35); flySliderC.Position = UDim2.new(0, 0, 0, 18); flySliderC.BackgroundTransparency = 1; flySliderC.Visible = false
     local flySliderBg = Instance.new("Frame", flySliderC); flySliderBg.Size = UDim2.new(0.8, 0, 0, 4); flySliderBg.Position = UDim2.new(0.1, 0, 0.2, 0); flySliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40); flySliderBg.BorderSizePixel = 0; Instance.new("UICorner", flySliderBg).CornerRadius = UDim.new(1, 0)
     local flySliderFill = Instance.new("Frame", flySliderBg); flySliderFill.Size = UDim2.new(50 / 300, 0, 1, 0); flySliderFill.BackgroundColor3 = Color3.new(1, 1, 1); flySliderFill.BorderSizePixel = 0; Instance.new("UICorner", flySliderFill).CornerRadius = UDim.new(1, 0)
     local flySliderTrig = Instance.new("TextButton", flySliderBg); flySliderTrig.Size = UDim2.new(1, 0, 6, 0); flySliderTrig.Position = UDim2.new(0, 0, -2.5, 0); flySliderTrig.BackgroundTransparency = 1; flySliderTrig.Text = ""; flySliderTrig.ZIndex = 10
