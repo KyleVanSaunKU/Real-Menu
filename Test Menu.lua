@@ -2,7 +2,7 @@
 -- SCRIPT INITIALIZATION & NAMESPACE
 -- ==========================================
 
--- A global table to store script data
+-- A global table to store script data globally
 getgenv().GH = {}
 
 -- Wrap the entire script in a protected call to catch and handle any errors without breaking
