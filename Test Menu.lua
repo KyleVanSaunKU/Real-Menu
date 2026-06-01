@@ -265,6 +265,28 @@ local success, err = pcall(function()
                                 btn:GetPropertyChangedSignal("Text"):Connect(function() if clone.Parent then clone.Text = btn.Text end end)
                                 btn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function() if clone.Parent then clone.BackgroundColor3 = btn.BackgroundColor3 end end)
                                 
+                                -- ==========================================
+                                -- CLOSE (X) BUTTON FOR CLONE
+                                -- ==========================================
+                                local closeCloneBtn = Instance.new("TextButton", clone)
+                                closeCloneBtn.Name = "CloseBtn"
+                                closeCloneBtn.Size = UDim2.new(0, 30, 1, 0)
+                                closeCloneBtn.Position = UDim2.new(1, -30, 0, 0) -- Anchor to the far right
+                                closeCloneBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+                                closeCloneBtn.Text = "X"
+                                closeCloneBtn.TextColor3 = Color3.new(1, 1, 1)
+                                closeCloneBtn.Font = Enum.Font.Arcade
+                                closeCloneBtn.TextSize = 14
+                                closeCloneBtn.ZIndex = 10 -- Ensure it renders above the main clone text
+                                Instance.new("UICorner", closeCloneBtn).CornerRadius = UDim.new(0, 6)
+
+                                closeCloneBtn.MouseButton1Click:Connect(function()
+                                    GH.playSound()
+                                    clone:Destroy()
+                                    PinnedItems[btn] = nil -- Free up the table reference
+                                end)
+                                -- ==========================================
+                                
                                 PinnedItems[btn] = clone
                             end 
                             break
@@ -795,7 +817,7 @@ local success, err = pcall(function()
         local bp = GH.player:FindFirstChild("Backpack")
         local char = GH.player.Character
 
-        if bp then for _, t in pairs(bp:GetChildren()) do if t:IsA("Tool") then table.insert(list, t) end end end      
+        if bp then for _, t in pairs(bp:GetChildren()) do if t:IsA("Tool") then table.insert(list, t) end end end       
         if char then for _, t in pairs(char:GetChildren()) do if t:IsA("Tool") then table.insert(list, t) end end end
         
         table.sort(list, function(a, b) return a.Name < b.Name end) 
@@ -803,7 +825,7 @@ local success, err = pcall(function()
         for i, t in pairs(list) do
             local eq = (char and t.Parent == char)
             local b = Instance.new("TextButton", iScroll); b.LayoutOrder = i; b.Size = UDim2.new(1, -4, 0, 32); b.BackgroundColor3 = eq and Color3.fromRGB(48, 50, 58) or Color3.fromRGB(42, 44, 50); b.Text = ""; b.AutoButtonColor = false; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)            
-            local l = Instance.new("TextLabel", b); l.Text = t.Name; l.Size = UDim2.new(1, -12, 1, 0); l.Position = UDim2.new(0, 10, 0, 0); l.BackgroundTransparency = 1; l.Font = Enum.Font.Arcade; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextColor3 = eq and Color3.new(1, 1, 1) or Color3.fromRGB(150, 150, 160)      
+            local l = Instance.new("TextLabel", b); l.Text = t.Name; l.Size = UDim2.new(1, -12, 1, 0); l.Position = UDim2.new(0, 10, 0, 0); l.BackgroundTransparency = 1; l.Font = Enum.Font.Arcade; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextColor3 = eq and Color3.new(1, 1, 1) or Color3.fromRGB(150, 150, 160)       
             if eq then local ind = Instance.new("Frame", b); ind.Size = UDim2.new(0, 3, 0.6, 0); ind.Position = UDim2.new(0, 0, 0.2, 0); ind.BackgroundColor3 = Color3.fromRGB(80, 150, 255); Instance.new("UICorner", ind).CornerRadius = UDim.new(0, 2) end        
             
             b.MouseButton1Click:Connect(function() 
@@ -844,7 +866,7 @@ local success, err = pcall(function()
             return 
         end 
         btnPocket.Text = "POCKET INV: ON"; btnPocket.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
-        invFrame = Instance.new("Frame", GH.mainGui); invFrame.Size = UDim2.new(0, 145, 0, 175); invFrame.Position = UDim2.new(0.5, 80, 0.5, -90); invFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38); invFrame.Active = true; invFrame.Draggable = true; Instance.new("UICorner", invFrame).CornerRadius = UDim.new(0, 12)       
+        invFrame = Instance.new("Frame", GH.mainGui); invFrame.Size = UDim2.new(0, 145, 0, 175); invFrame.Position = UDim2.new(0.5, 80, 0.5, -90); invFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 38); invFrame.Active = true; invFrame.Draggable = true; Instance.new("UICorner", invFrame).CornerRadius = UDim.new(0, 12)        
         local h = Instance.new("Frame", invFrame); h.Size = UDim2.new(1, 0, 0, 34); h.BackgroundColor3 = Color3.fromRGB(38, 40, 46); local t = Instance.new("TextLabel", h); t.Text = "Inventory"; t.Font = Enum.Font.Arcade; t.TextSize = 12; t.TextColor3 = Color3.new(1, 1, 1); t.Size = UDim2.new(1, -10, 1, 0); t.Position = UDim2.new(0, 10, 0, 0); t.BackgroundTransparency = 1; t.TextXAlignment = Enum.TextXAlignment.Left
         local c = Instance.new("Frame", invFrame); c.Size = UDim2.new(1, -6, 1, -40); c.Position = UDim2.new(0, 3, 0, 37); c.BackgroundTransparency = 1; iScroll = Instance.new("ScrollingFrame", c); iScroll.Size = UDim2.new(1, 0, 1, 0); iScroll.BackgroundTransparency = 1; iScroll.ScrollBarThickness = 2; iScroll.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 80); iScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; iScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         local il = Instance.new("UIListLayout", iScroll); il.Padding = UDim.new(0, 4); il.SortOrder = Enum.SortOrder.LayoutOrder
@@ -857,7 +879,7 @@ local success, err = pcall(function()
     -- Turns the core Roblox inventory GUI bar on/off
     local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 15)
     GH.RegisterButton(btnRobloxInv, function()
-        if btnRobloxInv.Text == "ROBLOX INV: OFF" then pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end); btnRobloxInv.Text = "ROBLOX INV: ON"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(0, 180, 100)       
+        if btnRobloxInv.Text == "ROBLOX INV: OFF" then pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end); btnRobloxInv.Text = "ROBLOX INV: ON"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(0, 180, 100)        
         else pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end); btnRobloxInv.Text = "ROBLOX INV: OFF"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end    
     end)
     
