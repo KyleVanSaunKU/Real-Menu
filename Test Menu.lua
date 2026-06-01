@@ -552,11 +552,11 @@ local success, err = pcall(function()
     local flySliderC = Instance.new("Frame", btnFly); flySliderC.Name = "";
     flySliderC.Size = UDim2.new(1, 0, 0, 35); flySliderC.Position = UDim2.new(0, 0, 0, 18); flySliderC.BackgroundTransparency = 1; flySliderC.Visible = false
     local flySliderBg = Instance.new("Frame", flySliderC); flySliderBg.Size = UDim2.new(0.8, 0, 0, 4); flySliderBg.Position = UDim2.new(0.1, 0, 0.2, 0); flySliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40); flySliderBg.BorderSizePixel = 0; Instance.new("UICorner", flySliderBg).CornerRadius = UDim.new(1, 0)
-    local flySliderFill = Instance.new("Frame", flySliderBg); flySliderFill.Size = UDim2.new(50 / 300, 0, 1, 0); flySliderFill.BackgroundColor3 = Color3.new(1, 1, 1); flySliderFill.BorderSizePixel = 0; Instance.new("UICorner", flySliderFill).CornerRadius = UDim.new(1, 0)
+    local flySliderFill = Instance.new("Frame", flySliderBg); flySliderFill.Size = UDim2.new(150 / 300, 0, 1, 0); flySliderFill.BackgroundColor3 = Color3.new(1, 1, 1); flySliderFill.BorderSizePixel = 0; Instance.new("UICorner", flySliderFill).CornerRadius = UDim.new(1, 0)
     local flySliderTrig = Instance.new("TextButton", flySliderBg); flySliderTrig.Size = UDim2.new(1, 0, 6, 0); flySliderTrig.Position = UDim2.new(0, 0, -2.5, 0); flySliderTrig.BackgroundTransparency = 1; flySliderTrig.Text = ""; flySliderTrig.ZIndex = 10
-    local flyText = Instance.new("TextLabel", flySliderC); flyText.Size = UDim2.new(1, 0, 0, 15); flyText.Position = UDim2.new(0, 0, 0.45, 0); flyText.BackgroundTransparency = 1; flyText.Text = "SPEED: 50"; flyText.TextColor3 = Color3.fromRGB(200, 200, 200); flyText.Font = Enum.Font.Arcade; flyText.TextSize = 10; flyText.AutoLocalize = false; flyText.ZIndex = 1
+    local flyText = Instance.new("TextLabel", flySliderC); flyText.Size = UDim2.new(1, 0, 0, 15); flyText.Position = UDim2.new(0, 0, 0.45, 0); flyText.BackgroundTransparency = 1; flyText.Text = "SPEED: 150"; flyText.TextColor3 = Color3.fromRGB(200, 200, 200); flyText.Font = Enum.Font.Arcade; flyText.TextSize = 10; flyText.AutoLocalize = false; flyText.ZIndex = 1
 
-    local fly_on, fly_expanded, flySpeed, maxFlySpeed, dragFly = false, false, 50, 300, false
+    local fly_on, fly_expanded, flySpeed, maxFlySpeed, dragFly = false, false, 150, 300, false
     local smoothVel, flyBodyGyro, flyBodyVelocity, flyConnection = Vector3.zero, nil, nil, nil
     
     arrowFly.MouseButton1Click:Connect(function()
