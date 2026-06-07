@@ -216,31 +216,77 @@ for _, itemName in ipairs(allItems) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Dynamic Pathfinding)
+-- AUTO-BUYER LOGIC (Strictly Player Plot)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.5
-local itemCache = {} -- Stores found items to prevent laggy workspace scans
+local itemCache = {} -- Stores found items
+local myPlot = nil   -- Stores your specific plot
 
--- Function to dynamically find the purchase pad and prompt
+-- Function to find which plot belongs to the LocalPlayer
+local function findMyPlot()
+    local plotsFolder = workspace:FindFirstChild("Plots")
+    if not plotsFolder then return nil end
+
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
+        -- Tycoons usually store ownership in an 'Owner' value inside the plot
+        local ownerValue = plot:FindFirstChild("Owner") 
+            or plot:FindFirstChild("PlayerName") 
+            or plot:FindFirstChild("OwnerValue")
+
+        if ownerValue then
+            -- Check if it's an ObjectValue linking to your player, or a StringValue with your name
+            if ownerValue:IsA("ObjectValue") and ownerValue.Value == LocalPlayer then
+                return plot
+            elseif ownerValue:IsA("StringValue") and ownerValue.Value == LocalPlayer.Name then
+                return plot
+            end
+        end
+        
+        -- Sometimes it's inside a 'Values' folder
+        local valuesFolder = plot:FindFirstChild("Values") or plot:FindFirstChild("Configuration")
+        if valuesFolder then
+            local valOwner = valuesFolder:FindFirstChild("Owner")
+            if valOwner then
+                if valOwner:IsA("ObjectValue") and valOwner.Value == LocalPlayer then return plot end
+                if valOwner:IsA("StringValue") and valOwner.Value == LocalPlayer.Name then return plot end
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Function to find the purchase pad strictly in YOUR plot's ActiveItems
 local function getTarget(itemName)
-    -- 1. If we already found this item before and it still exists, return it instantly
+    -- 1. If cached, return instantly
     if itemCache[itemName] and itemCache[itemName].Prompt:IsDescendantOf(workspace) then
         return itemCache[itemName].Pad, itemCache[itemName].Prompt
     end
 
-    -- 2. If it's not cached, perform a deep scan of the workspace
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == itemName then
-            local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+    -- 2. Find and cache your plot if we haven't already
+    if not myPlot then
+        myPlot = findMyPlot()
+        if not myPlot then 
+            return nil, nil 
+        end
+    end
+
+    -- 3. Targeted search strictly inside your ActiveItems folder (ignores ReserveSlots)
+    local belt = myPlot:FindFirstChild("Belt")
+    local activeItems = belt and belt:FindFirstChild("ActiveItems")
+    
+    if activeItems then
+        local targetItem = activeItems:FindFirstChild(itemName)
+        
+        if targetItem then
+            local prompt = targetItem:FindFirstChildWhichIsA("ProximityPrompt", true)
             
-            -- Look for something to stand on (Prioritize 'PurchasePad', fallback to any part)
-            local pad = obj:FindFirstChild("PurchasePad", true) 
-                or obj:FindFirstChild("Head", true) 
-                or obj:FindFirstChildWhichIsA("BasePart", true)
+            local pad = targetItem:FindFirstChild("PurchasePad", true) 
+                or targetItem:FindFirstChild("Head", true) 
+                or targetItem:FindFirstChildWhichIsA("BasePart", true)
 
             if prompt and pad then
-                -- Save it to the cache for next time
                 itemCache[itemName] = {Pad = pad, Prompt = prompt}
                 return pad, prompt
             end
@@ -262,24 +308,16 @@ task.spawn(function()
         for itemName, isEnabled in pairs(State.Items) do
             if isEnabled and State.Master then
                 
-                -- Use our dynamic search function
                 local pad, prompt = getTarget(itemName)
                 
                 if pad and prompt then
-                    -- Teleport the player slightly above the pad
                     hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
-                    
-                    -- Wait a tiny bit for the server to register position and prompt to become visible
                     task.wait(0.2) 
                     
-                    -- Simulate the 'E' press
                     if fireproximityprompt then
                         fireproximityprompt(prompt)
-                    else
-                        warn("Your environment does not support fireproximityprompt().")
                     end
                     
-                    -- Customizable delay to prevent kicks/crashes
                     task.wait(DELAY_BETWEEN_BUYS)
                 end
             end
