@@ -5,28 +5,57 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Configure defaults
-local defaultOn = {
-    "HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", 
-    "SirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper", "CatUpgrader", 
-    "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", 
-    "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumkinUpgrader", 
-    "UFOUpgrader", "PotOfGoldFurnace", "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", 
-    "PheonixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper"
+-- ==========================================
+-- ITEM CATEGORIES & PRIORITIES
+-- ==========================================
+local ItemCategories = {
+    {
+        Name = "Mythical",
+        Color = Color3.fromRGB(236, 72, 153), -- Pink-500
+        Items = {
+            "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PheonixFurnace", 
+            "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper"
+        }
+    },
+    {
+        Name = "Epic",
+        Color = Color3.fromRGB(168, 85, 247), -- Purple-500
+        Items = {
+            "CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", 
+            "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", 
+            "LunarFurnace", "BambooUpgrader", "PumkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"
+        }
+    },
+    {
+        Name = "Uncommon",
+        Color = Color3.fromRGB(56, 189, 248), -- Sky-400
+        Items = {
+            "HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", 
+            "ScienceFurnace", "SirachaUpgrader", "TinDropper", "FireworkUpgrader", 
+            "LemonUpgrader", "GoldDropper"
+        }
+    },
+    {
+        Name = "Other",
+        Color = Color3.fromRGB(161, 161, 170), -- Zinc-400
+        Items = {
+            "WaterfallUpgrader", "MalevolentFurnace"
+        }
+    }
 }
 
-local defaultOff = {
-    "WaterfallUpgrader", "MalevolentFurnace"
-}
-
--- State tracking
+-- Default States Tracking
 local State = {
     Master = false,
     Items = {}
 }
 
-for _, item in ipairs(defaultOn) do State.Items[item] = true end
-for _, item in ipairs(defaultOff) do State.Items[item] = false end
+-- Initialize default toggles (Only "Other" is off by default based on your previous config)
+for _, category in ipairs(ItemCategories) do
+    for _, item in ipairs(category.Items) do
+        State.Items[item] = (category.Name ~= "Other")
+    end
+end
 
 -- ==========================================
 -- UI CONSTRUCTION (Modern / Tailwind Style)
@@ -40,8 +69,8 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 450)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -225)
+MainFrame.Size = UDim2.new(0, 300, 0, 480)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -240)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) -- zinc-900
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = TycoonGui
@@ -61,7 +90,6 @@ local TopBarCorner = Instance.new("UICorner")
 TopBarCorner.CornerRadius = UDim.new(0, 8)
 TopBarCorner.Parent = TopBar
 
--- Hide bottom corners of top bar
 local TopBarExtension = Instance.new("Frame")
 TopBarExtension.Size = UDim2.new(1, 0, 0, 8)
 TopBarExtension.Position = UDim2.new(0, 0, 1, -8)
@@ -80,7 +108,6 @@ Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Close Button
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "CloseButton"
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
@@ -93,26 +120,24 @@ CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Parent = TopBar
 
 CloseButton.MouseEnter:Connect(function()
-    CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) -- red-500 on hover
+    CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) 
 end)
 
 CloseButton.MouseLeave:Connect(function()
-    CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) -- revert to zinc-400
+    CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 end)
 
 CloseButton.MouseButton1Click:Connect(function()
-    State.Master = false -- Ensure the buying loop terminates
-    TycoonGui:Destroy()  -- completely remove the UI
+    State.Master = false 
+    TycoonGui:Destroy()  
 end)
 
--- Draggable Logic
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -134,30 +159,54 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- UI Helper to create toggles
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -20, 1, -110)
 ScrollFrame.Position = UDim2.new(0, 10, 0, 100)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 4
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Auto updated by UIListLayout
 ScrollFrame.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Padding = UDim.new(0, 5)
-UIListLayout.SortOrder = Enum.SortOrder.Name
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder -- Ensure our custom order is respected
 UIListLayout.Parent = ScrollFrame
 
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
 end)
 
+-- UI Helper Functions
+local currentLayoutOrder = 0
+
+local function createHeader(parent, text, color)
+    currentLayoutOrder += 1
+    
+    local HeaderFrame = Instance.new("Frame")
+    HeaderFrame.Size = UDim2.new(1, -10, 0, 25)
+    HeaderFrame.BackgroundTransparency = 1
+    HeaderFrame.LayoutOrder = currentLayoutOrder
+    HeaderFrame.Parent = parent
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = string.upper(text)
+    Label.TextColor3 = color
+    Label.TextSize = 12
+    Label.Font = Enum.Font.GothamBold
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = HeaderFrame
+end
+
 local function createToggle(parent, name, text, isMaster)
+    if not isMaster then currentLayoutOrder += 1 end
+    
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Name = name
     ToggleFrame.Size = UDim2.new(1, -10, 0, 35)
     ToggleFrame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+    ToggleFrame.LayoutOrder = isMaster and 0 or currentLayoutOrder
     ToggleFrame.Parent = parent
 
     local TCorner = Instance.new("UICorner")
@@ -178,7 +227,7 @@ local function createToggle(parent, name, text, isMaster)
     local Button = Instance.new("TextButton")
     Button.Size = UDim2.new(0, 40, 0, 20)
     Button.Position = UDim2.new(1, -50, 0.5, -10)
-    Button.BackgroundColor3 = Color3.fromRGB(239, 68, 68) -- red-500 default
+    Button.BackgroundColor3 = Color3.fromRGB(239, 68, 68) 
     Button.Text = ""
     Button.Parent = ToggleFrame
 
@@ -197,14 +246,13 @@ local function createToggle(parent, name, text, isMaster)
     ICorner.Parent = Indicator
 
     local function updateVisuals(state)
-        local goalColor = state and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68) -- green-500 / red-500
+        local goalColor = state and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68) 
         local goalPos = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         
         TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = goalColor}):Play()
         TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = goalPos}):Play()
     end
 
-    -- Init visuals
     local startingState = isMaster and State.Master or State.Items[name]
     updateVisuals(startingState)
 
@@ -230,25 +278,22 @@ MasterContainer.Parent = MainFrame
 
 createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", true)
 
--- Create Item Toggles
-local allItems = {}
-for _, item in ipairs(defaultOn) do table.insert(allItems, item) end
-for _, item in ipairs(defaultOff) do table.insert(allItems, item) end
-table.sort(allItems) 
-
-for _, itemName in ipairs(allItems) do
-    createToggle(ScrollFrame, itemName, itemName, false)
+-- Build Tiers in UI
+for _, category in ipairs(ItemCategories) do
+    createHeader(ScrollFrame, category.Name, category.Color)
+    for _, itemName in ipairs(category.Items) do
+        createToggle(ScrollFrame, itemName, itemName, false)
+    end
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Spatial Math & Anchoring)
+-- AUTO-BUYER LOGIC (Priority & Movement Lock-on)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.5
 local itemCache = {} 
 local myPlot = nil   
 
--- Function to calculate plot ownership using spatial math
 local function findMyPlot()
     local character = LocalPlayer.Character
     local hrp = character and character:FindFirstChild("HumanoidRootPart")
@@ -272,8 +317,6 @@ local function findMyPlot()
             end
         end
     end
-
-    warn("Could not find a plot. Make sure you are standing completely inside your base's PlotZone!")
     return nil
 end
 
@@ -309,6 +352,14 @@ local function getTarget(itemName)
     return nil, nil
 end
 
+-- Create a flattened list of items in strict priority order for the buyer loop
+local PriorityList = {}
+for _, category in ipairs(ItemCategories) do
+    for _, item in ipairs(category.Items) do
+        table.insert(PriorityList, item)
+    end
+end
+
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
@@ -317,29 +368,43 @@ task.spawn(function()
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
-        for itemName, isEnabled in pairs(State.Items) do
-            if isEnabled and State.Master then
+        -- Always ensure player isn't stuck anchored if loop restarts
+        hrp.Anchored = false
+
+        -- Loop through items strictly by Rarity priority
+        for _, itemName in ipairs(PriorityList) do
+            if State.Items[itemName] and State.Master then
                 
                 local pad, prompt = getTarget(itemName)
                 
                 if pad and prompt then
-                    -- Kill physical momentum to stop slipping
+                    -- Kill momentum to stop slipping
                     hrp.AssemblyLinearVelocity = Vector3.zero
                     hrp.AssemblyAngularVelocity = Vector3.zero
-                    
-                    -- Teleport and anchor
-                    hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
                     hrp.Anchored = true
                     
-                    task.wait(0.2) 
+                    -- Track the item for 0.2s just in case it is actively moving on the conveyor belt
+                    local trackingTime = 0
+                    while trackingTime < 0.2 do
+                        if not pad or not pad.Parent then break end
+                        hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
+                        trackingTime += task.wait()
+                    end
                     
-                    if fireproximityprompt then
-                        fireproximityprompt(prompt)
+                    if prompt and prompt.Parent then
+                        -- Temporarily bypass Line of Sight in case the prompt is inside the belt
+                        local oldLoS = prompt.RequiresLineOfSight
+                        prompt.RequiresLineOfSight = false
+                        
+                        if fireproximityprompt then
+                            fireproximityprompt(prompt)
+                        end
+                        
+                        -- Revert line of sight setting
+                        prompt.RequiresLineOfSight = oldLoS
                     end
                     
                     task.wait(DELAY_BETWEEN_BUYS)
-                    
-                    -- Release anchor so player can move again if loop stops
                     hrp.Anchored = false
                 end
             end
