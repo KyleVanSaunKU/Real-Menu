@@ -368,33 +368,14 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC (100% Legitimate Simulation)
+-- AUTO-BUYER LOGIC (The "Snap-Back" Technique)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.2 
+local DELAY_BETWEEN_BUYS = 0.3 -- Increased slightly to bypass anti-cheat debounce
 local myPlot = nil   
 
-local function findMyPlot()
-    local character = LocalPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-
-    local position = hrp.Position
-    local plotsFolder = workspace:FindFirstChild("Plots")
-    if not plotsFolder then return nil end
-
-    for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local plotZone = plot:FindFirstChild("PlotZone", true)
-        if plotZone and plotZone:IsA("BasePart") then
-            local localPos = plotZone.CFrame:PointToObjectSpace(position)
-            local halfSize = plotZone.Size * 0.5
-            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                return plot
-            end
-        end
-    end
-    return nil
-end
+-- Fetch the RemoteEvent one time to avoid constant searching
+local PacketRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Vendor"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
 
 local function getSortedItemsOnBelt()
     if not myPlot then
@@ -407,38 +388,30 @@ local function getSortedItemsOnBelt()
     if not activeItems then return {} end
 
     local buyableItems = {}
-    
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
             local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
             
             if prompt and pad then
-                table.insert(buyableItems, {
-                    Prompt = prompt,
-                    Pad = pad,
-                    Priority = ItemPriorityMap[item.Name] or 99
-                })
+                table.insert(buyableItems, { Instance = item, Prompt = prompt, Pad = pad, Priority = ItemPriorityMap[item.Name] or 99 })
             end
         end
     end
 
-    table.sort(buyableItems, function(a, b)
-        return a.Priority < b.Priority
-    end)
-
+    table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
     return buyableItems
 end
 
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
-        
         local character = LocalPlayer.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
         local targets = getSortedItemsOnBelt()
+        local originalCFrame = hrp.CFrame -- Remember where we are
 
         for _, target in ipairs(targets) do
             if not State.Master then break end 
@@ -446,40 +419,22 @@ task.spawn(function()
             local pad = target.Pad
             local prompt = target.Prompt
 
-            if pad and pad.Parent and prompt and prompt.Parent then
-                hrp.Anchored = true
+            if pad and pad.Parent and prompt and prompt.Parent and prompt.Enabled then
+                -- 1. SNAP: Teleport to item
+                hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
                 
-                -- The "Glue": Continuously updates position to track the moving item
-                local isTracking = true
-                local trackConnection = RunService.Heartbeat:Connect(function()
-                    if isTracking and pad and pad.Parent then
-                        -- Hovering 2.5 studs up ensures we don't clip inside the mesh, keeping Line Of Sight clear!
-                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 2.5, 0))
-                        hrp.AssemblyLinearVelocity = Vector3.zero
-                        hrp.AssemblyAngularVelocity = Vector3.zero
-                    end
-                end)
-                
-                -- Wait 0.2s while tracking so the server registers we are standing on the item
-                task.wait(0.2)
-                
-                if prompt.Enabled then
-                    -- We NO LONGER spoof LineOfSight, Distance, or HoldDuration. 
-                    -- We play by the game's rules to bypass the server checks.
-                    
-                    if fireproximityprompt then
-                        fireproximityprompt(prompt)
-                    end
-                    
-                    -- THE FIX: Stay glued to the part for the exact required HoldDuration so the server accepts it!
-                    local requiredHoldTime = prompt.HoldDuration or 0
-                    task.wait(requiredHoldTime + 0.15) -- Add 0.15s ping buffer
+                -- 2. FIRE: Use both the physical prompt AND the hidden network packet
+                -- This forces the server to see you at the item while the packet is sent
+                if fireproximityprompt then
+                    fireproximityprompt(prompt)
                 end
                 
-                -- Un-glue and move to the next item
-                isTracking = false
-                trackConnection:Disconnect()
-                hrp.Anchored = false
+                pcall(function()
+                    PacketRemote:FireServer("purchase_belt_item", target.Instance)
+                end)
+                
+                -- 3. SNAP-BACK: Return to original position immediately
+                hrp.CFrame = originalCFrame
                 
                 task.wait(DELAY_BETWEEN_BUYS)
             end
