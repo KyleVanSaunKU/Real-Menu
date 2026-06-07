@@ -13,7 +13,7 @@ local ItemCategories = {
     {
         Name = "Mythical",
         Priority = 1,
-        Color = Color3.fromRGB(236, 72, 153), 
+        Color = Color3.fromRGB(236, 72, 153), -- Pink-500
         Items = {
             "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", 
             "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"
@@ -22,7 +22,7 @@ local ItemCategories = {
     {
         Name = "Epic",
         Priority = 2,
-        Color = Color3.fromRGB(168, 85, 247), 
+        Color = Color3.fromRGB(168, 85, 247), -- Purple-500
         Items = {
             "CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", 
             "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", 
@@ -32,7 +32,7 @@ local ItemCategories = {
     {
         Name = "Uncommon",
         Priority = 3,
-        Color = Color3.fromRGB(56, 189, 248), 
+        Color = Color3.fromRGB(56, 189, 248), -- Sky-400
         Items = {
             "HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", 
             "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", 
@@ -41,6 +41,7 @@ local ItemCategories = {
     }
 }
 
+-- Items that should be OFF by default
 local defaultOff = {
     ["WaterfallUpgrader"] = true,
     ["MalevolentFurnace"] = true
@@ -49,17 +50,19 @@ local defaultOff = {
 local ItemPriorityMap = {}
 local State = {
     Master = false,
-    Noclip = false, -- Noclip restored
+    Noclip = false,
     Categories = {},
     Items = {}
 }
-local VisualUpdaters = {} 
+local VisualUpdaters = {} -- Stores functions to trigger UI animations remotely
 
+-- Initialize States
 for _, category in ipairs(ItemCategories) do
     State.Categories[category.Name] = true 
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
         State.Items[item] = not defaultOff[item] 
+        -- If any item is off by default, start the category toggle as off
         if defaultOff[item] then
             State.Categories[category.Name] = false
         end
@@ -78,7 +81,7 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 500) -- Taller to fit Noclip
+MainFrame.Size = UDim2.new(0, 300, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
@@ -163,7 +166,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -150) -- Adjusted for Noclip
+ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
 ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
@@ -181,13 +184,14 @@ end)
 
 local currentLayoutOrder = 0
 
+-- New function to create Bulk Toggles for Categories
 local function createCategoryHeader(parent, category)
     currentLayoutOrder += 1
     
     local HeaderFrame = Instance.new("Frame")
     HeaderFrame.Size = UDim2.new(1, -10, 0, 32)
     HeaderFrame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
-    HeaderFrame.BackgroundTransparency = 0.5 
+    HeaderFrame.BackgroundTransparency = 0.5 -- Slightly darker to separate from items
     HeaderFrame.LayoutOrder = currentLayoutOrder
     HeaderFrame.Parent = parent
 
@@ -243,9 +247,12 @@ local function createCategoryHeader(parent, category)
         State.Categories[category.Name] = newState
         updateVisuals(newState)
         
+        -- Loop through and update all child items to match the master category state
         for _, item in ipairs(category.Items) do
             State.Items[item] = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](newState) end
+            if VisualUpdaters[item] then
+                VisualUpdaters[item](newState)
+            end
         end
     end)
 end
@@ -368,14 +375,33 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC (The "Snap-Back" Technique)
+-- AUTO-BUYER LOGIC (Bulletproof Firing)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.3 -- Increased slightly to bypass anti-cheat debounce
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
 
--- Fetch the RemoteEvent one time to avoid constant searching
-local PacketRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Vendor"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
+local function findMyPlot()
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local position = hrp.Position
+    local plotsFolder = workspace:FindFirstChild("Plots")
+    if not plotsFolder then return nil end
+
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
+        local plotZone = plot:FindFirstChild("PlotZone", true)
+        if plotZone and plotZone:IsA("BasePart") then
+            local localPos = plotZone.CFrame:PointToObjectSpace(position)
+            local halfSize = plotZone.Size * 0.5
+            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                return plot
+            end
+        end
+    end
+    return nil
+end
 
 local function getSortedItemsOnBelt()
     if not myPlot then
@@ -388,30 +414,41 @@ local function getSortedItemsOnBelt()
     if not activeItems then return {} end
 
     local buyableItems = {}
+    
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
             local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
             
             if prompt and pad then
-                table.insert(buyableItems, { Instance = item, Prompt = prompt, Pad = pad, Priority = ItemPriorityMap[item.Name] or 99 })
+                table.insert(buyableItems, {
+                    Instance = item,
+                    Prompt = prompt,
+                    Pad = pad,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
             end
         end
     end
 
-    table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
+    table.sort(buyableItems, function(a, b)
+        return a.Priority < b.Priority
+    end)
+
     return buyableItems
 end
 
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
+        
         local character = LocalPlayer.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
+        hrp.Anchored = false
+
         local targets = getSortedItemsOnBelt()
-        local originalCFrame = hrp.CFrame -- Remember where we are
 
         for _, target in ipairs(targets) do
             if not State.Master then break end 
@@ -419,23 +456,48 @@ task.spawn(function()
             local pad = target.Pad
             local prompt = target.Prompt
 
-            if pad and pad.Parent and prompt and prompt.Parent and prompt.Enabled then
-                -- 1. SNAP: Teleport to item
-                hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
+            if pad and pad.Parent and prompt and prompt.Parent then
+                hrp.Anchored = true
                 
-                -- 2. FIRE: Use both the physical prompt AND the hidden network packet
-                -- This forces the server to see you at the item while the packet is sent
-                if fireproximityprompt then
-                    fireproximityprompt(prompt)
-                end
-                
-                pcall(function()
-                    PacketRemote:FireServer("purchase_belt_item", target.Instance)
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and pad and pad.Parent then
+                        -- CRITICAL FIX: We only take the Position, NOT the rotation. 
+                        -- This prevents your character from violently spinning if the item tumbles.
+                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 2, 0))
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end
                 end)
                 
-                -- 3. SNAP-BACK: Return to original position immediately
-                hrp.CFrame = originalCFrame
+                -- Wait slightly longer (0.2s) to guarantee the server sees you standing still
+                task.wait(0.2) 
                 
+                -- Only attempt to buy if the prompt is actually active and ready
+                if prompt.Enabled then
+                    local oldLoS = prompt.RequiresLineOfSight
+                    local oldMaxDist = prompt.MaxActivationDistance
+                    local oldHold = prompt.HoldDuration
+                    
+                    prompt.RequiresLineOfSight = false
+                    prompt.MaxActivationDistance = 50
+                    prompt.HoldDuration = 0
+                    
+                    -- Fire exactly ONCE to bypass anti-spam
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt)
+                    end
+                    
+                    prompt.RequiresLineOfSight = oldLoS
+                    prompt.MaxActivationDistance = oldMaxDist
+                    prompt.HoldDuration = oldHold
+                end
+                
+                isTracking = false
+                trackConnection:Disconnect()
+                hrp.Anchored = false
+                
+                -- Give the item time to process and disappear before moving to the next
                 task.wait(DELAY_BETWEEN_BUYS)
             end
         end
