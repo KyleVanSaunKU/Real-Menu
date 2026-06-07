@@ -223,44 +223,42 @@ local DELAY_BETWEEN_BUYS = 0.5
 local itemCache = {} -- Stores found items
 local myPlot = nil   -- Stores your specific plot
 
--- Function to hook into the game's state manager
+-- Function to calculate plot ownership using spatial math
 local function findMyPlot()
-    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
-    if not playerScripts then return nil end
-
-    -- Search for the ClientAtoms module
-    local clientAtomsModule = playerScripts:FindFirstChild("ClientAtoms", true)
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
     
-    if clientAtomsModule and clientAtomsModule:IsA("ModuleScript") then
-        -- Require the module using the executor
-        local success, ClientAtoms = pcall(require, clientAtomsModule)
-        
-        if success and ClientAtoms then
-            -- Check if the active_plot getter exists
-            if type(ClientAtoms.active_plot) == "function" then
-                local currentPlot = ClientAtoms.active_plot()
-                
-                if currentPlot then
-                    print("Successfully locked onto plot via ClientAtoms:", currentPlot.Name)
-                    return currentPlot
-                else
-                    warn("ClientAtoms returned nil. Make sure you are standing completely inside your base!")
-                end
-            -- It might also track owned_plot, checking just in case
-            elseif type(ClientAtoms.owned_plot) == "function" then
-                local ownedPlot = ClientAtoms.owned_plot()
-                if ownedPlot then
-                    print("Successfully locked onto owned plot:", ownedPlot.Name)
-                    return ownedPlot
-                end
-            end
-        else
-            warn("Failed to require ClientAtoms module.")
-        end
-    else
-        warn("Could not locate ClientAtoms module in PlayerScripts.")
+    if not hrp then 
+        warn("Character not found.")
+        return nil 
     end
 
+    local position = hrp.Position
+    local plotsFolder = workspace:FindFirstChild("Plots")
+    
+    if not plotsFolder then 
+        warn("Could not find 'Plots' folder in Workspace.")
+        return nil 
+    end
+
+    -- Loop through all plots and calculate if we are standing inside their PlotZone
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
+        local plotZone = plot:FindFirstChild("PlotZone", true)
+        
+        if plotZone and plotZone:IsA("BasePart") then
+            -- Convert player position to the PlotZone's local space
+            local localPos = plotZone.CFrame:PointToObjectSpace(position)
+            local halfSize = plotZone.Size * 0.5
+            
+            -- Check if X and Z coordinates are within the PlotZone's boundaries
+            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                print("Successfully locked onto plot via spatial math:", plot.Name)
+                return plot
+            end
+        end
+    end
+
+    warn("Could not find a plot. Make sure you are standing completely inside your base's PlotZone!")
     return nil
 end
 
