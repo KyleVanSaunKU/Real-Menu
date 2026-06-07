@@ -6,22 +6,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Require the game's custom network module
-local NetworkPackets = getrenv().require(ReplicatedStorage.Shared.Network.Packets)
-local PurchasePacket = NetworkPackets.purchase_belt_item
-
--- Helper function to fire the custom packet (Vendor packets use different method names)
-local function sendPurchase(itemInstance)
-    if type(PurchasePacket.send) == "function" then
-        PurchasePacket.send(itemInstance)
-    elseif type(PurchasePacket.Send) == "function" then
-        PurchasePacket:Send(itemInstance)
-    elseif type(PurchasePacket.fire) == "function" then
-        PurchasePacket.fire(itemInstance)
-    elseif type(PurchasePacket.FireServer) == "function" then
-        PurchasePacket:FireServer(itemInstance)
-    end
-end
+-- ==========================================
+-- NETWORK BACKDOOR
+-- ==========================================
+-- Directly hook into the raw RemoteEvent to bypass Solara's require() block
+local PacketRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Vendor"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
 
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & DEFAULTS
@@ -86,7 +75,6 @@ end
 -- ==========================================
 -- UI CONSTRUCTION (Modern / Tailwind Style)
 -- ==========================================
--- (I removed the Noclip toggle since you no longer need to move)
 
 local GuiTarget = RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui
 local TycoonGui = Instance.new("ScreenGui")
@@ -354,10 +342,10 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (The "Sniper" Method)
+-- AUTO-BUYER LOGIC (Instant Network Firing)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.2 
+local DELAY_BETWEEN_BUYS = 0.05 -- Super fast since we bypass physics entirely
 local myPlot = nil   
 
 local function findMyPlot()
@@ -396,15 +384,10 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
-            -- We don't need the Pad anymore since we aren't teleporting
-            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-            
-            if prompt then
-                table.insert(buyableItems, {
-                    Prompt = prompt,
-                    Priority = ItemPriorityMap[item.Name] or 99
-                })
-            end
+            table.insert(buyableItems, {
+                Instance = item, 
+                Priority = ItemPriorityMap[item.Name] or 99
+            })
         end
     end
 
@@ -424,27 +407,11 @@ task.spawn(function()
         for _, target in ipairs(targets) do
             if not State.Master then break end 
             
-            local prompt = target.Prompt
-
-            if prompt and prompt.Parent and prompt.Enabled then
-                -- Save original properties
-                local oldLoS = prompt.RequiresLineOfSight
-                local oldMaxDist = prompt.MaxActivationDistance
-                local oldHold = prompt.HoldDuration
-                
-                -- Force prompt to have infinite range and instant activation
-                prompt.RequiresLineOfSight = false
-                prompt.MaxActivationDistance = 999999
-                prompt.HoldDuration = 0
-                
-                if fireproximityprompt then
-                    fireproximityprompt(prompt)
-                end
-                
-                -- Revert properties cleanly
-                prompt.RequiresLineOfSight = oldLoS
-                prompt.MaxActivationDistance = oldMaxDist
-                prompt.HoldDuration = oldHold
+            if target.Instance and target.Instance.Parent then
+                -- Forge the exact packet the game's network expects
+                pcall(function()
+                    PacketRemote:FireServer("purchase_belt_item", target.Instance)
+                end)
                 
                 task.wait(DELAY_BETWEEN_BUYS)
             end
