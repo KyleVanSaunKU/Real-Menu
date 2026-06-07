@@ -6,54 +6,58 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
--- ITEM CATEGORIES & PRIORITIES
+-- ITEM CATEGORIES, PRIORITIES & DEFAULTS
 -- ==========================================
+
 local ItemCategories = {
     {
         Name = "Mythical",
+        Priority = 1,
         Color = Color3.fromRGB(236, 72, 153), -- Pink-500
         Items = {
-            "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PheonixFurnace", 
-            "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper"
+            "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", 
+            "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"
         }
     },
     {
         Name = "Epic",
+        Priority = 2,
         Color = Color3.fromRGB(168, 85, 247), -- Purple-500
         Items = {
             "CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", 
             "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", 
-            "LunarFurnace", "BambooUpgrader", "PumkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"
+            "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"
         }
     },
     {
         Name = "Uncommon",
+        Priority = 3,
         Color = Color3.fromRGB(56, 189, 248), -- Sky-400
         Items = {
             "HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", 
-            "ScienceFurnace", "SirachaUpgrader", "TinDropper", "FireworkUpgrader", 
+            "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", 
             "LemonUpgrader", "GoldDropper"
-        }
-    },
-    {
-        Name = "Other",
-        Color = Color3.fromRGB(161, 161, 170), -- Zinc-400
-        Items = {
-            "WaterfallUpgrader", "MalevolentFurnace"
         }
     }
 }
 
--- Default States Tracking
+-- Items that should be OFF by default
+local defaultOff = {
+    ["WaterfallUpgrader"] = true,
+    ["MalevolentFurnace"] = true
+}
+
+-- Map items to their priority for lightning-fast sorting
+local ItemPriorityMap = {}
 local State = {
     Master = false,
     Items = {}
 }
 
--- Initialize default toggles (Only "Other" is off by default based on your previous config)
 for _, category in ipairs(ItemCategories) do
     for _, item in ipairs(category.Items) do
-        State.Items[item] = (category.Name ~= "Other")
+        ItemPriorityMap[item] = category.Priority
+        State.Items[item] = not defaultOff[item] -- Set to false if in defaultOff, true otherwise
     end
 end
 
@@ -71,7 +75,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 300, 0, 480)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -240)
-MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) -- zinc-900
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = TycoonGui
 
@@ -82,7 +86,7 @@ UICorner.Parent = MainFrame
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, 40)
-TopBar.BackgroundColor3 = Color3.fromRGB(39, 39, 42) -- zinc-800
+TopBar.BackgroundColor3 = Color3.fromRGB(39, 39, 42) 
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 
@@ -114,18 +118,13 @@ CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -35, 0, 5)
 CloseButton.BackgroundTransparency = 1
 CloseButton.Text = "✕"
-CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) -- zinc-400
+CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 CloseButton.TextSize = 18
 CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Parent = TopBar
 
-CloseButton.MouseEnter:Connect(function()
-    CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) 
-end)
-
-CloseButton.MouseLeave:Connect(function()
-    CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
-end)
+CloseButton.MouseEnter:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) end)
+CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) end)
 
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
@@ -139,9 +138,7 @@ TopBar.InputBegan:Connect(function(input)
         dragStart = input.Position
         startPos = MainFrame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
@@ -169,19 +166,17 @@ ScrollFrame.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Padding = UDim.new(0, 5)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder -- Ensure our custom order is respected
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder 
 UIListLayout.Parent = ScrollFrame
 
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
 end)
 
--- UI Helper Functions
 local currentLayoutOrder = 0
 
 local function createHeader(parent, text, color)
     currentLayoutOrder += 1
-    
     local HeaderFrame = Instance.new("Frame")
     HeaderFrame.Size = UDim2.new(1, -10, 0, 25)
     HeaderFrame.BackgroundTransparency = 1
@@ -265,11 +260,9 @@ local function createToggle(parent, name, text, isMaster)
             updateVisuals(State.Items[name])
         end
     end)
-    
     return ToggleFrame
 end
 
--- Create Master Toggle
 local MasterContainer = Instance.new("Frame")
 MasterContainer.Size = UDim2.new(1, -20, 0, 45)
 MasterContainer.Position = UDim2.new(0, 10, 0, 50)
@@ -278,7 +271,6 @@ MasterContainer.Parent = MainFrame
 
 createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", true)
 
--- Build Tiers in UI
 for _, category in ipairs(ItemCategories) do
     createHeader(ScrollFrame, category.Name, category.Color)
     for _, itemName in ipairs(category.Items) do
@@ -287,31 +279,26 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Priority & Movement Lock-on)
+-- AUTO-BUYER LOGIC (Dynamic Belt Reading & Glued Tracking)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.5
-local itemCache = {} 
+local DELAY_BETWEEN_BUYS = 0.2 -- Faster delay since tracking is perfect
 local myPlot = nil   
 
 local function findMyPlot()
     local character = LocalPlayer.Character
     local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    
     if not hrp then return nil end
 
     local position = hrp.Position
     local plotsFolder = workspace:FindFirstChild("Plots")
-    
     if not plotsFolder then return nil end
 
     for _, plot in ipairs(plotsFolder:GetChildren()) do
         local plotZone = plot:FindFirstChild("PlotZone", true)
-        
         if plotZone and plotZone:IsA("BasePart") then
             local localPos = plotZone.CFrame:PointToObjectSpace(position)
             local halfSize = plotZone.Size * 0.5
-            
             if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
                 return plot
             end
@@ -320,44 +307,43 @@ local function findMyPlot()
     return nil
 end
 
-local function getTarget(itemName)
-    if itemCache[itemName] and itemCache[itemName].Prompt:IsDescendantOf(workspace) then
-        return itemCache[itemName].Pad, itemCache[itemName].Prompt
-    end
-
+-- Reads the physical items currently on the belt, filters by UI toggles, and sorts by rarity
+local function getSortedItemsOnBelt()
     if not myPlot then
         myPlot = findMyPlot()
-        if not myPlot then return nil, nil end
+        if not myPlot then return {} end
     end
 
     local belt = myPlot:FindFirstChild("Belt")
     local activeItems = belt and belt:FindFirstChild("ActiveItems")
-    
-    if activeItems then
-        local targetItem = activeItems:FindFirstChild(itemName)
-        
-        if targetItem then
-            local prompt = targetItem:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local pad = targetItem:FindFirstChild("PurchasePad", true) 
-                or targetItem:FindFirstChild("Head", true) 
-                or targetItem:FindFirstChildWhichIsA("BasePart", true)
+    if not activeItems then return {} end
 
+    local buyableItems = {}
+    
+    -- Scan what is physically there right now
+    for _, item in ipairs(activeItems:GetChildren()) do
+        -- If we recognize it and it is toggled ON
+        if State.Items[item.Name] then
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
+            
             if prompt and pad then
-                itemCache[itemName] = {Pad = pad, Prompt = prompt}
-                return pad, prompt
+                table.insert(buyableItems, {
+                    Instance = item,
+                    Prompt = prompt,
+                    Pad = pad,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
             end
         end
     end
-    
-    return nil, nil
-end
 
--- Create a flattened list of items in strict priority order for the buyer loop
-local PriorityList = {}
-for _, category in ipairs(ItemCategories) do
-    for _, item in ipairs(category.Items) do
-        table.insert(PriorityList, item)
-    end
+    -- Sort the active items so Mythical (1) comes before Epic (2) and Uncommon (3)
+    table.sort(buyableItems, function(a, b)
+        return a.Priority < b.Priority
+    end)
+
+    return buyableItems
 end
 
 task.spawn(function()
@@ -368,45 +354,46 @@ task.spawn(function()
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
-        -- Always ensure player isn't stuck anchored if loop restarts
         hrp.Anchored = false
 
-        -- Loop through items strictly by Rarity priority
-        for _, itemName in ipairs(PriorityList) do
-            if State.Items[itemName] and State.Master then
+        -- Fetch everything on the belt mapped to our exact priorities
+        local targets = getSortedItemsOnBelt()
+
+        for _, target in ipairs(targets) do
+            if not State.Master then break end -- Stop immediately if toggle switched
+            
+            local pad = target.Pad
+            local prompt = target.Prompt
+
+            if pad and pad.Parent and prompt and prompt.Parent then
+                hrp.Anchored = true
                 
-                local pad, prompt = getTarget(itemName)
-                
-                if pad and prompt then
-                    -- Kill momentum to stop slipping
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                    hrp.Anchored = true
-                    
-                    -- Track the item for 0.2s just in case it is actively moving on the conveyor belt
-                    local trackingTime = 0
-                    while trackingTime < 0.2 do
-                        if not pad or not pad.Parent then break end
+                -- Dynamic Tracking Loop: Glues player to the moving part for 0.15s
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and pad and pad.Parent then
                         hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
-                        trackingTime += task.wait()
+                        hrp.AssemblyLinearVelocity = Vector3.zero
                     end
-                    
-                    if prompt and prompt.Parent then
-                        -- Temporarily bypass Line of Sight in case the prompt is inside the belt
-                        local oldLoS = prompt.RequiresLineOfSight
-                        prompt.RequiresLineOfSight = false
-                        
-                        if fireproximityprompt then
-                            fireproximityprompt(prompt)
-                        end
-                        
-                        -- Revert line of sight setting
-                        prompt.RequiresLineOfSight = oldLoS
-                    end
-                    
-                    task.wait(DELAY_BETWEEN_BUYS)
-                    hrp.Anchored = false
+                end)
+                
+                task.wait(0.1) -- Fast wait for server replication
+                
+                local oldLoS = prompt.RequiresLineOfSight
+                prompt.RequiresLineOfSight = false
+                
+                if fireproximityprompt then
+                    fireproximityprompt(prompt)
                 end
+                
+                prompt.RequiresLineOfSight = oldLoS
+                
+                -- Clean up tracking
+                isTracking = false
+                trackConnection:Disconnect()
+                hrp.Anchored = false
+                
+                task.wait(DELAY_BETWEEN_BUYS)
             end
         end
     end
