@@ -49,6 +49,7 @@ local defaultOff = {
 local ItemPriorityMap = {}
 local State = {
     Master = false,
+    Noclip = false, -- Noclip restored
     Categories = {},
     Items = {}
 }
@@ -77,8 +78,8 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 480) 
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -240)
+MainFrame.Size = UDim2.new(0, 300, 0, 500) -- Taller to fit Noclip
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = TycoonGui
@@ -132,6 +133,7 @@ CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRG
 
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
+    State.Noclip = false
     TycoonGui:Destroy()  
 end)
 
@@ -161,8 +163,8 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -110) 
-ScrollFrame.Position = UDim2.new(0, 10, 0, 100)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -150) -- Adjusted for Noclip
+ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 4
@@ -304,13 +306,20 @@ local function createToggle(parent, name, text, toggleType)
 
     VisualUpdaters[name] = updateVisuals
 
-    local startingState = toggleType == "Master" and State.Master or State.Items[name]
+    local startingState = false
+    if toggleType == "Master" then startingState = State.Master
+    elseif toggleType == "Noclip" then startingState = State.Noclip
+    else startingState = State.Items[name] end
+    
     updateVisuals(startingState)
 
     Button.MouseButton1Click:Connect(function()
         if toggleType == "Master" then
             State.Master = not State.Master
             updateVisuals(State.Master)
+        elseif toggleType == "Noclip" then
+            State.Noclip = not State.Noclip
+            updateVisuals(State.Noclip)
         else
             State.Items[name] = not State.Items[name]
             updateVisuals(State.Items[name])
@@ -327,6 +336,14 @@ MasterContainer.Parent = MainFrame
 
 createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", "Master")
 
+local NoclipContainer = Instance.new("Frame")
+NoclipContainer.Size = UDim2.new(1, -20, 0, 40)
+NoclipContainer.Position = UDim2.new(0, 10, 0, 95)
+NoclipContainer.BackgroundTransparency = 1
+NoclipContainer.Parent = MainFrame
+
+createToggle(NoclipContainer, "NoclipToggle", "Enable Noclip", "Noclip")
+
 for _, category in ipairs(ItemCategories) do
     createCategoryHeader(ScrollFrame, category)
     for _, itemName in ipairs(category.Items) do
@@ -335,10 +352,26 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Stable Physical Loop)
+-- NOCLIP LOGIC (RunService Stepped)
+-- ==========================================
+RunService.Stepped:Connect(function()
+    if State.Noclip then
+        local character = LocalPlayer.Character
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO-BUYER LOGIC (Glued Tracking + Delay)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.5 -- Slower delay to ensure stable physics
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
 
 local function findMyPlot()
@@ -414,30 +447,34 @@ task.spawn(function()
             local prompt = target.Prompt
 
             if pad and pad.Parent and prompt and prompt.Parent then
-                -- 1. Anti-Spin Lock: Grab only the position, ignore rotation
-                local targetPos = pad.Position + Vector3.new(0, 1.5, 0)
-                hrp.CFrame = CFrame.new(targetPos)
-                
-                -- 2. Kill momentum and anchor to prevent slipping off moving belts
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.AssemblyAngularVelocity = Vector3.zero
                 hrp.Anchored = true
                 
-                -- 3. Ping Delay: Wait for the server to recognize we are standing here
-                task.wait(0.25) 
+                -- The "Glue": Continuously updates position every frame to track moving items, but ignores rotation
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and pad and pad.Parent then
+                        -- Forces position only to prevent spinning
+                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end
+                end)
                 
-                -- 4. Perfect Single-Fire
+                -- Wait 0.1s while tracking so the server acknowledges we are standing on the item
+                task.wait(0.1)
+                
                 if prompt.Enabled then
                     local oldLoS = prompt.RequiresLineOfSight
                     local oldMaxDist = prompt.MaxActivationDistance
                     local oldHold = prompt.HoldDuration
                     
                     prompt.RequiresLineOfSight = false
-                    prompt.MaxActivationDistance = 15
+                    prompt.MaxActivationDistance = 50
                     prompt.HoldDuration = 0
                     
                     if fireproximityprompt then
-                        print("Attempting to buy:", target.Prompt.Parent.Name)
+                        fireproximityprompt(prompt)
+                        task.wait(0.05) -- Fire twice just in case the first is eaten by ping
                         fireproximityprompt(prompt)
                     end
                     
@@ -446,8 +483,14 @@ task.spawn(function()
                     prompt.HoldDuration = oldHold
                 end
                 
-                -- 5. Release and wait for next item
+                -- Wait another 0.1s WHILE STILL TRACKING so the server has time to process the buy
+                task.wait(0.1)
+                
+                -- Un-glue and move to the next item
+                isTracking = false
+                trackConnection:Disconnect()
                 hrp.Anchored = false
+                
                 task.wait(DELAY_BETWEEN_BUYS)
             end
         end
