@@ -223,37 +223,49 @@ local DELAY_BETWEEN_BUYS = 0.5
 local itemCache = {} -- Stores found items
 local myPlot = nil   -- Stores your specific plot
 
--- Function to find which plot belongs to the LocalPlayer
+-- Function to strictly read your plot assignment from the UI
 local function findMyPlot()
-    local plotsFolder = workspace:FindFirstChild("Plots")
-    if not plotsFolder then return nil end
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
 
-    for _, plot in ipairs(plotsFolder:GetChildren()) do
-        -- Tycoons usually store ownership in an 'Owner' value inside the plot
-        local ownerValue = plot:FindFirstChild("Owner") 
-            or plot:FindFirstChild("PlayerName") 
-            or plot:FindFirstChild("OwnerValue")
+    -- Navigate exactly to the path you found in Dex
+    local hud = playerGui:FindFirstChild("Hud")
+    if not hud then return nil end
 
-        if ownerValue then
-            -- Check if it's an ObjectValue linking to your player, or a StringValue with your name
-            if ownerValue:IsA("ObjectValue") and ownerValue.Value == LocalPlayer then
-                return plot
-            elseif ownerValue:IsA("StringValue") and ownerValue.Value == LocalPlayer.Name then
-                return plot
+    local frame = hud:FindFirstChild("Frame")
+    local leftMiddle = frame and frame:FindFirstChild("LeftMiddle")
+    local leftSlot = leftMiddle and leftMiddle:FindFirstChild("LeftSlot")
+    local row1 = leftSlot and leftSlot:FindFirstChild("Row1")
+    local myPlotUI = row1 and row1:FindFirstChild("MyPlot")
+
+    if myPlotUI then
+        -- Scenario 1: 'MyPlot' is an ObjectValue directly linked to the physical plot
+        if myPlotUI:IsA("ObjectValue") and myPlotUI.Value then
+            print("Found plot via ObjectValue:", myPlotUI.Value.Name)
+            return myPlotUI.Value
+        end
+
+        -- Scenario 2: 'MyPlot' is a StringValue with the plot's name (e.g., "Plot_4")
+        if myPlotUI:IsA("StringValue") and myPlotUI.Value ~= "" then
+            local plotsFolder = workspace:FindFirstChild("Plots")
+            if plotsFolder then
+                local actualPlot = plotsFolder:FindFirstChild(myPlotUI.Value)
+                if actualPlot then
+                    print("Found plot via StringValue:", actualPlot.Name)
+                    return actualPlot
+                end
             end
         end
-        
-        -- Sometimes it's inside a 'Values' folder
-        local valuesFolder = plot:FindFirstChild("Values") or plot:FindFirstChild("Configuration")
-        if valuesFolder then
-            local valOwner = valuesFolder:FindFirstChild("Owner")
-            if valOwner then
-                if valOwner:IsA("ObjectValue") and valOwner.Value == LocalPlayer then return plot end
-                if valOwner:IsA("StringValue") and valOwner.Value == LocalPlayer.Name then return plot end
-            end
+
+        -- Scenario 3: The ObjectValue is sitting INSIDE the 'MyPlot' UI element
+        local internalRef = myPlotUI:FindFirstChildWhichIsA("ObjectValue")
+        if internalRef and internalRef.Value then
+            print("Found plot via internal ObjectValue:", internalRef.Value.Name)
+            return internalRef.Value
         end
     end
-    
+
+    warn("Could not extract plot from the PlayerGui path.")
     return nil
 end
 
