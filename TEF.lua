@@ -47,17 +47,17 @@ local defaultOff = {
     ["MalevolentFurnace"] = true
 }
 
--- Map items to their priority for lightning-fast sorting
 local ItemPriorityMap = {}
 local State = {
     Master = false,
+    Noclip = false, -- New Noclip State
     Items = {}
 }
 
 for _, category in ipairs(ItemCategories) do
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
-        State.Items[item] = not defaultOff[item] -- Set to false if in defaultOff, true otherwise
+        State.Items[item] = not defaultOff[item] 
     end
 end
 
@@ -73,8 +73,8 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 480)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -240)
+MainFrame.Size = UDim2.new(0, 300, 0, 500) -- Slightly taller to fit new toggle
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = TycoonGui
@@ -128,6 +128,7 @@ CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRG
 
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
+    State.Noclip = false
     TycoonGui:Destroy()  
 end)
 
@@ -156,9 +157,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Shifted ScrollFrame down to make room for Noclip
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -110)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 100)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
+ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 4
@@ -194,14 +196,14 @@ local function createHeader(parent, text, color)
     Label.Parent = HeaderFrame
 end
 
-local function createToggle(parent, name, text, isMaster)
-    if not isMaster then currentLayoutOrder += 1 end
+local function createToggle(parent, name, text, toggleType)
+    if toggleType == "Item" then currentLayoutOrder += 1 end
     
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Name = name
     ToggleFrame.Size = UDim2.new(1, -10, 0, 35)
     ToggleFrame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
-    ToggleFrame.LayoutOrder = isMaster and 0 or currentLayoutOrder
+    ToggleFrame.LayoutOrder = toggleType == "Item" and currentLayoutOrder or 0
     ToggleFrame.Parent = parent
 
     local TCorner = Instance.new("UICorner")
@@ -248,13 +250,20 @@ local function createToggle(parent, name, text, isMaster)
         TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = goalPos}):Play()
     end
 
-    local startingState = isMaster and State.Master or State.Items[name]
+    local startingState = false
+    if toggleType == "Master" then startingState = State.Master
+    elseif toggleType == "Noclip" then startingState = State.Noclip
+    else startingState = State.Items[name] end
+    
     updateVisuals(startingState)
 
     Button.MouseButton1Click:Connect(function()
-        if isMaster then
+        if toggleType == "Master" then
             State.Master = not State.Master
             updateVisuals(State.Master)
+        elseif toggleType == "Noclip" then
+            State.Noclip = not State.Noclip
+            updateVisuals(State.Noclip)
         else
             State.Items[name] = not State.Items[name]
             updateVisuals(State.Items[name])
@@ -264,25 +273,49 @@ local function createToggle(parent, name, text, isMaster)
 end
 
 local MasterContainer = Instance.new("Frame")
-MasterContainer.Size = UDim2.new(1, -20, 0, 45)
+MasterContainer.Size = UDim2.new(1, -20, 0, 40)
 MasterContainer.Position = UDim2.new(0, 10, 0, 50)
 MasterContainer.BackgroundTransparency = 1
 MasterContainer.Parent = MainFrame
 
-createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", true)
+createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", "Master")
+
+local NoclipContainer = Instance.new("Frame")
+NoclipContainer.Size = UDim2.new(1, -20, 0, 40)
+NoclipContainer.Position = UDim2.new(0, 10, 0, 95)
+NoclipContainer.BackgroundTransparency = 1
+NoclipContainer.Parent = MainFrame
+
+createToggle(NoclipContainer, "NoclipToggle", "Enable Noclip", "Noclip")
 
 for _, category in ipairs(ItemCategories) do
     createHeader(ScrollFrame, category.Name, category.Color)
     for _, itemName in ipairs(category.Items) do
-        createToggle(ScrollFrame, itemName, itemName, false)
+        createToggle(ScrollFrame, itemName, itemName, "Item")
     end
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Dynamic Belt Reading & Glued Tracking)
+-- NOCLIP LOGIC (RunService Stepped)
+-- ==========================================
+RunService.Stepped:Connect(function()
+    if State.Noclip then
+        local character = LocalPlayer.Character
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO-BUYER LOGIC
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.2 -- Faster delay since tracking is perfect
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
 
 local function findMyPlot()
@@ -307,7 +340,6 @@ local function findMyPlot()
     return nil
 end
 
--- Reads the physical items currently on the belt, filters by UI toggles, and sorts by rarity
 local function getSortedItemsOnBelt()
     if not myPlot then
         myPlot = findMyPlot()
@@ -320,9 +352,7 @@ local function getSortedItemsOnBelt()
 
     local buyableItems = {}
     
-    -- Scan what is physically there right now
     for _, item in ipairs(activeItems:GetChildren()) do
-        -- If we recognize it and it is toggled ON
         if State.Items[item.Name] then
             local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
@@ -338,7 +368,6 @@ local function getSortedItemsOnBelt()
         end
     end
 
-    -- Sort the active items so Mythical (1) comes before Epic (2) and Uncommon (3)
     table.sort(buyableItems, function(a, b)
         return a.Priority < b.Priority
     end)
@@ -356,11 +385,10 @@ task.spawn(function()
 
         hrp.Anchored = false
 
-        -- Fetch everything on the belt mapped to our exact priorities
         local targets = getSortedItemsOnBelt()
 
         for _, target in ipairs(targets) do
-            if not State.Master then break end -- Stop immediately if toggle switched
+            if not State.Master then break end 
             
             local pad = target.Pad
             local prompt = target.Prompt
@@ -368,7 +396,6 @@ task.spawn(function()
             if pad and pad.Parent and prompt and prompt.Parent then
                 hrp.Anchored = true
                 
-                -- Dynamic Tracking Loop: Glues player to the moving part for 0.15s
                 local isTracking = true
                 local trackConnection = RunService.Heartbeat:Connect(function()
                     if isTracking and pad and pad.Parent then
@@ -377,7 +404,7 @@ task.spawn(function()
                     end
                 end)
                 
-                task.wait(0.1) -- Fast wait for server replication
+                task.wait(0.1) 
                 
                 local oldLoS = prompt.RequiresLineOfSight
                 prompt.RequiresLineOfSight = false
@@ -388,7 +415,6 @@ task.spawn(function()
                 
                 prompt.RequiresLineOfSight = oldLoS
                 
-                -- Clean up tracking
                 isTracking = false
                 trackConnection:Disconnect()
                 hrp.Anchored = false
