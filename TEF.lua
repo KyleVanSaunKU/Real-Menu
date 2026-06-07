@@ -375,7 +375,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC
+-- AUTO-BUYER LOGIC (Bulletproof Firing)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
@@ -462,21 +462,40 @@ task.spawn(function()
                 local isTracking = true
                 local trackConnection = RunService.Heartbeat:Connect(function()
                     if isTracking and pad and pad.Parent then
-                        hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
+                        -- Lowered from 3 to 1.5 studs so we are guaranteed to be in range
+                        hrp.CFrame = pad.CFrame + Vector3.new(0, 1.5, 0)
                         hrp.AssemblyLinearVelocity = Vector3.zero
                     end
                 end)
                 
-                task.wait(0.1) 
+                -- Wait just long enough for the server to register our new position
+                task.wait(0.05) 
                 
+                -- Save original properties to revert later (keeps the game from breaking)
                 local oldLoS = prompt.RequiresLineOfSight
+                local oldMaxDist = prompt.MaxActivationDistance
+                local oldHold = prompt.HoldDuration
+                
+                -- Force the prompt into the most vulnerable state possible
                 prompt.RequiresLineOfSight = false
+                prompt.MaxActivationDistance = 50
+                prompt.HoldDuration = 0
                 
                 if fireproximityprompt then
-                    fireproximityprompt(prompt)
+                    -- Rapid-fire the prompt 3 times to ensure the server catches it through ping
+                    for i = 1, 3 do
+                        if not prompt or not prompt.Parent then break end
+                        fireproximityprompt(prompt)
+                        task.wait(0.05)
+                    end
                 end
                 
-                prompt.RequiresLineOfSight = oldLoS
+                -- Revert properties cleanly
+                if prompt and prompt.Parent then
+                    prompt.RequiresLineOfSight = oldLoS
+                    prompt.MaxActivationDistance = oldMaxDist
+                    prompt.HoldDuration = oldHold
+                end
                 
                 isTracking = false
                 trackConnection:Disconnect()
