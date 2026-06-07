@@ -70,7 +70,7 @@ TopBarExtension.BorderSizePixel = 0
 TopBarExtension.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 1, 0)
+Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "Tycoon Auto-Buyer"
@@ -79,6 +79,31 @@ Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) -- zinc-400
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = TopBar
+
+CloseButton.MouseEnter:Connect(function()
+    CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) -- red-500 on hover
+end)
+
+CloseButton.MouseLeave:Connect(function()
+    CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) -- revert to zinc-400
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    State.Master = false -- Ensure the buying loop terminates
+    TycoonGui:Destroy()  -- completely remove the UI
+end)
 
 -- Draggable Logic
 local dragging, dragInput, dragStart, startPos
@@ -209,50 +234,40 @@ createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", true)
 local allItems = {}
 for _, item in ipairs(defaultOn) do table.insert(allItems, item) end
 for _, item in ipairs(defaultOff) do table.insert(allItems, item) end
-table.sort(allItems) -- Sort alphabetically for easier navigation
+table.sort(allItems) 
 
 for _, itemName in ipairs(allItems) do
     createToggle(ScrollFrame, itemName, itemName, false)
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Strictly Player Plot)
+-- AUTO-BUYER LOGIC (Spatial Math & Anchoring)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.5
-local itemCache = {} -- Stores found items
-local myPlot = nil   -- Stores your specific plot
+local itemCache = {} 
+local myPlot = nil   
 
 -- Function to calculate plot ownership using spatial math
 local function findMyPlot()
     local character = LocalPlayer.Character
     local hrp = character and character:FindFirstChild("HumanoidRootPart")
     
-    if not hrp then 
-        warn("Character not found.")
-        return nil 
-    end
+    if not hrp then return nil end
 
     local position = hrp.Position
     local plotsFolder = workspace:FindFirstChild("Plots")
     
-    if not plotsFolder then 
-        warn("Could not find 'Plots' folder in Workspace.")
-        return nil 
-    end
+    if not plotsFolder then return nil end
 
-    -- Loop through all plots and calculate if we are standing inside their PlotZone
     for _, plot in ipairs(plotsFolder:GetChildren()) do
         local plotZone = plot:FindFirstChild("PlotZone", true)
         
         if plotZone and plotZone:IsA("BasePart") then
-            -- Convert player position to the PlotZone's local space
             local localPos = plotZone.CFrame:PointToObjectSpace(position)
             local halfSize = plotZone.Size * 0.5
             
-            -- Check if X and Z coordinates are within the PlotZone's boundaries
             if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                print("Successfully locked onto plot via spatial math:", plot.Name)
                 return plot
             end
         end
@@ -262,22 +277,16 @@ local function findMyPlot()
     return nil
 end
 
--- Function to find the purchase pad strictly in YOUR plot's ActiveItems
 local function getTarget(itemName)
-    -- 1. If cached, return instantly
     if itemCache[itemName] and itemCache[itemName].Prompt:IsDescendantOf(workspace) then
         return itemCache[itemName].Pad, itemCache[itemName].Prompt
     end
 
-    -- 2. Find and cache your plot if we haven't already
     if not myPlot then
         myPlot = findMyPlot()
-        if not myPlot then 
-            return nil, nil 
-        end
+        if not myPlot then return nil, nil end
     end
 
-    -- 3. Targeted search strictly inside your ActiveItems folder (ignores ReserveSlots)
     local belt = myPlot:FindFirstChild("Belt")
     local activeItems = belt and belt:FindFirstChild("ActiveItems")
     
@@ -286,7 +295,6 @@ local function getTarget(itemName)
         
         if targetItem then
             local prompt = targetItem:FindFirstChildWhichIsA("ProximityPrompt", true)
-            
             local pad = targetItem:FindFirstChild("PurchasePad", true) 
                 or targetItem:FindFirstChild("Head", true) 
                 or targetItem:FindFirstChildWhichIsA("BasePart", true)
@@ -301,7 +309,6 @@ local function getTarget(itemName)
     return nil, nil
 end
 
--- The main loop
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
@@ -316,7 +323,14 @@ task.spawn(function()
                 local pad, prompt = getTarget(itemName)
                 
                 if pad and prompt then
+                    -- Kill physical momentum to stop slipping
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                    
+                    -- Teleport and anchor
                     hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
+                    hrp.Anchored = true
+                    
                     task.wait(0.2) 
                     
                     if fireproximityprompt then
@@ -324,6 +338,9 @@ task.spawn(function()
                     end
                     
                     task.wait(DELAY_BETWEEN_BUYS)
+                    
+                    -- Release anchor so player can move again if loop stops
+                    hrp.Anchored = false
                 end
             end
         end
