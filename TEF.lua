@@ -368,7 +368,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Glued Tracking + Delay)
+-- AUTO-BUYER LOGIC (100% Legitimate Simulation)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
@@ -449,42 +449,32 @@ task.spawn(function()
             if pad and pad.Parent and prompt and prompt.Parent then
                 hrp.Anchored = true
                 
-                -- The "Glue": Continuously updates position every frame to track moving items, but ignores rotation
+                -- The "Glue": Continuously updates position to track the moving item
                 local isTracking = true
                 local trackConnection = RunService.Heartbeat:Connect(function()
                     if isTracking and pad and pad.Parent then
-                        -- Forces position only to prevent spinning
-                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
+                        -- Hovering 2.5 studs up ensures we don't clip inside the mesh, keeping Line Of Sight clear!
+                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 2.5, 0))
                         hrp.AssemblyLinearVelocity = Vector3.zero
                         hrp.AssemblyAngularVelocity = Vector3.zero
                     end
                 end)
                 
-                -- Wait 0.1s while tracking so the server acknowledges we are standing on the item
-                task.wait(0.1)
+                -- Wait 0.2s while tracking so the server registers we are standing on the item
+                task.wait(0.2)
                 
                 if prompt.Enabled then
-                    local oldLoS = prompt.RequiresLineOfSight
-                    local oldMaxDist = prompt.MaxActivationDistance
-                    local oldHold = prompt.HoldDuration
-                    
-                    prompt.RequiresLineOfSight = false
-                    prompt.MaxActivationDistance = 50
-                    prompt.HoldDuration = 0
+                    -- We NO LONGER spoof LineOfSight, Distance, or HoldDuration. 
+                    -- We play by the game's rules to bypass the server checks.
                     
                     if fireproximityprompt then
                         fireproximityprompt(prompt)
-                        task.wait(0.05) -- Fire twice just in case the first is eaten by ping
-                        fireproximityprompt(prompt)
                     end
                     
-                    prompt.RequiresLineOfSight = oldLoS
-                    prompt.MaxActivationDistance = oldMaxDist
-                    prompt.HoldDuration = oldHold
+                    -- THE FIX: Stay glued to the part for the exact required HoldDuration so the server accepts it!
+                    local requiredHoldTime = prompt.HoldDuration or 0
+                    task.wait(requiredHoldTime + 0.15) -- Add 0.15s ping buffer
                 end
-                
-                -- Wait another 0.1s WHILE STILL TRACKING so the server has time to process the buy
-                task.wait(0.1)
                 
                 -- Un-glue and move to the next item
                 isTracking = false
