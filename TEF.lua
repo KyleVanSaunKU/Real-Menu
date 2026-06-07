@@ -2,15 +2,8 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
-
--- ==========================================
--- NETWORK BACKDOOR
--- ==========================================
--- Directly hook into the raw RemoteEvent to bypass Solara's require() block
-local PacketRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Vendor"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
 
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & DEFAULTS
@@ -116,9 +109,9 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Tycoon Auto-Buyer (God Mode)"
+Title.Text = "Tycoon Auto-Buyer"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
@@ -342,10 +335,10 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Instant Network Firing)
+-- AUTO-BUYER LOGIC (Stable Physical Loop)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.05 -- Super fast since we bypass physics entirely
+local DELAY_BETWEEN_BUYS = 0.5 -- Slower delay to ensure stable physics
 local myPlot = nil   
 
 local function findMyPlot()
@@ -384,10 +377,16 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
-            table.insert(buyableItems, {
-                Instance = item, 
-                Priority = ItemPriorityMap[item.Name] or 99
-            })
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
+            
+            if prompt and pad then
+                table.insert(buyableItems, {
+                    Prompt = prompt,
+                    Pad = pad,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
+            end
         end
     end
 
@@ -401,18 +400,54 @@ end
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
+        
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
 
         local targets = getSortedItemsOnBelt()
 
         for _, target in ipairs(targets) do
             if not State.Master then break end 
             
-            if target.Instance and target.Instance.Parent then
-                -- Forge the exact packet the game's network expects
-                pcall(function()
-                    PacketRemote:FireServer("purchase_belt_item", target.Instance)
-                end)
+            local pad = target.Pad
+            local prompt = target.Prompt
+
+            if pad and pad.Parent and prompt and prompt.Parent then
+                -- 1. Anti-Spin Lock: Grab only the position, ignore rotation
+                local targetPos = pad.Position + Vector3.new(0, 1.5, 0)
+                hrp.CFrame = CFrame.new(targetPos)
                 
+                -- 2. Kill momentum and anchor to prevent slipping off moving belts
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.Anchored = true
+                
+                -- 3. Ping Delay: Wait for the server to recognize we are standing here
+                task.wait(0.25) 
+                
+                -- 4. Perfect Single-Fire
+                if prompt.Enabled then
+                    local oldLoS = prompt.RequiresLineOfSight
+                    local oldMaxDist = prompt.MaxActivationDistance
+                    local oldHold = prompt.HoldDuration
+                    
+                    prompt.RequiresLineOfSight = false
+                    prompt.MaxActivationDistance = 15
+                    prompt.HoldDuration = 0
+                    
+                    if fireproximityprompt then
+                        print("Attempting to buy:", target.Prompt.Parent.Name)
+                        fireproximityprompt(prompt)
+                    end
+                    
+                    prompt.RequiresLineOfSight = oldLoS
+                    prompt.MaxActivationDistance = oldMaxDist
+                    prompt.HoldDuration = oldHold
+                end
+                
+                -- 5. Release and wait for next item
+                hrp.Anchored = false
                 task.wait(DELAY_BETWEEN_BUYS)
             end
         end
