@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 -- Require the game's custom network module
-local NetworkPackets = require(ReplicatedStorage.Shared.Network.Packets)
+local NetworkPackets = getrenv().require(ReplicatedStorage.Shared.Network.Packets)
 local PurchasePacket = NetworkPackets.purchase_belt_item
 
 -- Helper function to fire the custom packet (Vendor packets use different method names)
