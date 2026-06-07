@@ -50,14 +50,22 @@ local defaultOff = {
 local ItemPriorityMap = {}
 local State = {
     Master = false,
-    Noclip = false, -- New Noclip State
+    Noclip = false,
+    Categories = {},
     Items = {}
 }
+local VisualUpdaters = {} -- Stores functions to trigger UI animations remotely
 
+-- Initialize States
 for _, category in ipairs(ItemCategories) do
+    State.Categories[category.Name] = true 
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
         State.Items[item] = not defaultOff[item] 
+        -- If any item is off by default, start the category toggle as off
+        if defaultOff[item] then
+            State.Categories[category.Name] = false
+        end
     end
 end
 
@@ -73,7 +81,7 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 500) -- Slightly taller to fit new toggle
+MainFrame.Size = UDim2.new(0, 300, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
@@ -157,7 +165,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Shifted ScrollFrame down to make room for Noclip
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
 ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
@@ -177,23 +184,77 @@ end)
 
 local currentLayoutOrder = 0
 
-local function createHeader(parent, text, color)
+-- New function to create Bulk Toggles for Categories
+local function createCategoryHeader(parent, category)
     currentLayoutOrder += 1
+    
     local HeaderFrame = Instance.new("Frame")
-    HeaderFrame.Size = UDim2.new(1, -10, 0, 25)
-    HeaderFrame.BackgroundTransparency = 1
+    HeaderFrame.Size = UDim2.new(1, -10, 0, 32)
+    HeaderFrame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+    HeaderFrame.BackgroundTransparency = 0.5 -- Slightly darker to separate from items
     HeaderFrame.LayoutOrder = currentLayoutOrder
     HeaderFrame.Parent = parent
+
+    local HCorner = Instance.new("UICorner")
+    HCorner.CornerRadius = UDim.new(0, 6)
+    HCorner.Parent = HeaderFrame
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
     Label.BackgroundTransparency = 1
-    Label.Text = string.upper(text)
-    Label.TextColor3 = color
+    Label.Text = string.upper(category.Name) .. " (ALL)"
+    Label.TextColor3 = category.Color
     Label.TextSize = 12
     Label.Font = Enum.Font.GothamBold
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = HeaderFrame
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 40, 0, 20)
+    Button.Position = UDim2.new(1, -50, 0.5, -10)
+    Button.BackgroundColor3 = Color3.fromRGB(239, 68, 68) 
+    Button.Text = ""
+    Button.Parent = HeaderFrame
+
+    local BCorner = Instance.new("UICorner")
+    BCorner.CornerRadius = UDim.new(1, 0)
+    BCorner.Parent = Button
+
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 16, 0, 16)
+    Indicator.Position = UDim2.new(0, 2, 0.5, -8)
+    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Indicator.Parent = Button
+
+    local ICorner = Instance.new("UICorner")
+    ICorner.CornerRadius = UDim.new(1, 0)
+    ICorner.Parent = Indicator
+
+    local function updateVisuals(state)
+        local goalColor = state and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68) 
+        local goalPos = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
+        TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = goalColor}):Play()
+        TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = goalPos}):Play()
+    end
+
+    VisualUpdaters[category.Name] = updateVisuals
+    updateVisuals(State.Categories[category.Name])
+
+    Button.MouseButton1Click:Connect(function()
+        local newState = not State.Categories[category.Name]
+        State.Categories[category.Name] = newState
+        updateVisuals(newState)
+        
+        -- Loop through and update all child items to match the master category state
+        for _, item in ipairs(category.Items) do
+            State.Items[item] = newState
+            if VisualUpdaters[item] then
+                VisualUpdaters[item](newState)
+            end
+        end
+    end)
 end
 
 local function createToggle(parent, name, text, toggleType)
@@ -250,6 +311,8 @@ local function createToggle(parent, name, text, toggleType)
         TweenService:Create(Indicator, TweenInfo.new(0.2), {Position = goalPos}):Play()
     end
 
+    VisualUpdaters[name] = updateVisuals
+
     local startingState = false
     if toggleType == "Master" then startingState = State.Master
     elseif toggleType == "Noclip" then startingState = State.Noclip
@@ -289,7 +352,7 @@ NoclipContainer.Parent = MainFrame
 createToggle(NoclipContainer, "NoclipToggle", "Enable Noclip", "Noclip")
 
 for _, category in ipairs(ItemCategories) do
-    createHeader(ScrollFrame, category.Name, category.Color)
+    createCategoryHeader(ScrollFrame, category)
     for _, itemName in ipairs(category.Items) do
         createToggle(ScrollFrame, itemName, itemName, "Item")
     end
