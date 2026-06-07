@@ -223,49 +223,44 @@ local DELAY_BETWEEN_BUYS = 0.5
 local itemCache = {} -- Stores found items
 local myPlot = nil   -- Stores your specific plot
 
--- Function to strictly read your plot assignment from the UI
+-- Function to hook into the game's state manager
 local function findMyPlot()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not playerGui then return nil end
+    local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+    if not playerScripts then return nil end
 
-    -- Navigate exactly to the path you found in Dex
-    local hud = playerGui:FindFirstChild("Hud")
-    if not hud then return nil end
-
-    local frame = hud:FindFirstChild("Frame")
-    local leftMiddle = frame and frame:FindFirstChild("LeftMiddle")
-    local leftSlot = leftMiddle and leftMiddle:FindFirstChild("LeftSlot")
-    local row1 = leftSlot and leftSlot:FindFirstChild("Row1")
-    local myPlotUI = row1 and row1:FindFirstChild("MyPlot")
-
-    if myPlotUI then
-        -- Scenario 1: 'MyPlot' is an ObjectValue directly linked to the physical plot
-        if myPlotUI:IsA("ObjectValue") and myPlotUI.Value then
-            print("Found plot via ObjectValue:", myPlotUI.Value.Name)
-            return myPlotUI.Value
-        end
-
-        -- Scenario 2: 'MyPlot' is a StringValue with the plot's name (e.g., "Plot_4")
-        if myPlotUI:IsA("StringValue") and myPlotUI.Value ~= "" then
-            local plotsFolder = workspace:FindFirstChild("Plots")
-            if plotsFolder then
-                local actualPlot = plotsFolder:FindFirstChild(myPlotUI.Value)
-                if actualPlot then
-                    print("Found plot via StringValue:", actualPlot.Name)
-                    return actualPlot
+    -- Search for the ClientAtoms module
+    local clientAtomsModule = playerScripts:FindFirstChild("ClientAtoms", true)
+    
+    if clientAtomsModule and clientAtomsModule:IsA("ModuleScript") then
+        -- Require the module using the executor
+        local success, ClientAtoms = pcall(require, clientAtomsModule)
+        
+        if success and ClientAtoms then
+            -- Check if the active_plot getter exists
+            if type(ClientAtoms.active_plot) == "function" then
+                local currentPlot = ClientAtoms.active_plot()
+                
+                if currentPlot then
+                    print("Successfully locked onto plot via ClientAtoms:", currentPlot.Name)
+                    return currentPlot
+                else
+                    warn("ClientAtoms returned nil. Make sure you are standing completely inside your base!")
+                end
+            -- It might also track owned_plot, checking just in case
+            elseif type(ClientAtoms.owned_plot) == "function" then
+                local ownedPlot = ClientAtoms.owned_plot()
+                if ownedPlot then
+                    print("Successfully locked onto owned plot:", ownedPlot.Name)
+                    return ownedPlot
                 end
             end
+        else
+            warn("Failed to require ClientAtoms module.")
         end
-
-        -- Scenario 3: The ObjectValue is sitting INSIDE the 'MyPlot' UI element
-        local internalRef = myPlotUI:FindFirstChildWhichIsA("ObjectValue")
-        if internalRef and internalRef.Value then
-            print("Found plot via internal ObjectValue:", internalRef.Value.Name)
-            return internalRef.Value
-        end
+    else
+        warn("Could not locate ClientAtoms module in PlayerScripts.")
     end
 
-    warn("Could not extract plot from the PlayerGui path.")
     return nil
 end
 
