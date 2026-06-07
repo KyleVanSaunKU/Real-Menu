@@ -354,10 +354,10 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Instant Network Firing)
+-- AUTO-BUYER LOGIC (The "Sniper" Method)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.1 -- Can be much faster now that physics are gone
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
 
 local function findMyPlot()
@@ -396,10 +396,15 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
-            table.insert(buyableItems, {
-                Instance = item, -- This is the physical model the packet wants
-                Priority = ItemPriorityMap[item.Name] or 99
-            })
+            -- We don't need the Pad anymore since we aren't teleporting
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            
+            if prompt then
+                table.insert(buyableItems, {
+                    Prompt = prompt,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
+            end
         end
     end
 
@@ -419,11 +424,27 @@ task.spawn(function()
         for _, target in ipairs(targets) do
             if not State.Master then break end 
             
-            if target.Instance and target.Instance.Parent then
-                -- Bypass all physics and fire the raw packet directly to the server
-                pcall(function()
-                    sendPurchase(target.Instance)
-                end)
+            local prompt = target.Prompt
+
+            if prompt and prompt.Parent and prompt.Enabled then
+                -- Save original properties
+                local oldLoS = prompt.RequiresLineOfSight
+                local oldMaxDist = prompt.MaxActivationDistance
+                local oldHold = prompt.HoldDuration
+                
+                -- Force prompt to have infinite range and instant activation
+                prompt.RequiresLineOfSight = false
+                prompt.MaxActivationDistance = 999999
+                prompt.HoldDuration = 0
+                
+                if fireproximityprompt then
+                    fireproximityprompt(prompt)
+                end
+                
+                -- Revert properties cleanly
+                prompt.RequiresLineOfSight = oldLoS
+                prompt.MaxActivationDistance = oldMaxDist
+                prompt.HoldDuration = oldHold
                 
                 task.wait(DELAY_BETWEEN_BUYS)
             end
