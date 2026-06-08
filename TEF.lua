@@ -439,66 +439,32 @@ local function getSortedItemsOnBelt()
 end
 
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.2) do -- Debounce slightly to prevent server-side rate limits
         if not State.Master then continue end
         
-        local character = LocalPlayer.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
+        local currentPlot = findMyPlot()
+        if not currentPlot then continue end
 
-        hrp.Anchored = false
+        local activeItems = currentPlot:FindFirstChild("Belt") and currentPlot.Belt:FindFirstChild("ActiveItems")
+        if not activeItems then continue end
 
-        local targets = getSortedItemsOnBelt()
+        -- Prepare the trigger arguments once to save memory
+        local triggerArgs = { [1] = LocalPlayer }
 
-        for _, target in ipairs(targets) do
-            if not State.Master then break end 
-            
-            local pad = target.Pad
-            local prompt = target.Prompt
-
-            if pad and pad.Parent and prompt and prompt.Parent then
-                hrp.Anchored = true
+        for _, item in ipairs(activeItems:GetChildren()) do
+            -- Only buy items that are toggled ON in your UI
+            if State.Items[item.Name] then
+                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                 
-                local isTracking = true
-                local trackConnection = RunService.Heartbeat:Connect(function()
-                    if isTracking and pad and pad.Parent then
-                        -- CRITICAL FIX: We only take the Position, NOT the rotation. 
-                        -- This prevents your character from violently spinning if the item tumbles.
-                        hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 2, 0))
-                        hrp.AssemblyLinearVelocity = Vector3.zero
-                        hrp.AssemblyAngularVelocity = Vector3.zero
-                    end
-                end)
-                
-                -- Wait slightly longer (0.2s) to guarantee the server sees you standing still
-                task.wait(0.2) 
-                
-                -- Only attempt to buy if the prompt is actually active and ready
-                if prompt.Enabled then
-                    local oldLoS = prompt.RequiresLineOfSight
-                    local oldMaxDist = prompt.MaxActivationDistance
-                    local oldHold = prompt.HoldDuration
+                if prompt and prompt.Enabled then
+                    pcall(function()
+                        -- This triggers the prompt exactly as if you were standing there
+                        prompt:Triggered(table.unpack(triggerArgs))
+                    end)
                     
-                    prompt.RequiresLineOfSight = false
-                    prompt.MaxActivationDistance = 50
-                    prompt.HoldDuration = 0
-                    
-                    -- Fire exactly ONCE to bypass anti-spam
-                    if fireproximityprompt then
-                        fireproximityprompt(prompt)
-                    end
-                    
-                    prompt.RequiresLineOfSight = oldLoS
-                    prompt.MaxActivationDistance = oldMaxDist
-                    prompt.HoldDuration = oldHold
+                    -- Small delay between triggers to ensure server processing
+                    task.wait(DELAY_BETWEEN_BUYS)
                 end
-                
-                isTracking = false
-                trackConnection:Disconnect()
-                hrp.Anchored = false
-                
-                -- Give the item time to process and disappear before moving to the next
-                task.wait(DELAY_BETWEEN_BUYS)
             end
         end
     end
