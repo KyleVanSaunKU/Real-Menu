@@ -7,7 +7,7 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & COLORS
 -- ==========================================
-
+-- Items must me manually added (Updated 6/7/2026)
 local ItemCategories = {
     {
         Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
