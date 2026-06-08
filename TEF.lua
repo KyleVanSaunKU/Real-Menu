@@ -352,135 +352,64 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- NOCLIP LOGIC (RunService Stepped)
+-- AUTO-BUYER LOGIC
 -- ==========================================
-RunService.Stepped:Connect(function()
-    if State.Noclip then
-        local character = LocalPlayer.Character
-        if character then
-            for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then
-                    part.CanCollide = false
+
+local function findMyPlot()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    for _, plot in ipairs(workspace.Plots:GetChildren()) do
+        local zone = plot:FindFirstChild("PlotZone", true)
+        if zone and zone:IsA("BasePart") then
+            local p = zone.CFrame:PointToObjectSpace(hrp.Position)
+            local s = zone.Size * 0.5
+            if math.abs(p.X) <= s.X and math.abs(p.Z) <= s.Z then return plot end
+        end
+    end
+end
+
+-- Loop Logic
+task.spawn(function()
+    while task.wait(0.3) do
+        if not State.Master then continue end
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        
+        local plot = findMyPlot()
+        local active = plot and plot:FindFirstChild("Belt") and plot.Belt:FindFirstChild("ActiveItems")
+        if not active then continue end
+
+        for _, item in ipairs(active:GetChildren()) do
+            if State.Items[item.Name] then
+                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChildWhichIsA("BasePart", true)
+                
+                if prompt and pad then
+                    -- 1. TELEPORT TO BUY
+                    local oldPos = hrp.CFrame
+                    hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
+                    hrp.Anchored = true
+                    task.wait(0.1)
+                    
+                    -- 2. FIRE BOTH METHODS
+                    pcall(function() PacketRemote:FireServer("purchase_belt_item", item) end)
+                    if prompt.Enabled then prompt:Triggered(LocalPlayer) end
+                    
+                    task.wait(0.2)
+                    hrp.Anchored = false
+                    hrp.CFrame = oldPos
+                    task.wait(0.2)
                 end
             end
         end
     end
 end)
 
--- ==========================================
--- AUTO-BUYER LOGIC (Glued Tracking + Delay)
--- ==========================================
-
-local DELAY_BETWEEN_BUYS = 0.2 
-local myPlot = nil   
-
-local function findMyPlot()
-    local character = LocalPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-
-    local position = hrp.Position
-    local plotsFolder = workspace:FindFirstChild("Plots")
-    if not plotsFolder then return nil end
-
-    for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local plotZone = plot:FindFirstChild("PlotZone", true)
-        if plotZone and plotZone:IsA("BasePart") then
-            local localPos = plotZone.CFrame:PointToObjectSpace(position)
-            local halfSize = plotZone.Size * 0.5
-            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                return plot
-            end
-        end
-    end
-    return nil
-end
-
-local function getSortedItemsOnBelt()
-    if not myPlot then
-        myPlot = findMyPlot()
-        if not myPlot then return {} end
-    end
-
-    local belt = myPlot:FindFirstChild("Belt")
-    local activeItems = belt and belt:FindFirstChild("ActiveItems")
-    if not activeItems then return {} end
-
-    local buyableItems = {}
-    
-    for _, item in ipairs(activeItems:GetChildren()) do
-        if State.Items[item.Name] then
-            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
-            
-            if prompt and pad then
-                table.insert(buyableItems, {
-                    Prompt = prompt,
-                    Pad = pad,
-                    Priority = ItemPriorityMap[item.Name] or 99
-                })
-            end
-        end
-    end
-
-    table.sort(buyableItems, function(a, b)
-        return a.Priority < b.Priority
-    end)
-
-    return buyableItems
-end
-
--- ==========================================
--- HYBRID SYNC AUTO-BUYER
--- ==========================================
-
-local DELAY_BETWEEN_BUYS = 0.3 -- Increased delay to avoid debounce triggers
-
-task.spawn(function()
-    while task.wait(0.2) do
-        if not State.Master then continue end
-        
-        local character = LocalPlayer.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-
-        local targets = getSortedItemsOnBelt() -- Uses the existing function from the previous script
-
-        for _, target in ipairs(targets) do
-            if not State.Master then break end 
-            
-            local pad = target.Pad
-            local prompt = target.Prompt
-
-            if pad and pad.Parent and prompt and prompt.Parent then
-                print("Attempting physical buy of: " .. target.Instance.Name)
-                
-                -- 1. TELEPORT & ANCHOR
-                hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.Anchored = true
-                
-                -- 2. WAIT FOR REPLICATION
-                -- We wait just a moment so the server sees you standing there
-                task.wait(0.1) 
-                
-                -- 3. FIRE PROMPT
-                if fireproximityprompt then
-                    fireproximityprompt(prompt)
-                    print("FireProximityPrompt executed for: " .. target.Instance.Name)
-                else
-                    warn("Executor does not support fireproximityprompt()")
-                end
-                
-                -- 4. WAIT FOR PURCHASE
-                -- This ensures the server processes the interaction while you are "there"
-                task.wait(0.2)
-                
-                -- 5. RELEASE
-                hrp.Anchored = false
-                
-                task.wait(DELAY_BETWEEN_BUYS)
-            end
+-- NOCLIP
+RunService.Stepped:Connect(function()
+    if State.Noclip and LocalPlayer.Character then
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end)
