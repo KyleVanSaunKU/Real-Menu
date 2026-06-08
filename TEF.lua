@@ -369,6 +369,10 @@ local function findMyPlot()
 end
 
 -- Loop Logic
+-- ==========================================
+-- CORRECTED AUTO-BUYER LOGIC
+-- ==========================================
+
 task.spawn(function()
     while task.wait(0.3) do
         if not State.Master then continue end
@@ -380,6 +384,8 @@ task.spawn(function()
         if not active then continue end
 
         for _, item in ipairs(active:GetChildren()) do
+            if not State.Master then break end
+            
             if State.Items[item.Name] then
                 local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                 local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChildWhichIsA("BasePart", true)
@@ -389,12 +395,20 @@ task.spawn(function()
                     local oldPos = hrp.CFrame
                     hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
                     hrp.Anchored = true
-                    task.wait(0.1)
+                    task.wait(0.15) -- Wait for position replication
                     
                     -- 2. FIRE BOTH METHODS
-                    pcall(function() PacketRemote:FireServer("purchase_belt_item", item) end)
-                    if prompt.Enabled then prompt:Triggered(LocalPlayer) end
+                    -- PacketRemote uses the identifier "purchase_belt_item" found in your network dump
+                    if PacketRemote then
+                        pcall(function() PacketRemote:FireServer("purchase_belt_item", item) end)
+                    end
                     
+                    -- Use the executor-native command instead of the invalid :Triggered() method
+                    if prompt.Enabled and fireproximityprompt then
+                        fireproximityprompt(prompt)
+                    end
+                    
+                    -- 3. HOLD & RELEASE
                     task.wait(0.2)
                     hrp.Anchored = false
                     hrp.CFrame = oldPos
