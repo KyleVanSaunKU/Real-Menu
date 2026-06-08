@@ -8,10 +8,6 @@ local LocalPlayer = Players.LocalPlayer
 -- ITEM CATEGORIES, PRIORITIES & COLORS
 -- ==========================================
 
--- ==========================================
--- ITEM CATEGORIES, PRIORITIES & COLORS
--- ==========================================
-
 local ItemCategories = {
     {
         Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
@@ -43,7 +39,6 @@ local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
 
--- ALL STATES SET TO FALSE BY DEFAULT
 for _, category in ipairs(ItemCategories) do
     State.Categories[category.Name] = { Normal = false, Gold = false }
     for _, item in ipairs(category.Items) do
@@ -85,7 +80,7 @@ local Title = Instance.new("TextLabel", TopBar)
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Ultimate Tycoon Buyer"
+Title.Text = "The Everything Factory - Exploits Menu"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -237,7 +232,7 @@ local MasterContainer = Instance.new("Frame", MainFrame)
 MasterContainer.Size = UDim2.new(1, -20, 0, 40)
 MasterContainer.Position = UDim2.new(0, 10, 0, 50)
 MasterContainer.BackgroundTransparency = 1
-local _, MasterBtn, updateMaster = createSingleToggleUI(MasterContainer, "Master Auto-Buy Toggle", 0)
+local _, MasterBtn, updateMaster = createSingleToggleUI(MasterContainer, "Enable Auto-Buy", 0)
 
 local NoclipContainer = Instance.new("Frame", MainFrame)
 NoclipContainer.Size = UDim2.new(1, -20, 0, 40)
@@ -300,6 +295,7 @@ end
 -- ==========================================
 -- NOCLIP LOGIC
 -- ==========================================
+
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -311,7 +307,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- GHOST PLATFORM + DECOUPLED GOLD LOGIC
+-- GHOST PLATFORM + GOLD LOGIC
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
@@ -378,7 +374,6 @@ local function getSortedItemsOnBelt()
             local isGold = isItemGold(item)
             local shouldBuy = false
             
-            -- INDEPENDENT FILTER LOGIC
             if isGold and itemState.Gold then
                 shouldBuy = true
             elseif not isGold and itemState.Normal then
