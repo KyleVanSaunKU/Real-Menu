@@ -66,18 +66,26 @@ local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
 
-local function initState(categories)
-    for _, category in ipairs(categories) do
-        State.Categories[category.Name] = { Normal = false, Gold = false }
-        for _, item in ipairs(category.Items) do
-            ItemPriorityMap[item] = category.Priority
-            State.Items[item] = { Normal = false, Gold = false }
-        end
+local IsJunkyardItem = {}
+local IsBeltItem = {}
+
+for _, category in ipairs(JunkyardCategories) do
+    State.Categories[category.Name] = { Normal = false, Gold = false }
+    for _, item in ipairs(category.Items) do
+        ItemPriorityMap[item] = category.Priority
+        State.Items[item] = { Normal = false, Gold = false }
+        IsJunkyardItem[item] = true
     end
 end
 
-initState(JunkyardCategories)
-initState(ItemCategories)
+for _, category in ipairs(ItemCategories) do
+    State.Categories[category.Name] = { Normal = false, Gold = false, Junk = false }
+    for _, item in ipairs(category.Items) do
+        ItemPriorityMap[item] = category.Priority
+        State.Items[item] = { Normal = false, Gold = false, Junk = false }
+        IsBeltItem[item] = true
+    end
+end
 
 -- ==========================================
 -- UI CONSTRUCTION
@@ -92,8 +100,8 @@ TycoonGui.ResetOnSpawn = false
 TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame", TycoonGui)
-MainFrame.Size = UDim2.new(0, 320, 0, 500) 
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -250)
+MainFrame.Size = UDim2.new(0, 350, 0, 500) -- Widened for 3 buttons
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
@@ -201,6 +209,7 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
+-- Used for native Junkyard items
 local function createDualToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
@@ -218,18 +227,15 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- NORM BUTTON
     local NormBtn = Instance.new("TextButton", Frame)
     NormBtn.Size = UDim2.new(0, 40, 0, 20)
     NormBtn.Position = UDim2.new(1, -95, 0.5, -10)
     NormBtn.Text = ""
     Instance.new("UICorner", NormBtn).CornerRadius = UDim.new(1, 0)
-
     local NormInd = Instance.new("Frame", NormBtn)
     NormInd.Size = UDim2.new(0, 16, 0, 16)
     NormInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", NormInd).CornerRadius = UDim.new(1, 0)
-
     local NormLabel = Instance.new("TextLabel", Frame)
     NormLabel.Size = UDim2.new(0, 40, 0, 10)
     NormLabel.Position = UDim2.new(1, -95, 0.5, 10)
@@ -239,18 +245,15 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     NormLabel.TextSize = 9
     NormLabel.Font = Enum.Font.GothamBold
 
-    -- GOLD BUTTON
     local GoldBtn = Instance.new("TextButton", Frame)
     GoldBtn.Size = UDim2.new(0, 40, 0, 20)
     GoldBtn.Position = UDim2.new(1, -50, 0.5, -10)
     GoldBtn.Text = ""
     Instance.new("UICorner", GoldBtn).CornerRadius = UDim.new(1, 0)
-    
     local GoldInd = Instance.new("Frame", GoldBtn)
     GoldInd.Size = UDim2.new(0, 16, 0, 16)
     GoldInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", GoldInd).CornerRadius = UDim.new(1, 0)
-
     local GoldLabel = Instance.new("TextLabel", Frame)
     GoldLabel.Size = UDim2.new(0, 40, 0, 10)
     GoldLabel.Position = UDim2.new(1, -50, 0.5, 10)
@@ -263,11 +266,95 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     local function updateVisuals(normState, goldState)
         NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
         NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
     return Frame, NormBtn, GoldBtn, updateVisuals
+end
+
+-- Used for Belt Items (Has the Brown JUNK toggle)
+local function createTripleToggleUI(parent, text, color, layoutOrder)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(1, -10, 0, 32)
+    Frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+    Frame.LayoutOrder = layoutOrder
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(1, -145, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = color or Color3.fromRGB(228, 228, 231)
+    Label.TextSize = color and 12 or 14
+    Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local NormBtn = Instance.new("TextButton", Frame)
+    NormBtn.Size = UDim2.new(0, 40, 0, 20)
+    NormBtn.Position = UDim2.new(1, -140, 0.5, -10)
+    NormBtn.Text = ""
+    Instance.new("UICorner", NormBtn).CornerRadius = UDim.new(1, 0)
+    local NormInd = Instance.new("Frame", NormBtn)
+    NormInd.Size = UDim2.new(0, 16, 0, 16)
+    NormInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", NormInd).CornerRadius = UDim.new(1, 0)
+    local NormLabel = Instance.new("TextLabel", Frame)
+    NormLabel.Size = UDim2.new(0, 40, 0, 10)
+    NormLabel.Position = UDim2.new(1, -140, 0.5, 10)
+    NormLabel.BackgroundTransparency = 1
+    NormLabel.Text = "NORM"
+    NormLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    NormLabel.TextSize = 9
+    NormLabel.Font = Enum.Font.GothamBold
+
+    local GoldBtn = Instance.new("TextButton", Frame)
+    GoldBtn.Size = UDim2.new(0, 40, 0, 20)
+    GoldBtn.Position = UDim2.new(1, -95, 0.5, -10)
+    GoldBtn.Text = ""
+    Instance.new("UICorner", GoldBtn).CornerRadius = UDim.new(1, 0)
+    local GoldInd = Instance.new("Frame", GoldBtn)
+    GoldInd.Size = UDim2.new(0, 16, 0, 16)
+    GoldInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", GoldInd).CornerRadius = UDim.new(1, 0)
+    local GoldLabel = Instance.new("TextLabel", Frame)
+    GoldLabel.Size = UDim2.new(0, 40, 0, 10)
+    GoldLabel.Position = UDim2.new(1, -95, 0.5, 10)
+    GoldLabel.BackgroundTransparency = 1
+    GoldLabel.Text = "GOLD"
+    GoldLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    GoldLabel.TextSize = 9
+    GoldLabel.Font = Enum.Font.GothamBold
+
+    local JunkBtn = Instance.new("TextButton", Frame)
+    JunkBtn.Size = UDim2.new(0, 40, 0, 20)
+    JunkBtn.Position = UDim2.new(1, -50, 0.5, -10)
+    JunkBtn.Text = ""
+    Instance.new("UICorner", JunkBtn).CornerRadius = UDim.new(1, 0)
+    local JunkInd = Instance.new("Frame", JunkBtn)
+    JunkInd.Size = UDim2.new(0, 16, 0, 16)
+    JunkInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", JunkInd).CornerRadius = UDim.new(1, 0)
+    local JunkLabel = Instance.new("TextLabel", Frame)
+    JunkLabel.Size = UDim2.new(0, 40, 0, 10)
+    JunkLabel.Position = UDim2.new(1, -50, 0.5, 10)
+    JunkLabel.BackgroundTransparency = 1
+    JunkLabel.Text = "JUNK"
+    JunkLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    JunkLabel.TextSize = 9
+    JunkLabel.Font = Enum.Font.GothamBold
+
+    local function updateVisuals(normState, goldState, junkState)
+        NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
+        GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
+        GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
+        JunkBtn.BackgroundColor3 = junkState and Color3.fromRGB(139, 69, 19) or Color3.fromRGB(82, 82, 91)
+        JunkInd.Position = junkState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    end
+    return Frame, NormBtn, GoldBtn, JunkBtn, updateVisuals
 end
 
 local function createSectionHeaderUI(parent, text, layoutOrder)
@@ -275,7 +362,6 @@ local function createSectionHeaderUI(parent, text, layoutOrder)
     Frame.Size = UDim2.new(1, -10, 0, 24)
     Frame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
     Frame.LayoutOrder = layoutOrder
-    
     local Label = Instance.new("TextLabel", Frame)
     Label.Size = UDim2.new(1, 0, 1, 0)
     Label.BackgroundTransparency = 1
@@ -305,7 +391,7 @@ updateNoclip(State.Noclip)
 MasterBtn.MouseButton1Click:Connect(function() State.Master = not State.Master updateMaster(State.Master) end)
 NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip updateNoclip(State.Noclip) end)
 
-local function populateCategoryUI(categoriesList, headerText)
+local function populateJunkyardCategoryUI(categoriesList, headerText)
     currentLayoutOrder += 1
     createSectionHeaderUI(ScrollFrame, headerText, currentLayoutOrder)
 
@@ -350,8 +436,66 @@ local function populateCategoryUI(categoriesList, headerText)
     end
 end
 
-populateCategoryUI(JunkyardCategories, "--- JUNKYARD ITEMS ---")
-populateCategoryUI(ItemCategories, "--- BELT ITEMS ---")
+local function populateBeltCategoryUI(categoriesList, headerText)
+    currentLayoutOrder += 1
+    createSectionHeaderUI(ScrollFrame, headerText, currentLayoutOrder)
+
+    for _, category in ipairs(categoriesList) do
+        currentLayoutOrder += 1
+        local _, CatNorm, CatGold, CatJunk, updateCat = createTripleToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
+        updateCat(false, false, false)
+
+        CatNorm.MouseButton1Click:Connect(function()
+            State.Categories[category.Name].Normal = not State.Categories[category.Name].Normal
+            for _, item in ipairs(category.Items) do 
+                State.Items[item].Normal = State.Categories[category.Name].Normal
+                if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
+            end
+            updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+        end)
+        
+        CatGold.MouseButton1Click:Connect(function()
+            State.Categories[category.Name].Gold = not State.Categories[category.Name].Gold
+            for _, item in ipairs(category.Items) do 
+                State.Items[item].Gold = State.Categories[category.Name].Gold
+                if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
+            end
+            updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+        end)
+
+        CatJunk.MouseButton1Click:Connect(function()
+            State.Categories[category.Name].Junk = not State.Categories[category.Name].Junk
+            for _, item in ipairs(category.Items) do 
+                State.Items[item].Junk = State.Categories[category.Name].Junk
+                if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
+            end
+            updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+        end)
+
+        for _, itemName in ipairs(category.Items) do
+            currentLayoutOrder += 1
+            local _, ItemNorm, ItemGold, ItemJunk, updateItem = createTripleToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
+            VisualUpdaters[itemName] = updateItem
+            updateItem(false, false, false)
+
+            ItemNorm.MouseButton1Click:Connect(function()
+                State.Items[itemName].Normal = not State.Items[itemName].Normal
+                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+            end)
+            ItemGold.MouseButton1Click:Connect(function()
+                State.Items[itemName].Gold = not State.Items[itemName].Gold
+                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+            end)
+            ItemJunk.MouseButton1Click:Connect(function()
+                State.Items[itemName].Junk = not State.Items[itemName].Junk
+                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+            end)
+        end
+    end
+end
+
+populateJunkyardCategoryUI(JunkyardCategories, "--- JUNKYARD NATIVE ITEMS ---")
+populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 -- ==========================================
 -- NOCLIP LOGIC
@@ -380,21 +524,17 @@ HoverPlatform.CanCollide = true
 HoverPlatform.Parent = workspace
 HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 
--- BULLETPROOF DEEP SCAN FOR GOLD
+-- Bulletproof Deep Scan
 local function isItemGold(item)
-    -- Fast Path: Check standard Belt Hitbox location
     local hitbox = item:FindFirstChild("Hitbox")
     if hitbox and (hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02")) then 
         return true 
     end
-    
-    -- Deep Scan: For Junkyard items where the developer put the particles somewhere else
     for _, desc in ipairs(item:GetDescendants()) do
         if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
             return true
         end
     end
-    
     return false
 end
 
@@ -487,18 +627,20 @@ local function getSortedItemsOnBelt()
 
     local buyableItems = {}
     for _, item in ipairs(activeItems:GetChildren()) do
-        local itemState = State.Items[item.Name]
-        if itemState then
-            local isGold = isItemGold(item)
-            local shouldBuy = false
-            
-            if isGold and itemState.Gold then shouldBuy = true
-            elseif not isGold and itemState.Normal then shouldBuy = true end
-            
-            if shouldBuy then
-                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt then
-                    table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
+        if IsBeltItem[item.Name] then
+            local itemState = State.Items[item.Name]
+            if itemState then
+                local isGold = isItemGold(item)
+                local shouldBuy = false
+                
+                if isGold and itemState.Gold then shouldBuy = true
+                elseif not isGold and itemState.Normal then shouldBuy = true end
+                
+                if shouldBuy then
+                    local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
+                    end
                 end
             end
         end
@@ -533,29 +675,38 @@ local function getSortedJunkyardItems()
 
     local buyableItems = {}
     
-    for _, obj in ipairs(jyItemsFolder:GetDescendants()) do
-        local itemState = State.Items[obj.Name]
-        
-        if itemState and typeof(itemState) == "table" then
-            local isGold = isItemGold(obj)
-            local shouldBuy = false
+    for _, itemSpawn in ipairs(jyItemsFolder:GetChildren()) do
+        for _, obj in ipairs(itemSpawn:GetChildren()) do
             
-            if isGold and itemState.Gold then shouldBuy = true
-            elseif not isGold and itemState.Normal then shouldBuy = true end
-            
-            if shouldBuy then
-                local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt then
-                    local alreadyAdded = false
-                    for _, existing in ipairs(buyableItems) do
-                        if existing.Prompt == prompt then alreadyAdded = true break end
-                    end
-                    
-                    if not alreadyAdded then
-                        table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[obj.Name] or 99})
+            local itemState = State.Items[obj.Name]
+            if itemState and typeof(itemState) == "table" then
+                local isGold = isItemGold(obj)
+                local shouldBuy = false
+                
+                -- Native Junkyard Items: Check Norm/Gold
+                if IsJunkyardItem[obj.Name] then
+                    if isGold and itemState.Gold then shouldBuy = true
+                    elseif not isGold and itemState.Normal then shouldBuy = true end
+                
+                -- Belt Items in the Junkyard: Check explicitly for the Brown JUNK toggle
+                elseif IsBeltItem[obj.Name] then
+                    if itemState.Junk then shouldBuy = true end
+                end
+                
+                if shouldBuy then
+                    local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        local alreadyAdded = false
+                        for _, existing in ipairs(buyableItems) do
+                            if existing.Prompt == prompt then alreadyAdded = true break end
+                        end
+                        if not alreadyAdded then
+                            table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[obj.Name] or 99})
+                        end
                     end
                 end
             end
+            
         end
     end
     
