@@ -2,20 +2,36 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
--- ITEM CATEGORIES & STATE
+-- ITEM CATEGORIES, PRIORITIES & DEFAULTS
 -- ==========================================
+
 local ItemCategories = {
-    { Name = "Mythical", Priority = 1, Color = Color3.fromRGB(236, 72, 153), Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"} },
-    { Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"} },
-    { Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(56, 189, 248), Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"} }
+    {
+        Name = "Mythical", Priority = 1, Color = Color3.fromRGB(236, 72, 153), 
+        Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"}
+    },
+    {
+        Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), 
+        Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"}
+    },
+    {
+        Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(56, 189, 248), 
+        Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"}
+    }
 }
 
-local defaultOff = { ["WaterfallUpgrader"] = true, ["MalevolentFurnace"] = true }
+local defaultOff = {
+    ["WaterfallUpgrader"] = true,
+    ["MalevolentFurnace"] = true
+}
+
 local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
+local VisualUpdaters = {} 
 
 for _, category in ipairs(ItemCategories) do
     State.Categories[category.Name] = true 
@@ -27,69 +43,204 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- UI CONSTRUCTION (Crash-Proof, No Animations)
+-- UI CONSTRUCTION (Crash-Proof Edition)
 -- ==========================================
-local TycoonGui = Instance.new("ScreenGui", (RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui))
+
+-- Safely parent to CoreGui so the game's anti-cheat doesn't delete it
+local success, GuiTarget = pcall(function() return CoreGui end)
+if not success then GuiTarget = LocalPlayer.PlayerGui end
+
+local TycoonGui = Instance.new("ScreenGui")
 TycoonGui.Name = "TycoonAutoBuyer"
 TycoonGui.ResetOnSpawn = false
+TycoonGui.Parent = GuiTarget
 
-local MainFrame = Instance.new("Frame", TycoonGui)
-MainFrame.Size = UDim2.new(0, 300, 0, 500)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
-MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = TycoonGui
 
-local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
-ScrollFrame.Size = UDim2.new(1, -20, 1, -110)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 100)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.ScrollBarThickness = 4
-Instance.new("UIListLayout", ScrollFrame).Padding = UDim.new(0, 5)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
 
-local function createToggle(parent, name, text, isMaster)
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -60, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(228, 228, 231)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 40, 0, 20)
-    btn.Position = UDim2.new(1, -50, 0.5, -10)
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-    
-    local function update(state)
-        btn.BackgroundColor3 = state and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(39, 39, 42) 
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 8)
+TopBarCorner.Parent = TopBar
+
+local TopBarExtension = Instance.new("Frame")
+TopBarExtension.Size = UDim2.new(1, 0, 0, 8)
+TopBarExtension.Position = UDim2.new(0, 0, 1, -8)
+TopBarExtension.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+TopBarExtension.BorderSizePixel = 0
+TopBarExtension.Parent = TopBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Tycoon Auto-Buyer"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = TopBar
+
+CloseButton.MouseEnter:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) end)
+CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) end)
+CloseButton.MouseButton1Click:Connect(function()
+    State.Master = false 
+    State.Noclip = false
+    TycoonGui:Destroy()  
+end)
+
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
     end
-    
-    btn.MouseButton1Click:Connect(function()
-        if isMaster then
-            State.Master = not State.Master
-            update(State.Master)
-        elseif name == "NoclipToggle" then
-            State.Noclip = not State.Noclip
-            update(State.Noclip)
-        else
-            State.Items[name] = not State.Items[name]
-            update(State.Items[name])
-        end
-    end)
-    
-    update(isMaster and State.Master or (name == "NoclipToggle" and State.Noclip or State.Items[name]))
+end)
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+end)
+RunService.Heartbeat:Connect(function()
+    if dragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
+ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder 
+UIListLayout.Parent = ScrollFrame
+
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end)
+
+local currentLayoutOrder = 0
+
+-- INSTANT UPDATE FUNCTION (Replaces TweenService)
+local function createToggleUI(parent, text, color, layoutOrder)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, -10, 0, 32)
+    Frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+    Frame.LayoutOrder = layoutOrder
+    Frame.Parent = parent
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = color or Color3.fromRGB(228, 228, 231)
+    Label.TextSize = color and 12 or 14
+    Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Button = Instance.new("TextButton", Frame)
+    Button.Size = UDim2.new(0, 40, 0, 20)
+    Button.Position = UDim2.new(1, -50, 0.5, -10)
+    Button.Text = ""
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(1, 0)
+
+    local Indicator = Instance.new("Frame", Button)
+    Indicator.Size = UDim2.new(0, 16, 0, 16)
+    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+
+    local function updateVisuals(state)
+        Button.BackgroundColor3 = state and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        Indicator.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    end
+
+    return Frame, Button, updateVisuals
 end
 
-createToggle(MainFrame, "MasterToggle", "Master Auto-Buy Toggle", true)
-createToggle(MainFrame, "NoclipToggle", "Enable Noclip", false)
+-- Top Master Toggles
+local MasterContainer = Instance.new("Frame", MainFrame)
+MasterContainer.Size = UDim2.new(1, -20, 0, 40)
+MasterContainer.Position = UDim2.new(0, 10, 0, 50)
+MasterContainer.BackgroundTransparency = 1
+local _, MasterBtn, updateMaster = createToggleUI(MasterContainer, "Master Auto-Buy Toggle", nil, 0)
 
-for _, cat in ipairs(ItemCategories) do
-    for _, item in ipairs(cat.Items) do createToggle(ScrollFrame, item, item, false) end
+local NoclipContainer = Instance.new("Frame", MainFrame)
+NoclipContainer.Size = UDim2.new(1, -20, 0, 40)
+NoclipContainer.Position = UDim2.new(0, 10, 0, 95)
+NoclipContainer.BackgroundTransparency = 1
+local _, NoclipBtn, updateNoclip = createToggleUI(NoclipContainer, "Enable Noclip", nil, 0)
+
+updateMaster(State.Master)
+updateNoclip(State.Noclip)
+
+MasterBtn.MouseButton1Click:Connect(function() State.Master = not State.Master updateMaster(State.Master) end)
+NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip updateNoclip(State.Noclip) end)
+
+-- Category & Item Toggles
+for _, category in ipairs(ItemCategories) do
+    currentLayoutOrder += 1
+    local _, CatBtn, updateCat = createToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
+    
+    VisualUpdaters[category.Name] = updateCat
+    updateCat(State.Categories[category.Name])
+
+    CatBtn.MouseButton1Click:Connect(function()
+        local newState = not State.Categories[category.Name]
+        State.Categories[category.Name] = newState
+        updateCat(newState)
+        for _, item in ipairs(category.Items) do
+            State.Items[item] = newState
+            if VisualUpdaters[item] then VisualUpdaters[item](newState) end
+        end
+    end)
+
+    for _, itemName in ipairs(category.Items) do
+        currentLayoutOrder += 1
+        local _, ItemBtn, updateItem = createToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
+        VisualUpdaters[itemName] = updateItem
+        updateItem(State.Items[itemName])
+
+        ItemBtn.MouseButton1Click:Connect(function()
+            State.Items[itemName] = not State.Items[itemName]
+            updateItem(State.Items[itemName])
+        end)
+    end
 end
 
 -- ==========================================
@@ -98,23 +249,33 @@ end
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
         end
     end
 end)
 
 -- ==========================================
--- VIRTUAL INPUT AUTO-BUYER (LITERALLY PRESSES 'E')
+-- AUTO-BUYER LOGIC (Virtual Input + LabelAnchor Track)
 -- ==========================================
 
+local DELAY_BETWEEN_BUYS = 0.25 
+local myPlot = nil   
+
 local function findMyPlot()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
-    for _, plot in ipairs(workspace:WaitForChild("Plots"):GetChildren()) do
+    local position = hrp.Position
+    local plotsFolder = workspace:FindFirstChild("Plots")
+    if not plotsFolder then return nil end
+
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
         local plotZone = plot:FindFirstChild("PlotZone", true)
         if plotZone and plotZone:IsA("BasePart") then
-            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
+            local localPos = plotZone.CFrame:PointToObjectSpace(position)
             local halfSize = plotZone.Size * 0.5
             if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
                 return plot
@@ -124,61 +285,89 @@ local function findMyPlot()
     return nil
 end
 
-task.spawn(function()
-    while task.wait(0.2) do
-        if not State.Master then continue end
-        
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
+local function getSortedItemsOnBelt()
+    if not myPlot then
+        myPlot = findMyPlot()
+        if not myPlot then return {} end
+    end
 
-        local plot = findMyPlot()
-        local activeItems = plot and plot:FindFirstChild("Belt") and plot.Belt:FindFirstChild("ActiveItems")
-        if not activeItems then continue end
+    local belt = myPlot:FindFirstChild("Belt")
+    local activeItems = belt and belt:FindFirstChild("ActiveItems")
+    if not activeItems then return {} end
 
-        local buyableItems = {}
-        for _, item in ipairs(activeItems:GetChildren()) do
-            if State.Items[item.Name] then
-                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt then
-                    table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
-                end
+    local buyableItems = {}
+    
+    for _, item in ipairs(activeItems:GetChildren()) do
+        if State.Items[item.Name] then
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            
+            if prompt then
+                table.insert(buyableItems, {
+                    Instance = item,
+                    Prompt = prompt,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
             end
         end
-        table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
+    end
 
-        for _, target in ipairs(buyableItems) do
+    table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
+    return buyableItems
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not State.Master then continue end
+        
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        local targets = getSortedItemsOnBelt()
+
+        for _, target in ipairs(targets) do
             if not State.Master then break end 
             
             local prompt = target.Prompt
             local promptPart = prompt and prompt.Parent
 
+            -- Target the exact part holding the prompt (The LabelAnchor)
             if prompt and promptPart and promptPart:IsA("BasePart") then
-                -- 1. TELEPORT TO THE BUTTON
                 local originalCFrame = hrp.CFrame
-                hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 1.5, 0))
                 hrp.Anchored = true
                 
-                -- Wait for the ProximityPrompt UI to actually appear on your screen natively
-                task.wait(0.25) 
+                -- Track the moving button to ensure we don't slip out of range
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and promptPart and promptPart.Parent then
+                        hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 1.5, 0))
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end
+                end)
+                
+                -- Wait for UI to pop up natively on screen
+                task.wait(0.2) 
                 
                 if prompt.Enabled then
-                    -- 2. PHYSICALLY PRESS 'E'
+                    -- Ghost input: Press E
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
                     
-                    -- Hold it down for exactly how long the prompt requires (plus a tiny ping buffer)
-                    local holdTime = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
-                    task.wait(holdTime + 0.1)
+                    -- Hold E exactly as long as the button requires
+                    local holdDuration = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
+                    task.wait(holdDuration + 0.1) 
                     
-                    -- 3. RELEASE 'E'
+                    -- Ghost input: Release E
                     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
                 end
                 
-                -- 4. CLEANUP & RETURN
-                task.wait(0.1)
+                -- Cleanup and move to next
+                isTracking = false
+                trackConnection:Disconnect()
                 hrp.Anchored = false
                 hrp.CFrame = originalCFrame
                 
-                task.wait(0.3) -- Cooldown before the next item
+                task.wait(DELAY_BETWEEN_BUYS)
             end
         end
     end
