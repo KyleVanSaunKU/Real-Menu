@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -33,17 +34,17 @@ local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
 
 for _, category in ipairs(ItemCategories) do
-    State.Categories[category.Name] = { Enabled = true, GoldOnly = false }
+    State.Categories[category.Name] = { Normal = true, Gold = false }
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
         local isOff = defaultOff[item] or false
-        State.Items[item] = { Enabled = not isOff, GoldOnly = false }
-        if isOff then State.Categories[category.Name].Enabled = false end
+        State.Items[item] = { Normal = not isOff, Gold = false }
+        if isOff then State.Categories[category.Name].Normal = false end
     end
 end
 
 -- ==========================================
--- UI CONSTRUCTION
+-- UI CONSTRUCTION (Independent Toggles)
 -- ==========================================
 
 local success, GuiTarget = pcall(function() return CoreGui end)
@@ -122,7 +123,6 @@ ScrollFrame.ScrollBarThickness = 4
 
 local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
 UIListLayout.Padding = UDim.new(0, 5)
-
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
 end)
@@ -164,7 +164,8 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
-local function createItemToggleUI(parent, text, color, layoutOrder, isCategoryHeader)
+-- Generates the two distinct Normal and Gold buttons
+local function createDualToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
     Frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
@@ -181,17 +182,28 @@ local function createItemToggleUI(parent, text, color, layoutOrder, isCategoryHe
     Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local MainBtn = Instance.new("TextButton", Frame)
-    MainBtn.Size = UDim2.new(0, 40, 0, 20)
-    MainBtn.Position = UDim2.new(1, -95, 0.5, -10)
-    MainBtn.Text = ""
-    Instance.new("UICorner", MainBtn).CornerRadius = UDim.new(1, 0)
+    -- NORM BUTTON
+    local NormBtn = Instance.new("TextButton", Frame)
+    NormBtn.Size = UDim2.new(0, 40, 0, 20)
+    NormBtn.Position = UDim2.new(1, -95, 0.5, -10)
+    NormBtn.Text = ""
+    Instance.new("UICorner", NormBtn).CornerRadius = UDim.new(1, 0)
 
-    local MainInd = Instance.new("Frame", MainBtn)
-    MainInd.Size = UDim2.new(0, 16, 0, 16)
-    MainInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Instance.new("UICorner", MainInd).CornerRadius = UDim.new(1, 0)
+    local NormInd = Instance.new("Frame", NormBtn)
+    NormInd.Size = UDim2.new(0, 16, 0, 16)
+    NormInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", NormInd).CornerRadius = UDim.new(1, 0)
 
+    local NormLabel = Instance.new("TextLabel", Frame)
+    NormLabel.Size = UDim2.new(0, 40, 0, 10)
+    NormLabel.Position = UDim2.new(1, -95, 0.5, 10)
+    NormLabel.BackgroundTransparency = 1
+    NormLabel.Text = "NORM"
+    NormLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    NormLabel.TextSize = 9
+    NormLabel.Font = Enum.Font.GothamBold
+
+    -- GOLD BUTTON
     local GoldBtn = Instance.new("TextButton", Frame)
     GoldBtn.Size = UDim2.new(0, 40, 0, 20)
     GoldBtn.Position = UDim2.new(1, -50, 0.5, -10)
@@ -212,17 +224,18 @@ local function createItemToggleUI(parent, text, color, layoutOrder, isCategoryHe
     GoldLabel.TextSize = 9
     GoldLabel.Font = Enum.Font.GothamBold
 
-    local function updateVisuals(enabledState, goldState)
-        MainBtn.BackgroundColor3 = enabledState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-        MainInd.Position = enabledState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    local function updateVisuals(normState, goldState)
+        NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
 
-    return Frame, MainBtn, GoldBtn, updateVisuals
+    return Frame, NormBtn, GoldBtn, updateVisuals
 end
 
+-- Master & Noclip
 local MasterContainer = Instance.new("Frame", MainFrame)
 MasterContainer.Size = UDim2.new(1, -20, 0, 40)
 MasterContainer.Position = UDim2.new(0, 10, 0, 50)
@@ -243,46 +256,46 @@ NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip u
 
 for _, category in ipairs(ItemCategories) do
     currentLayoutOrder += 1
-    local _, CatMain, CatGold, updateCat = createItemToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder, true)
+    local _, CatNorm, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
     
-    updateCat(State.Categories[category.Name].Enabled, State.Categories[category.Name].GoldOnly)
+    updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
 
-    CatMain.MouseButton1Click:Connect(function()
-        local newState = not State.Categories[category.Name].Enabled
-        State.Categories[category.Name].Enabled = newState
-        updateCat(newState, State.Categories[category.Name].GoldOnly)
+    CatNorm.MouseButton1Click:Connect(function()
+        local newState = not State.Categories[category.Name].Normal
+        State.Categories[category.Name].Normal = newState
+        updateCat(newState, State.Categories[category.Name].Gold)
         
         for _, item in ipairs(category.Items) do
-            State.Items[item].Enabled = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](newState, State.Items[item].GoldOnly) end
+            State.Items[item].Normal = newState
+            if VisualUpdaters[item] then VisualUpdaters[item](newState, State.Items[item].Gold) end
         end
     end)
     
     CatGold.MouseButton1Click:Connect(function()
-        local newState = not State.Categories[category.Name].GoldOnly
-        State.Categories[category.Name].GoldOnly = newState
-        updateCat(State.Categories[category.Name].Enabled, newState)
+        local newState = not State.Categories[category.Name].Gold
+        State.Categories[category.Name].Gold = newState
+        updateCat(State.Categories[category.Name].Normal, newState)
         
         for _, item in ipairs(category.Items) do
-            State.Items[item].GoldOnly = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Enabled, newState) end
+            State.Items[item].Gold = newState
+            if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, newState) end
         end
     end)
 
     for _, itemName in ipairs(category.Items) do
         currentLayoutOrder += 1
-        local _, ItemMain, ItemGold, updateItem = createItemToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder, false)
+        local _, ItemNorm, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
         VisualUpdaters[itemName] = updateItem
-        updateItem(State.Items[itemName].Enabled, State.Items[itemName].GoldOnly)
+        updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
 
-        ItemMain.MouseButton1Click:Connect(function()
-            State.Items[itemName].Enabled = not State.Items[itemName].Enabled
-            updateItem(State.Items[itemName].Enabled, State.Items[itemName].GoldOnly)
+        ItemNorm.MouseButton1Click:Connect(function()
+            State.Items[itemName].Normal = not State.Items[itemName].Normal
+            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
         end)
         
         ItemGold.MouseButton1Click:Connect(function()
-            State.Items[itemName].GoldOnly = not State.Items[itemName].GoldOnly
-            updateItem(State.Items[itemName].Enabled, State.Items[itemName].GoldOnly)
+            State.Items[itemName].Gold = not State.Items[itemName].Gold
+            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
         end)
     end
 end
@@ -301,7 +314,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- GHOST PLATFORM + GOLD AUTO-BUYER LOGIC
+-- GHOST PLATFORM + DECOUPLED GOLD LOGIC
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
@@ -316,18 +329,12 @@ HoverPlatform.CanCollide = true
 HoverPlatform.Parent = workspace
 HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 
--- ==========================================
--- DEX GOLD IDENTIFIER
--- ==========================================
 local function isItemGold(item)
     local hitbox = item:FindFirstChild("Hitbox")
     if not hitbox then return false end
-    
-    -- Check if either of the gold effects are present
     if hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02") then
         return true
     end
-    
     return false
 end
 
@@ -336,14 +343,10 @@ local function findMyPlot()
     local hrp = character and character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
-    -- Check both Maps and Plots folders just in case the developer moves them
     local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
-    
-    -- Handle nested folders (e.g., Workspace -> Map -> Plots)
     if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
         plotsFolder = plotsFolder.Plots
     end
-
     if not plotsFolder then return nil end
 
     for _, plot in ipairs(plotsFolder:GetChildren()) do
@@ -374,14 +377,14 @@ local function getSortedItemsOnBelt()
     for _, item in ipairs(activeItems:GetChildren()) do
         local itemState = State.Items[item.Name]
         
-        if itemState and itemState.Enabled then
+        if itemState then
             local isGold = isItemGold(item)
             local shouldBuy = false
             
-            -- Filter Logic
-            if itemState.GoldOnly and isGold then
+            -- INDEPENDENT FILTER LOGIC
+            if isGold and itemState.Gold then
                 shouldBuy = true
-            elseif not itemState.GoldOnly and not isGold then
+            elseif not isGold and itemState.Normal then
                 shouldBuy = true
             end
             
