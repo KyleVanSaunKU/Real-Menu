@@ -22,7 +22,7 @@ local JunkyardCategories = {
     },
     {
         Name = "Junkyard Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
-        Items = {"ToastUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
+        Items = {"BreadUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
     },
     {
         Name = "Junkyard Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94),
@@ -30,7 +30,7 @@ local JunkyardCategories = {
     },
     {
         Name = "Junkyard Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255),
-        Items = {"TungUpgrader", "ElectricFanUpgrader", "CassetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
+        Items = {"TungUpgrader", "ElectricFanUpgrader", "CasetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
     }
 }
 
