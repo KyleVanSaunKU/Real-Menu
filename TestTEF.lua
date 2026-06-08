@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
@@ -65,7 +64,6 @@ local ItemCategories = {
 local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
-
 local IsJunkyardItem = {}
 local IsBeltItem = {}
 
@@ -209,7 +207,6 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
--- Dual Toggle: For Native Junkyard Items (NORM / GOLD)
 local function createDualToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
@@ -272,7 +269,6 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     return Frame, NormBtn, GoldBtn, updateVisuals
 end
 
--- Triple Toggle: For Belt Items (NORM / GOLD / JUNK)
 local function createTripleToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
@@ -500,6 +496,7 @@ populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 -- ==========================================
 -- NOCLIP LOGIC
 -- ==========================================
+
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -524,15 +521,12 @@ HoverPlatform.CanCollide = true
 HoverPlatform.Parent = workspace
 HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 
--- BULLETPROOF DEEP SCAN
 local function isItemGold(item)
-    -- Fast Path: Check standard Belt Hitbox location
     local hitbox = item:FindFirstChild("Hitbox")
     if hitbox and (hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02")) then 
         return true 
     end
     
-    -- Deep Scan: For Junkyard items where the developer nested the Hitbox deeper
     for _, desc in ipairs(item:GetDescendants()) do
         if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
             return true
@@ -687,12 +681,10 @@ local function getSortedJunkyardItems()
                 local isGold = isItemGold(obj)
                 local shouldBuy = false
                 
-                -- Native Junkyard Items Check
                 if IsJunkyardItem[obj.Name] then
                     if isGold and itemState.Gold then shouldBuy = true
                     elseif not isGold and itemState.Normal then shouldBuy = true end
                 
-                -- Belt Items Spawning in the Junkyard Check
                 elseif IsBeltItem[obj.Name] then
                     if itemState.Junk then 
                         if isGold and itemState.Gold then shouldBuy = true
@@ -714,7 +706,6 @@ local function getSortedJunkyardItems()
                     end
                 end
             end
-            
         end
     end
     
