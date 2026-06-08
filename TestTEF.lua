@@ -1,12 +1,40 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & COLORS
 -- ==========================================
--- Items must me manually added (Updated 6/7/2026)
+
+local JunkyardCategories = {
+    {
+        Name = "JY Mythical", Priority = 1, Color = Color3.fromRGB(139, 69, 19), -- Brown
+        Items = {"WindmillUpgrader", "CarWashUpgrader"}
+    },
+    {
+        Name = "JY Legendary", Priority = 2, Color = Color3.fromRGB(139, 69, 19),
+        Items = {"BirdhouseDropper", "MoaiUpgrader", "BeetleUpgrader", "JunkUpgrader"}
+    },
+    {
+        Name = "JY Epic", Priority = 3, Color = Color3.fromRGB(139, 69, 19),
+        Items = {"HorseshoeUpgrader", "PaintbrushUpgrader", "GuillotineUpgrader"}
+    },
+    {
+        Name = "JY Rare", Priority = 4, Color = Color3.fromRGB(139, 69, 19),
+        Items = {"ToastUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
+    },
+    {
+        Name = "JY Uncommon", Priority = 5, Color = Color3.fromRGB(139, 69, 19),
+        Items = {"FidgetSpinnerUpgrader", "ToiletDropper", "ToiletPaperUpgrader", "TeddyBearUpgrader"}
+    },
+    {
+        Name = "JY Common", Priority = 6, Color = Color3.fromRGB(139, 69, 19),
+        Items = {"TungUpgrader", "ElectricFanUpgrader", "CassetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
+    }
+}
+
 local ItemCategories = {
     {
         Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
@@ -38,13 +66,18 @@ local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
 
-for _, category in ipairs(ItemCategories) do
-    State.Categories[category.Name] = { Normal = false, Gold = false }
-    for _, item in ipairs(category.Items) do
-        ItemPriorityMap[item] = category.Priority
-        State.Items[item] = { Normal = false, Gold = false }
+local function initState(categories)
+    for _, category in ipairs(categories) do
+        State.Categories[category.Name] = { Normal = false, Gold = false }
+        for _, item in ipairs(category.Items) do
+            ItemPriorityMap[item] = category.Priority
+            State.Items[item] = { Normal = false, Gold = false }
+        end
     end
 end
+
+initState(JunkyardCategories)
+initState(ItemCategories)
 
 -- ==========================================
 -- UI CONSTRUCTION
@@ -168,7 +201,7 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
-local function createDualToggleUI(parent, text, color, layoutOrder, isCategoryHeader)
+local function createDualToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
     Frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
@@ -207,24 +240,30 @@ local function createDualToggleUI(parent, text, color, layoutOrder, isCategoryHe
     GoldInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", GoldInd).CornerRadius = UDim.new(1, 0)
 
-    local GoldLabel = Instance.new("TextLabel", Frame)
-    GoldLabel.Size = UDim2.new(0, 40, 0, 10)
-    GoldLabel.Position = UDim2.new(1, -50, 0.5, 10)
-    GoldLabel.BackgroundTransparency = 1
-    GoldLabel.Text = "GOLD"
-    GoldLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
-    GoldLabel.TextSize = 9
-    GoldLabel.Font = Enum.Font.GothamBold
-
-    local function updateVisuals(enabledState, goldState)
-        MainBtn.BackgroundColor3 = enabledState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-        MainInd.Position = enabledState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        
+    local function updateVisuals(normState, goldState)
+        MainBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        MainInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
-    
     return Frame, MainBtn, GoldBtn, updateVisuals
+end
+
+local function createSectionHeaderUI(parent, text, layoutOrder)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(1, -10, 0, 24)
+    Frame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
+    Frame.LayoutOrder = layoutOrder
+    
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(150, 150, 150)
+    Label.TextSize = 11
+    Label.Font = Enum.Font.GothamBold
+    Label.TextXAlignment = Enum.TextXAlignment.Center
+    return Frame
 end
 
 local MasterContainer = Instance.new("Frame", MainFrame)
@@ -245,56 +284,58 @@ updateNoclip(State.Noclip)
 MasterBtn.MouseButton1Click:Connect(function() State.Master = not State.Master updateMaster(State.Master) end)
 NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip updateNoclip(State.Noclip) end)
 
-for _, category in ipairs(ItemCategories) do
+local function populateCategoryUI(categoriesList, headerText)
     currentLayoutOrder += 1
-    local _, CatMain, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder, true)
-    
-    updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
+    createSectionHeaderUI(ScrollFrame, headerText, currentLayoutOrder)
 
-    CatMain.MouseButton1Click:Connect(function()
-        local newState = not State.Categories[category.Name].Normal
-        State.Categories[category.Name].Normal = newState
-        updateCat(newState, State.Categories[category.Name].Gold)
-        
-        for _, item in ipairs(category.Items) do
-            State.Items[item].Normal = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](newState, State.Items[item].Gold) end
-        end
-    end)
-    
-    CatGold.MouseButton1Click:Connect(function()
-        local newState = not State.Categories[category.Name].Gold
-        State.Categories[category.Name].Gold = newState
-        updateCat(State.Categories[category.Name].Normal, newState)
-        
-        for _, item in ipairs(category.Items) do
-            State.Items[item].Gold = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, newState) end
-        end
-    end)
-
-    for _, itemName in ipairs(category.Items) do
+    for _, category in ipairs(categoriesList) do
         currentLayoutOrder += 1
-        local _, ItemMain, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder, false)
-        VisualUpdaters[itemName] = updateItem
-        updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+        local _, CatMain, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
+        updateCat(false, false)
 
-        ItemMain.MouseButton1Click:Connect(function()
-            State.Items[itemName].Normal = not State.Items[itemName].Normal
-            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+        CatMain.MouseButton1Click:Connect(function()
+            State.Categories[category.Name].Normal = not State.Categories[category.Name].Normal
+            for _, item in ipairs(category.Items) do 
+                State.Items[item].Normal = State.Categories[category.Name].Normal
+                if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold) end
+            end
+            updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
         end)
         
-        ItemGold.MouseButton1Click:Connect(function()
-            State.Items[itemName].Gold = not State.Items[itemName].Gold
-            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+        CatGold.MouseButton1Click:Connect(function()
+            State.Categories[category.Name].Gold = not State.Categories[category.Name].Gold
+            for _, item in ipairs(category.Items) do 
+                State.Items[item].Gold = State.Categories[category.Name].Gold
+                if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold) end
+            end
+            updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
         end)
+
+        for _, itemName in ipairs(category.Items) do
+            currentLayoutOrder += 1
+            local _, ItemMain, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
+            VisualUpdaters[itemName] = updateItem
+            updateItem(false, false)
+
+            ItemMain.MouseButton1Click:Connect(function()
+                State.Items[itemName].Normal = not State.Items[itemName].Normal
+                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+            end)
+            ItemGold.MouseButton1Click:Connect(function()
+                State.Items[itemName].Gold = not State.Items[itemName].Gold
+                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+            end)
+        end
     end
 end
+
+-- Render Junkyard First, then Belt Items
+populateCategoryUI(JunkyardCategories, "--- JUNKYARD ITEMS ---")
+populateCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 -- ==========================================
 -- NOCLIP LOGIC
 -- ==========================================
-
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -306,12 +347,10 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- GHOST PLATFORM + GOLD LOGIC
+-- GHOST PLATFORM LOGIC (DRY Helper Method)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
-local myPlot = nil   
-
 local HoverPlatform = Instance.new("Part")
 HoverPlatform.Name = "AutoBuyPlatform"
 HoverPlatform.Size = Vector3.new(10, 1, 10)
@@ -324,11 +363,62 @@ HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 local function isItemGold(item)
     local hitbox = item:FindFirstChild("Hitbox")
     if not hitbox then return false end
-    if hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02") then
-        return true
-    end
+    if hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02") then return true end
     return false
 end
+
+local function getPromptPos(prompt)
+    local p = prompt.Parent
+    if not p then return nil end
+    if p:IsA("Attachment") then return p.WorldPosition end
+    if p:IsA("BasePart") then return p.Position end
+    if p:IsA("Model") then return p:GetPivot().Position end
+    return nil
+end
+
+-- Unified Buying Execution to reuse for both Belt and Junkyard
+local function executeBuy(target, hrp)
+    local prompt = target.Prompt
+    local targetPos = getPromptPos(prompt)
+
+    if prompt and prompt.Enabled and targetPos then
+        local originalCFrame = hrp.CFrame
+        hrp.Anchored = false 
+        
+        local isTracking = true
+        local trackConnection = RunService.Heartbeat:Connect(function()
+            if isTracking and prompt.Parent then
+                local pos = getPromptPos(prompt)
+                if pos then
+                    HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
+                    hrp.CFrame = CFrame.new(pos)
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+        end)
+
+        task.wait(0.35) 
+
+        if prompt.Enabled and fireproximityprompt then
+            fireproximityprompt(prompt)
+            task.wait(0.05)
+            if prompt.Enabled then fireproximityprompt(prompt) end
+        end
+
+        isTracking = false
+        trackConnection:Disconnect()
+        
+        HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
+        hrp.CFrame = originalCFrame
+        
+        task.wait(DELAY_BETWEEN_BUYS)
+    end
+end
+
+-- ==========================================
+-- BELT ITEMS LOOP
+-- ==========================================
 
 local function findMyPlot()
     local character = LocalPlayer.Character
@@ -354,6 +444,7 @@ local function findMyPlot()
     return nil
 end
 
+local myPlot = nil 
 local function getSortedItemsOnBelt()
     if not myPlot then
         myPlot = findMyPlot()
@@ -365,93 +456,94 @@ local function getSortedItemsOnBelt()
     if not activeItems then return {} end
 
     local buyableItems = {}
-    
     for _, item in ipairs(activeItems:GetChildren()) do
         local itemState = State.Items[item.Name]
-        
         if itemState then
             local isGold = isItemGold(item)
             local shouldBuy = false
             
-            if isGold and itemState.Gold then
-                shouldBuy = true
-            elseif not isGold and itemState.Normal then
-                shouldBuy = true
-            end
+            if isGold and itemState.Gold then shouldBuy = true
+            elseif not isGold and itemState.Normal then shouldBuy = true end
             
             if shouldBuy then
                 local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                 if prompt then
-                    table.insert(buyableItems, {
-                        Prompt = prompt,
-                        Priority = ItemPriorityMap[item.Name] or 99
-                    })
+                    table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
                 end
             end
         end
     end
-
     table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
     return buyableItems
-end
-
-local function getPromptPos(prompt)
-    local p = prompt.Parent
-    if not p then return nil end
-    if p:IsA("Attachment") then return p.WorldPosition end
-    if p:IsA("BasePart") then return p.Position end
-    if p:IsA("Model") then return p:GetPivot().Position end
-    return nil
 end
 
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
-        
-        local character = LocalPlayer.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
         local targets = getSortedItemsOnBelt()
-
         for _, target in ipairs(targets) do
             if not State.Master then break end 
-            
-            local prompt = target.Prompt
-            local targetPos = getPromptPos(prompt)
+            executeBuy(target, hrp)
+        end
+    end
+end)
 
-            if prompt and prompt.Enabled and targetPos then
-                local originalCFrame = hrp.CFrame
-                hrp.Anchored = false 
-                
-                local isTracking = true
-                local trackConnection = RunService.Heartbeat:Connect(function()
-                    if isTracking and prompt.Parent then
-                        local pos = getPromptPos(prompt)
-                        if pos then
-                            HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
-                            hrp.CFrame = CFrame.new(pos)
-                            hrp.AssemblyLinearVelocity = Vector3.zero
-                            hrp.AssemblyAngularVelocity = Vector3.zero
+-- ==========================================
+-- JUNKYARD ITEMS LOOP (Every 60 Seconds)
+-- ==========================================
+
+local function getSortedJunkyardItems()
+    local mapFolder = workspace:FindFirstChild("Map")
+    local jyFolder = mapFolder and mapFolder:FindFirstChild("Junkyard")
+    local jyItemsFolder = jyFolder and jyFolder:FindFirstChild("JunkyardItems")
+    if not jyItemsFolder then return {} end
+
+    local buyableItems = {}
+    for _, itemSpawn in ipairs(jyItemsFolder:GetChildren()) do
+        if itemSpawn.Name == "ItemSpawn" then
+            for _, item in ipairs(itemSpawn:GetChildren()) do
+                local itemState = State.Items[item.Name]
+                if itemState then
+                    local isGold = isItemGold(item)
+                    local shouldBuy = false
+                    
+                    if isGold and itemState.Gold then shouldBuy = true
+                    elseif not isGold and itemState.Normal then shouldBuy = true end
+                    
+                    if shouldBuy then
+                        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        if prompt then
+                            table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
                         end
                     end
-                end)
-
-                task.wait(0.35) 
-
-                if prompt.Enabled and fireproximityprompt then
-                    fireproximityprompt(prompt)
-                    task.wait(0.05)
-                    if prompt.Enabled then fireproximityprompt(prompt) end
                 end
+            end
+        end
+    end
+    table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
+    return buyableItems
+end
 
-                isTracking = false
-                trackConnection:Disconnect()
-                
-                HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
-                hrp.CFrame = originalCFrame
-                
-                task.wait(DELAY_BETWEEN_BUYS)
+task.spawn(function()
+    local lastJunkyardCheck = 0
+    
+    while task.wait(1) do
+        if not State.Master then continue end
+        
+        -- Run the actual check once every 60 seconds
+        if os.time() - lastJunkyardCheck >= 60 then
+            lastJunkyardCheck = os.time()
+            
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            local targets = getSortedJunkyardItems()
+            for _, target in ipairs(targets) do
+                if not State.Master then break end 
+                executeBuy(target, hrp)
             end
         end
     end
