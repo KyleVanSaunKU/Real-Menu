@@ -1,71 +1,129 @@
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
--- NETWORK BACKDOOR
--- ==========================================
-local PacketRemote = ReplicatedStorage:FindFirstChild("Shared") 
-    and ReplicatedStorage.Shared:FindFirstChild("Vendor") 
-    and ReplicatedStorage.Shared.Vendor:FindFirstChild("Packet") 
-    and ReplicatedStorage.Shared.Vendor.Packet:FindFirstChild("RemoteEvent")
-
--- ==========================================
--- AUTO-BUYER LOGIC (Simplified & Robust)
+-- CONFIGURATION & STATE (DEFINED FIRST)
 -- ==========================================
 
+local ItemCategories = {
+    { Name = "Mythical", Priority = 1, Color = Color3.fromRGB(236, 72, 153), Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"} },
+    { Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"} },
+    { Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(56, 189, 248), Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"} }
+}
+
+local defaultOff = { ["WaterfallUpgrader"] = true, ["MalevolentFurnace"] = true }
+local ItemPriorityMap = {}
+local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
+local VisualUpdaters = {} 
+
+-- Initialize Configs
+for _, category in ipairs(ItemCategories) do
+    State.Categories[category.Name] = true 
+    for _, item in ipairs(category.Items) do
+        ItemPriorityMap[item] = category.Priority
+        State.Items[item] = not defaultOff[item] 
+        if defaultOff[item] then State.Categories[category.Name] = false end
+    end
+end
+
+-- Network Backdoor
+local PacketRemote = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Vendor"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
+
+-- ==========================================
+-- UI & HELPER FUNCTIONS
+-- ==========================================
+
+local TycoonGui = Instance.new("ScreenGui", (RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui))
+TycoonGui.Name = "TycoonAutoBuyer"
+local MainFrame = Instance.new("Frame", TycoonGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 500)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
+
+local function createToggle(parent, name, text, isMaster, categoryData)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -10, 0, 35)
+    frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0, 40, 0, 20)
+    btn.Position = UDim2.new(1, -50, 0.5, -10)
+    
+    btn.MouseButton1Click:Connect(function()
+        if isMaster then State.Master = not State.Master
+        elseif name == "NoclipToggle" then State.Noclip = not State.Noclip
+        elseif categoryData then
+            local s = not State.Categories[categoryData.Name]
+            State.Categories[categoryData.Name] = s
+            for _, item in ipairs(categoryData.Items) do State.Items[item] = s end
+        else State.Items[name] = not State.Items[name] end
+    end)
+end
+
+-- ==========================================
+-- AUTO-BUYER LOGIC
+-- ==========================================
+
+local function findMyPlot()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    for _, plot in ipairs(workspace.Plots:GetChildren()) do
+        local zone = plot:FindFirstChild("PlotZone", true)
+        if zone and zone:IsA("BasePart") then
+            local p = zone.CFrame:PointToObjectSpace(hrp.Position)
+            local s = zone.Size * 0.5
+            if math.abs(p.X) <= s.X and math.abs(p.Z) <= s.Z then return plot end
+        end
+    end
+end
+
+-- Loop Logic
 task.spawn(function()
-    while task.wait(0.5) do -- Slower loop to prevent triggering anti-cheat
+    while task.wait(0.3) do
         if not State.Master then continue end
-        
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         
-        -- Get valid plot and belt
         local plot = findMyPlot()
-        if not plot or not plot:FindFirstChild("Belt") then continue end
-        local activeItems = plot.Belt:FindFirstChild("ActiveItems")
-        if not activeItems then continue end
+        local active = plot and plot:FindFirstChild("Belt") and plot.Belt:FindFirstChild("ActiveItems")
+        if not active then continue end
 
-        -- Identify valid items
-        for _, item in ipairs(activeItems:GetChildren()) do
-            if not State.Master then break end
-            
+        for _, item in ipairs(active:GetChildren()) do
             if State.Items[item.Name] then
                 local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChildWhichIsA("BasePart", true)
                 
-                if prompt and prompt.Enabled then
-                    print("Debug: Found interactable item -> " .. item.Name)
-                    
-                    -- 1. LOCK POSITION
-                    local originalPos = hrp.CFrame
-                    hrp.CFrame = CFrame.new(item:GetPivot().Position + Vector3.new(0, 2, 0))
+                if prompt and pad then
+                    -- 1. TELEPORT TO BUY
+                    local oldPos = hrp.CFrame
+                    hrp.CFrame = CFrame.new(pad.Position + Vector3.new(0, 1.5, 0))
                     hrp.Anchored = true
-                    task.wait(0.1) -- Give server time to register player position
+                    task.wait(0.1)
                     
-                    -- 2. FIRE EVERYTHING
-                    -- Try both methods so if one is blocked, the other might slip through
-                    if fireproximityprompt then
-                        fireproximityprompt(prompt)
-                    end
+                    -- 2. FIRE BOTH METHODS
+                    pcall(function() PacketRemote:FireServer("purchase_belt_item", item) end)
+                    if prompt.Enabled then prompt:Triggered(LocalPlayer) end
                     
-                    if PacketRemote then
-                        pcall(function()
-                            PacketRemote:FireServer("purchase_belt_item", item)
-                        end)
-                    end
-                    
-                    -- 3. HOLD
-                    task.wait(0.2) 
-                    
-                    -- 4. RELEASE
+                    task.wait(0.2)
                     hrp.Anchored = false
-                    hrp.CFrame = originalPos
-                    
-                    task.wait(0.3) -- Cool down so we don't spam the server
+                    hrp.CFrame = oldPos
+                    task.wait(0.2)
                 end
             end
+        end
+    end
+end)
+
+-- NOCLIP
+RunService.Stepped:Connect(function()
+    if State.Noclip and LocalPlayer.Character then
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end)
