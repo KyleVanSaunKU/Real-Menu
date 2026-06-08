@@ -10,15 +10,15 @@ local LocalPlayer = Players.LocalPlayer
 
 local ItemCategories = {
     {
-        Name = "Mythical", Priority = 1, Color = Color3.fromRGB(236, 72, 153), 
+        Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
         Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"}
     },
     {
-        Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), 
+        Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), -- Purple
         Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"}
     },
     {
-        Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(56, 189, 248), 
+        Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(34, 197, 94), -- Green
         Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"}
     }
 }
@@ -119,7 +119,14 @@ ScrollFrame.Size = UDim2.new(1, -20, 1, -150)
 ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 4
-Instance.new("UIListLayout", ScrollFrame).Padding = UDim.new(0, 5)
+
+local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
+UIListLayout.Padding = UDim.new(0, 5)
+
+-- THE FIX: Dynamic Scrolling Canvas Size
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+end)
 
 local currentLayoutOrder = 0
 
