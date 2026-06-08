@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -75,7 +74,7 @@ local Title = Instance.new("TextLabel", TopBar)
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Hover-Track + VIM"
+Title.Text = "Hover-Track Auto-Buyer"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -224,11 +223,21 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- HOVER-TRACK + VIM AUTO-BUYER
+-- GHOST PLATFORM AUTO-BUYER LOGIC
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.25 
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
+
+-- Create an invisible platform so the server thinks you are standing, not falling
+local HoverPlatform = Instance.new("Part")
+HoverPlatform.Name = "AutoBuyPlatform"
+HoverPlatform.Size = Vector3.new(10, 1, 10)
+HoverPlatform.Anchored = true
+HoverPlatform.Transparency = 1
+HoverPlatform.CanCollide = true
+HoverPlatform.Parent = workspace
+HoverPlatform.CFrame = CFrame.new(0, 10000, 0) -- Hide it initially
 
 local function findMyPlot()
     local character = LocalPlayer.Character
@@ -276,13 +285,13 @@ local function getSortedItemsOnBelt()
     return buyableItems
 end
 
--- Safely extracts the world position whether it's an Attachment, Part, or Model
+-- Safely extracts the world position whether the prompt is on an Attachment, Part, or Model
 local function getPromptPos(prompt)
-    local parent = prompt.Parent
-    if not parent then return nil end
-    if parent:IsA("Attachment") then return parent.WorldPosition end
-    if parent:IsA("BasePart") then return parent.Position end
-    if parent:IsA("Model") then return parent:GetPivot().Position end
+    local p = prompt.Parent
+    if not p then return nil end
+    if p:IsA("Attachment") then return p.WorldPosition end
+    if p:IsA("BasePart") then return p.Position end
+    if p:IsA("Model") then return p:GetPivot().Position end
     return nil
 end
 
@@ -304,35 +313,38 @@ task.spawn(function()
 
             if prompt and prompt.Enabled and targetPos then
                 local originalCFrame = hrp.CFrame
-                hrp.Anchored = true
+                hrp.Anchored = false -- Must remain false so Humanoid state stays natural
                 
-                -- Begin pressing the E key
-                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                
-                -- Calculate how long we need to track this item
-                local holdTime = (prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1) + 0.2
-                local elapsed = 0
-                
-                -- The synchronous Hover-Track Loop (Replaces the broken Heartbeat connection)
-                while elapsed < holdTime do
-                    local dt = task.wait()
-                    elapsed += dt
-                    
-                    -- Fetch fresh position. If the item was bought or destroyed, break instantly.
-                    targetPos = getPromptPos(prompt)
-                    if not targetPos or not prompt:IsDescendantOf(workspace) or not prompt.Enabled then
-                        break 
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and prompt.Parent then
+                        local pos = getPromptPos(prompt)
+                        if pos then
+                            -- Put the platform just beneath the item
+                            HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
+                            -- Keep player right on top of the item
+                            hrp.CFrame = CFrame.new(pos)
+                            hrp.AssemblyLinearVelocity = Vector3.zero
+                            hrp.AssemblyAngularVelocity = Vector3.zero
+                        end
                     end
-                    
-                    -- Glide directly above the item
-                    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 2.5, 0))
+                end)
+
+                -- The magic fix: Wait 0.35s for the server to acknowledge your new position (Ping Buffer)
+                task.wait(0.35) 
+
+                if prompt.Enabled and fireproximityprompt then
+                    fireproximityprompt(prompt)
+                    -- Small buffer and second fire to guarantee it triggers through ping spikes
+                    task.wait(0.05)
+                    if prompt.Enabled then fireproximityprompt(prompt) end
                 end
+
+                isTracking = false
+                trackConnection:Disconnect()
                 
-                -- Release the E key
-                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                
-                -- Cleanup
-                hrp.Anchored = false
+                -- Move platform away and snap back
+                HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
                 hrp.CFrame = originalCFrame
                 
                 task.wait(DELAY_BETWEEN_BUYS)
