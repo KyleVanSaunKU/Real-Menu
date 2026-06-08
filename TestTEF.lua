@@ -10,54 +10,54 @@ local LocalPlayer = Players.LocalPlayer
 
 local JunkyardCategories = {
     {
-        Name = "Junkyard Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
+        Name = "Junkyard Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68),
         Items = {"WindmillUpgrader", "CarWashUpgrader"}
     },
     {
-        Name = "Junkyard Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8), -- Yellow
+        Name = "Junkyard Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8),
         Items = {"BirdhouseDropper", "MoaiUpgrader", "BeetleUpgrader", "JunkUpgrader"}
     },
     {
-        Name = "Junkyard Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247), -- Purple
+        Name = "Junkyard Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247),
         Items = {"HorseshoeUpgrader", "PaintbrushUpgrader", "GuillotineUpgrader"}
     },
     {
-        Name = "Junkyard Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248), -- Blue
+        Name = "Junkyard Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
         Items = {"ToastUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
     },
     {
-        Name = "Junkyard Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94), -- Green
+        Name = "Junkyard Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94),
         Items = {"FidgetSpinnerUpgrader", "ToiletDropper", "ToiletPaperUpgrader", "TeddyBearUpgrader"}
     },
     {
-        Name = "Junkyard Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255), -- White
+        Name = "Junkyard Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255),
         Items = {"TungUpgrader", "ElectricFanUpgrader", "CassetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
     }
 }
 
 local ItemCategories = {
     {
-        Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
+        Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68),
         Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"}
     },
     {
-        Name = "Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8), -- Yellow
+        Name = "Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8),
         Items = {"ExcaliburUpgrader", "DinoUpgrader", "RubyDropper", "SatelliteUpgrader", "ScissorUpgrader", "AmethystDropper", "ButterflyFurnace", "RobosharkUpgrader", "ClioneUpgrader", "KrakenFurnace", "TopazDropper", "TomeFurnace", "VolcanicFurnace"}
     },
     {
-        Name = "Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247), -- Purple
+        Name = "Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247),
         Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"}
     },
     {
-        Name = "Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248), -- Blue
+        Name = "Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
         Items = {"GoalieFurnace", "SandcastleUpgrader", "CactusFurnace", "ChessUpgrader", "HeadphonesUpgrader", "CakeUpgrader", "IglooUpgrader", "SapphireDropper", "CheeseDropper", "MushroomUpgrader", "DonutUpgrader", "RubberDuckyUpgrader"}
     },
     {
-        Name = "Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94), -- Green
+        Name = "Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94),
         Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"}
     },
     {
-        Name = "Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255), -- White
+        Name = "Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255),
         Items = {"BasicDropper", "BasicFurnace", "BasicUpgrader", "AdvancedUpgrader", "FishboneUpgrader", "CopperDropper", "NetworkFurnace", "PuzzleUpgrader", "SoccerUpgrader", "TrafficConeUpgrader"}
     }
 }
@@ -218,17 +218,28 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local MainBtn = Instance.new("TextButton", Frame)
-    MainBtn.Size = UDim2.new(0, 40, 0, 20)
-    MainBtn.Position = UDim2.new(1, -95, 0.5, -10)
-    MainBtn.Text = ""
-    Instance.new("UICorner", MainBtn).CornerRadius = UDim.new(1, 0)
+    -- NORM BUTTON
+    local NormBtn = Instance.new("TextButton", Frame)
+    NormBtn.Size = UDim2.new(0, 40, 0, 20)
+    NormBtn.Position = UDim2.new(1, -95, 0.5, -10)
+    NormBtn.Text = ""
+    Instance.new("UICorner", NormBtn).CornerRadius = UDim.new(1, 0)
 
-    local MainInd = Instance.new("Frame", MainBtn)
-    MainInd.Size = UDim2.new(0, 16, 0, 16)
-    MainInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Instance.new("UICorner", MainInd).CornerRadius = UDim.new(1, 0)
+    local NormInd = Instance.new("Frame", NormBtn)
+    NormInd.Size = UDim2.new(0, 16, 0, 16)
+    NormInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", NormInd).CornerRadius = UDim.new(1, 0)
 
+    local NormLabel = Instance.new("TextLabel", Frame)
+    NormLabel.Size = UDim2.new(0, 40, 0, 10)
+    NormLabel.Position = UDim2.new(1, -95, 0.5, 10)
+    NormLabel.BackgroundTransparency = 1
+    NormLabel.Text = "NORM"
+    NormLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    NormLabel.TextSize = 9
+    NormLabel.Font = Enum.Font.GothamBold
+
+    -- GOLD BUTTON
     local GoldBtn = Instance.new("TextButton", Frame)
     GoldBtn.Size = UDim2.new(0, 40, 0, 20)
     GoldBtn.Position = UDim2.new(1, -50, 0.5, -10)
@@ -240,13 +251,23 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     GoldInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", GoldInd).CornerRadius = UDim.new(1, 0)
 
+    local GoldLabel = Instance.new("TextLabel", Frame)
+    GoldLabel.Size = UDim2.new(0, 40, 0, 10)
+    GoldLabel.Position = UDim2.new(1, -50, 0.5, 10)
+    GoldLabel.BackgroundTransparency = 1
+    GoldLabel.Text = "GOLD"
+    GoldLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
+    GoldLabel.TextSize = 9
+    GoldLabel.Font = Enum.Font.GothamBold
+
     local function updateVisuals(normState, goldState)
-        MainBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-        MainInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
-    return Frame, MainBtn, GoldBtn, updateVisuals
+    return Frame, NormBtn, GoldBtn, updateVisuals
 end
 
 local function createSectionHeaderUI(parent, text, layoutOrder)
@@ -359,10 +380,21 @@ HoverPlatform.CanCollide = true
 HoverPlatform.Parent = workspace
 HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 
+-- BULLETPROOF DEEP SCAN FOR GOLD
 local function isItemGold(item)
+    -- Fast Path: Check standard Belt Hitbox location
     local hitbox = item:FindFirstChild("Hitbox")
-    if not hitbox then return false end
-    if hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02") then return true end
+    if hitbox and (hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02")) then 
+        return true 
+    end
+    
+    -- Deep Scan: For Junkyard items where the developer put the particles somewhere else
+    for _, desc in ipairs(item:GetDescendants()) do
+        if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
+            return true
+        end
+    end
+    
     return false
 end
 
@@ -501,11 +533,9 @@ local function getSortedJunkyardItems()
 
     local buyableItems = {}
     
-    -- Sweep all descendants so we don't miss deeply nested items
     for _, obj in ipairs(jyItemsFolder:GetDescendants()) do
         local itemState = State.Items[obj.Name]
         
-        -- Filter to make sure it's one of our whitelisted item names
         if itemState and typeof(itemState) == "table" then
             local isGold = isItemGold(obj)
             local shouldBuy = false
@@ -516,7 +546,6 @@ local function getSortedJunkyardItems()
             if shouldBuy then
                 local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                 if prompt then
-                    -- Prevent duplicates just in case there are multiple matching objects
                     local alreadyAdded = false
                     for _, existing in ipairs(buyableItems) do
                         if existing.Prompt == prompt then alreadyAdded = true break end
@@ -535,7 +564,6 @@ local function getSortedJunkyardItems()
 end
 
 task.spawn(function()
-    -- Fast 2-second check loop so Junkyard responds instantly without lagging the client
     while task.wait(2) do
         if not State.Master then continue end
         
