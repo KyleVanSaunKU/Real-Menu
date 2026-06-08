@@ -100,7 +100,7 @@ TycoonGui.ResetOnSpawn = false
 TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame", TycoonGui)
-MainFrame.Size = UDim2.new(0, 350, 0, 500) -- Widened for 3 buttons
+MainFrame.Size = UDim2.new(0, 350, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
@@ -209,7 +209,6 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
--- Used for native Junkyard items
 local function createDualToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
@@ -272,7 +271,6 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     return Frame, NormBtn, GoldBtn, updateVisuals
 end
 
--- Used for Belt Items (Has the Brown JUNK toggle)
 local function createTripleToggleUI(parent, text, color, layoutOrder)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
@@ -347,10 +345,8 @@ local function createTripleToggleUI(parent, text, color, layoutOrder)
     local function updateVisuals(normState, goldState, junkState)
         NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
         NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
-        
         JunkBtn.BackgroundColor3 = junkState and Color3.fromRGB(139, 69, 19) or Color3.fromRGB(82, 82, 91)
         JunkInd.Position = junkState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
@@ -424,14 +420,8 @@ local function populateJunkyardCategoryUI(categoriesList, headerText)
             VisualUpdaters[itemName] = updateItem
             updateItem(false, false)
 
-            ItemMain.MouseButton1Click:Connect(function()
-                State.Items[itemName].Normal = not State.Items[itemName].Normal
-                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
-            end)
-            ItemGold.MouseButton1Click:Connect(function()
-                State.Items[itemName].Gold = not State.Items[itemName].Gold
-                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
-            end)
+            ItemMain.MouseButton1Click:Connect(function() State.Items[itemName].Normal = not State.Items[itemName].Normal updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold) end)
+            ItemGold.MouseButton1Click:Connect(function() State.Items[itemName].Gold = not State.Items[itemName].Gold updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold) end)
         end
     end
 end
@@ -478,18 +468,9 @@ local function populateBeltCategoryUI(categoriesList, headerText)
             VisualUpdaters[itemName] = updateItem
             updateItem(false, false, false)
 
-            ItemNorm.MouseButton1Click:Connect(function()
-                State.Items[itemName].Normal = not State.Items[itemName].Normal
-                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
-            end)
-            ItemGold.MouseButton1Click:Connect(function()
-                State.Items[itemName].Gold = not State.Items[itemName].Gold
-                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
-            end)
-            ItemJunk.MouseButton1Click:Connect(function()
-                State.Items[itemName].Junk = not State.Items[itemName].Junk
-                updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
-            end)
+            ItemNorm.MouseButton1Click:Connect(function() State.Items[itemName].Normal = not State.Items[itemName].Normal updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk) end)
+            ItemGold.MouseButton1Click:Connect(function() State.Items[itemName].Gold = not State.Items[itemName].Gold updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk) end)
+            ItemJunk.MouseButton1Click:Connect(function() State.Items[itemName].Junk = not State.Items[itemName].Junk updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk) end)
         end
     end
 end
@@ -524,15 +505,12 @@ HoverPlatform.CanCollide = true
 HoverPlatform.Parent = workspace
 HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
 
--- Bulletproof Deep Scan
+-- LIGHTNING FAST DIRECT CHECK
 local function isItemGold(item)
     local hitbox = item:FindFirstChild("Hitbox")
-    if hitbox and (hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02")) then 
-        return true 
-    end
-    for _, desc in ipairs(item:GetDescendants()) do
-        if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
-            return true
+    if hitbox then
+        if hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02") then 
+            return true 
         end
     end
     return false
@@ -664,7 +642,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- JUNKYARD ITEMS LOOP
+-- JUNKYARD ITEMS LOOP (CLEAN DIRECT SCAN)
 -- ==========================================
 
 local function getSortedJunkyardItems()
@@ -675,6 +653,7 @@ local function getSortedJunkyardItems()
 
     local buyableItems = {}
     
+    -- Optimized: Step directly from JunkyardItems -> ItemSpawn -> Spawned Items
     for _, itemSpawn in ipairs(jyItemsFolder:GetChildren()) do
         for _, obj in ipairs(itemSpawn:GetChildren()) do
             
@@ -683,26 +662,23 @@ local function getSortedJunkyardItems()
                 local isGold = isItemGold(obj)
                 local shouldBuy = false
                 
-                -- Native Junkyard Items: Check Norm/Gold
+                -- Native Junkyard Items Check
                 if IsJunkyardItem[obj.Name] then
                     if isGold and itemState.Gold then shouldBuy = true
                     elseif not isGold and itemState.Normal then shouldBuy = true end
                 
-                -- Belt Items in the Junkyard: Check explicitly for the Brown JUNK toggle
+                -- Belt Items Spawning in the Junkyard Check
                 elseif IsBeltItem[obj.Name] then
-                    if itemState.Junk then shouldBuy = true end
+                    if itemState.Junk then 
+                        if isGold and itemState.Gold then shouldBuy = true
+                        elseif not isGold and itemState.Normal then shouldBuy = true end
+                    end
                 end
                 
                 if shouldBuy then
                     local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
-                        local alreadyAdded = false
-                        for _, existing in ipairs(buyableItems) do
-                            if existing.Prompt == prompt then alreadyAdded = true break end
-                        end
-                        if not alreadyAdded then
-                            table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[obj.Name] or 99})
-                        end
+                        table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[obj.Name] or 99})
                     end
                 end
             end
@@ -715,7 +691,8 @@ local function getSortedJunkyardItems()
 end
 
 task.spawn(function()
-    while task.wait(2) do
+    -- Fast 1-second check loop since the query indexing is now lightning-fast
+    while task.wait(1) do
         if not State.Master then continue end
         
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
