@@ -1,0 +1,71 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- ==========================================
+-- NETWORK BACKDOOR
+-- ==========================================
+local PacketRemote = ReplicatedStorage:FindFirstChild("Shared") 
+    and ReplicatedStorage.Shared:FindFirstChild("Vendor") 
+    and ReplicatedStorage.Shared.Vendor:FindFirstChild("Packet") 
+    and ReplicatedStorage.Shared.Vendor.Packet:FindFirstChild("RemoteEvent")
+
+-- ==========================================
+-- AUTO-BUYER LOGIC (Simplified & Robust)
+-- ==========================================
+
+task.spawn(function()
+    while task.wait(0.5) do -- Slower loop to prevent triggering anti-cheat
+        if not State.Master then continue end
+        
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        
+        -- Get valid plot and belt
+        local plot = findMyPlot()
+        if not plot or not plot:FindFirstChild("Belt") then continue end
+        local activeItems = plot.Belt:FindFirstChild("ActiveItems")
+        if not activeItems then continue end
+
+        -- Identify valid items
+        for _, item in ipairs(activeItems:GetChildren()) do
+            if not State.Master then break end
+            
+            if State.Items[item.Name] then
+                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                
+                if prompt and prompt.Enabled then
+                    print("Debug: Found interactable item -> " .. item.Name)
+                    
+                    -- 1. LOCK POSITION
+                    local originalPos = hrp.CFrame
+                    hrp.CFrame = CFrame.new(item:GetPivot().Position + Vector3.new(0, 2, 0))
+                    hrp.Anchored = true
+                    task.wait(0.1) -- Give server time to register player position
+                    
+                    -- 2. FIRE EVERYTHING
+                    -- Try both methods so if one is blocked, the other might slip through
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt)
+                    end
+                    
+                    if PacketRemote then
+                        pcall(function()
+                            PacketRemote:FireServer("purchase_belt_item", item)
+                        end)
+                    end
+                    
+                    -- 3. HOLD
+                    task.wait(0.2) 
+                    
+                    -- 4. RELEASE
+                    hrp.Anchored = false
+                    hrp.CFrame = originalPos
+                    
+                    task.wait(0.3) -- Cool down so we don't spam the server
+                end
+            end
+        end
+    end
+end)
