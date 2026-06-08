@@ -10,27 +10,27 @@ local LocalPlayer = Players.LocalPlayer
 
 local JunkyardCategories = {
     {
-        Name = "JY Mythical", Priority = 1, Color = Color3.fromRGB(139, 69, 19), -- Brown
+        Name = "Junkyard Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
         Items = {"WindmillUpgrader", "CarWashUpgrader"}
     },
     {
-        Name = "JY Legendary", Priority = 2, Color = Color3.fromRGB(139, 69, 19),
+        Name = "Junkyard Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8), -- Yellow
         Items = {"BirdhouseDropper", "MoaiUpgrader", "BeetleUpgrader", "JunkUpgrader"}
     },
     {
-        Name = "JY Epic", Priority = 3, Color = Color3.fromRGB(139, 69, 19),
+        Name = "Junkyard Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247), -- Purple
         Items = {"HorseshoeUpgrader", "PaintbrushUpgrader", "GuillotineUpgrader"}
     },
     {
-        Name = "JY Rare", Priority = 4, Color = Color3.fromRGB(139, 69, 19),
+        Name = "Junkyard Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248), -- Blue
         Items = {"ToastUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
     },
     {
-        Name = "JY Uncommon", Priority = 5, Color = Color3.fromRGB(139, 69, 19),
+        Name = "Junkyard Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94), -- Green
         Items = {"FidgetSpinnerUpgrader", "ToiletDropper", "ToiletPaperUpgrader", "TeddyBearUpgrader"}
     },
     {
-        Name = "JY Common", Priority = 6, Color = Color3.fromRGB(139, 69, 19),
+        Name = "Junkyard Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255), -- White
         Items = {"TungUpgrader", "ElectricFanUpgrader", "CassetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
     }
 }
@@ -329,7 +329,6 @@ local function populateCategoryUI(categoriesList, headerText)
     end
 end
 
--- Render Junkyard First, then Belt Items
 populateCategoryUI(JunkyardCategories, "--- JUNKYARD ITEMS ---")
 populateCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
@@ -347,7 +346,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- GHOST PLATFORM LOGIC (DRY Helper Method)
+-- GHOST PLATFORM & BUY LOGIC
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
@@ -376,7 +375,6 @@ local function getPromptPos(prompt)
     return nil
 end
 
--- Unified Buying Execution to reuse for both Belt and Junkyard
 local function executeBuy(target, hrp)
     local prompt = target.Prompt
     local targetPos = getPromptPos(prompt)
@@ -492,7 +490,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- JUNKYARD ITEMS LOOP (Every 60 Seconds)
+-- JUNKYARD ITEMS LOOP
 -- ==========================================
 
 local function getSortedJunkyardItems()
@@ -502,49 +500,52 @@ local function getSortedJunkyardItems()
     if not jyItemsFolder then return {} end
 
     local buyableItems = {}
-    for _, itemSpawn in ipairs(jyItemsFolder:GetChildren()) do
-        if itemSpawn.Name == "ItemSpawn" then
-            for _, item in ipairs(itemSpawn:GetChildren()) do
-                local itemState = State.Items[item.Name]
-                if itemState then
-                    local isGold = isItemGold(item)
-                    local shouldBuy = false
+    
+    -- Sweep all descendants so we don't miss deeply nested items
+    for _, obj in ipairs(jyItemsFolder:GetDescendants()) do
+        local itemState = State.Items[obj.Name]
+        
+        -- Filter to make sure it's one of our whitelisted item names
+        if itemState and typeof(itemState) == "table" then
+            local isGold = isItemGold(obj)
+            local shouldBuy = false
+            
+            if isGold and itemState.Gold then shouldBuy = true
+            elseif not isGold and itemState.Normal then shouldBuy = true end
+            
+            if shouldBuy then
+                local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt then
+                    -- Prevent duplicates just in case there are multiple matching objects
+                    local alreadyAdded = false
+                    for _, existing in ipairs(buyableItems) do
+                        if existing.Prompt == prompt then alreadyAdded = true break end
+                    end
                     
-                    if isGold and itemState.Gold then shouldBuy = true
-                    elseif not isGold and itemState.Normal then shouldBuy = true end
-                    
-                    if shouldBuy then
-                        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-                        if prompt then
-                            table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[item.Name] or 99})
-                        end
+                    if not alreadyAdded then
+                        table.insert(buyableItems, {Prompt = prompt, Priority = ItemPriorityMap[obj.Name] or 99})
                     end
                 end
             end
         end
     end
+    
     table.sort(buyableItems, function(a, b) return a.Priority < b.Priority end)
     return buyableItems
 end
 
 task.spawn(function()
-    local lastJunkyardCheck = 0
-    
-    while task.wait(1) do
+    -- Fast 2-second check loop so Junkyard responds instantly without lagging the client
+    while task.wait(2) do
         if not State.Master then continue end
         
-        -- Run the actual check once every 60 seconds
-        if os.time() - lastJunkyardCheck >= 60 then
-            lastJunkyardCheck = os.time()
-            
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then continue end
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
 
-            local targets = getSortedJunkyardItems()
-            for _, target in ipairs(targets) do
-                if not State.Master then break end 
-                executeBuy(target, hrp)
-            end
+        local targets = getSortedJunkyardItems()
+        for _, target in ipairs(targets) do
+            if not State.Master then break end 
+            executeBuy(target, hrp)
         end
     end
 end)
