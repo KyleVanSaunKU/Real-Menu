@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -24,27 +23,21 @@ local ItemCategories = {
     }
 }
 
-local defaultOff = {
-    ["WaterfallUpgrader"] = true,
-    ["MalevolentFurnace"] = true
-}
-
 local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
 
+-- ALL STATES SET TO FALSE BY DEFAULT
 for _, category in ipairs(ItemCategories) do
-    State.Categories[category.Name] = { Normal = true, Gold = false }
+    State.Categories[category.Name] = { Normal = false, Gold = false }
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
-        local isOff = defaultOff[item] or false
-        State.Items[item] = { Normal = not isOff, Gold = false }
-        if isOff then State.Categories[category.Name].Normal = false end
+        State.Items[item] = { Normal = false, Gold = false }
     end
 end
 
 -- ==========================================
--- UI CONSTRUCTION (Independent Toggles)
+-- UI CONSTRUCTION
 -- ==========================================
 
 local success, GuiTarget = pcall(function() return CoreGui end)
@@ -123,6 +116,7 @@ ScrollFrame.ScrollBarThickness = 4
 
 local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
 UIListLayout.Padding = UDim.new(0, 5)
+
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
 end)
@@ -164,8 +158,7 @@ local function createSingleToggleUI(parent, text, layoutOrder)
     return Frame, Button, updateVisuals
 end
 
--- Generates the two distinct Normal and Gold buttons
-local function createDualToggleUI(parent, text, color, layoutOrder)
+local function createDualToggleUI(parent, text, color, layoutOrder, isCategoryHeader)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(1, -10, 0, 32)
     Frame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
@@ -182,28 +175,17 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     Label.Font = color and Enum.Font.GothamBold or Enum.Font.GothamMedium
     Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- NORM BUTTON
-    local NormBtn = Instance.new("TextButton", Frame)
-    NormBtn.Size = UDim2.new(0, 40, 0, 20)
-    NormBtn.Position = UDim2.new(1, -95, 0.5, -10)
-    NormBtn.Text = ""
-    Instance.new("UICorner", NormBtn).CornerRadius = UDim.new(1, 0)
+    local MainBtn = Instance.new("TextButton", Frame)
+    MainBtn.Size = UDim2.new(0, 40, 0, 20)
+    MainBtn.Position = UDim2.new(1, -95, 0.5, -10)
+    MainBtn.Text = ""
+    Instance.new("UICorner", MainBtn).CornerRadius = UDim.new(1, 0)
 
-    local NormInd = Instance.new("Frame", NormBtn)
-    NormInd.Size = UDim2.new(0, 16, 0, 16)
-    NormInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Instance.new("UICorner", NormInd).CornerRadius = UDim.new(1, 0)
+    local MainInd = Instance.new("Frame", MainBtn)
+    MainInd.Size = UDim2.new(0, 16, 0, 16)
+    MainInd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", MainInd).CornerRadius = UDim.new(1, 0)
 
-    local NormLabel = Instance.new("TextLabel", Frame)
-    NormLabel.Size = UDim2.new(0, 40, 0, 10)
-    NormLabel.Position = UDim2.new(1, -95, 0.5, 10)
-    NormLabel.BackgroundTransparency = 1
-    NormLabel.Text = "NORM"
-    NormLabel.TextColor3 = Color3.fromRGB(161, 161, 170)
-    NormLabel.TextSize = 9
-    NormLabel.Font = Enum.Font.GothamBold
-
-    -- GOLD BUTTON
     local GoldBtn = Instance.new("TextButton", Frame)
     GoldBtn.Size = UDim2.new(0, 40, 0, 20)
     GoldBtn.Position = UDim2.new(1, -50, 0.5, -10)
@@ -224,18 +206,17 @@ local function createDualToggleUI(parent, text, color, layoutOrder)
     GoldLabel.TextSize = 9
     GoldLabel.Font = Enum.Font.GothamBold
 
-    local function updateVisuals(normState, goldState)
-        NormBtn.BackgroundColor3 = normState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-        NormInd.Position = normState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    local function updateVisuals(enabledState, goldState)
+        MainBtn.BackgroundColor3 = enabledState and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
+        MainInd.Position = enabledState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
 
-    return Frame, NormBtn, GoldBtn, updateVisuals
+    return Frame, MainBtn, GoldBtn, updateVisuals
 end
 
--- Master & Noclip
 local MasterContainer = Instance.new("Frame", MainFrame)
 MasterContainer.Size = UDim2.new(1, -20, 0, 40)
 MasterContainer.Position = UDim2.new(0, 10, 0, 50)
@@ -256,11 +237,11 @@ NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip u
 
 for _, category in ipairs(ItemCategories) do
     currentLayoutOrder += 1
-    local _, CatNorm, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
+    local _, CatMain, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder, true)
     
     updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
 
-    CatNorm.MouseButton1Click:Connect(function()
+    CatMain.MouseButton1Click:Connect(function()
         local newState = not State.Categories[category.Name].Normal
         State.Categories[category.Name].Normal = newState
         updateCat(newState, State.Categories[category.Name].Gold)
@@ -284,11 +265,11 @@ for _, category in ipairs(ItemCategories) do
 
     for _, itemName in ipairs(category.Items) do
         currentLayoutOrder += 1
-        local _, ItemNorm, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
+        local _, ItemMain, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder, false)
         VisualUpdaters[itemName] = updateItem
         updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
 
-        ItemNorm.MouseButton1Click:Connect(function()
+        ItemMain.MouseButton1Click:Connect(function()
             State.Items[itemName].Normal = not State.Items[itemName].Normal
             updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
         end)
