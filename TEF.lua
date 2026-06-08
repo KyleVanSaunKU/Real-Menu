@@ -2,26 +2,8 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
-
--- Require the game's custom network module
-local NetworkPackets = require(ReplicatedStorage.Shared.Network.Packets)
-local PurchasePacket = NetworkPackets.purchase_belt_item
-
--- Helper function to fire the custom packet (Vendor packets use different method names)
-local function sendPurchase(itemInstance)
-    if type(PurchasePacket.send) == "function" then
-        PurchasePacket.send(itemInstance)
-    elseif type(PurchasePacket.Send) == "function" then
-        PurchasePacket:Send(itemInstance)
-    elseif type(PurchasePacket.fire) == "function" then
-        PurchasePacket.fire(itemInstance)
-    elseif type(PurchasePacket.FireServer) == "function" then
-        PurchasePacket:FireServer(itemInstance)
-    end
-end
 
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & DEFAULTS
@@ -31,7 +13,7 @@ local ItemCategories = {
     {
         Name = "Mythical",
         Priority = 1,
-        Color = Color3.fromRGB(236, 72, 153), 
+        Color = Color3.fromRGB(236, 72, 153), -- Pink-500
         Items = {
             "LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", 
             "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"
@@ -40,7 +22,7 @@ local ItemCategories = {
     {
         Name = "Epic",
         Priority = 2,
-        Color = Color3.fromRGB(168, 85, 247), 
+        Color = Color3.fromRGB(168, 85, 247), -- Purple-500
         Items = {
             "CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", 
             "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", 
@@ -50,7 +32,7 @@ local ItemCategories = {
     {
         Name = "Uncommon",
         Priority = 3,
-        Color = Color3.fromRGB(56, 189, 248), 
+        Color = Color3.fromRGB(56, 189, 248), -- Sky-400
         Items = {
             "HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", 
             "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", 
@@ -59,6 +41,7 @@ local ItemCategories = {
     }
 }
 
+-- Items that should be OFF by default
 local defaultOff = {
     ["WaterfallUpgrader"] = true,
     ["MalevolentFurnace"] = true
@@ -67,16 +50,19 @@ local defaultOff = {
 local ItemPriorityMap = {}
 local State = {
     Master = false,
+    Noclip = false,
     Categories = {},
     Items = {}
 }
-local VisualUpdaters = {} 
+local VisualUpdaters = {} -- Stores functions to trigger UI animations remotely
 
+-- Initialize States
 for _, category in ipairs(ItemCategories) do
     State.Categories[category.Name] = true 
     for _, item in ipairs(category.Items) do
         ItemPriorityMap[item] = category.Priority
         State.Items[item] = not defaultOff[item] 
+        -- If any item is off by default, start the category toggle as off
         if defaultOff[item] then
             State.Categories[category.Name] = false
         end
@@ -86,7 +72,6 @@ end
 -- ==========================================
 -- UI CONSTRUCTION (Modern / Tailwind Style)
 -- ==========================================
--- (I removed the Noclip toggle since you no longer need to move)
 
 local GuiTarget = RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui
 local TycoonGui = Instance.new("ScreenGui")
@@ -96,8 +81,8 @@ TycoonGui.Parent = GuiTarget
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 480) 
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -240)
+MainFrame.Size = UDim2.new(0, 300, 0, 500) 
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = TycoonGui
@@ -128,9 +113,9 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Tycoon Auto-Buyer (God Mode)"
+Title.Text = "Tycoon Auto-Buyer"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
@@ -151,6 +136,7 @@ CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRG
 
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
+    State.Noclip = false
     TycoonGui:Destroy()  
 end)
 
@@ -180,8 +166,8 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -20, 1, -110) 
-ScrollFrame.Position = UDim2.new(0, 10, 0, 100)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
+ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 4
@@ -198,13 +184,14 @@ end)
 
 local currentLayoutOrder = 0
 
+-- New function to create Bulk Toggles for Categories
 local function createCategoryHeader(parent, category)
     currentLayoutOrder += 1
     
     local HeaderFrame = Instance.new("Frame")
     HeaderFrame.Size = UDim2.new(1, -10, 0, 32)
     HeaderFrame.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
-    HeaderFrame.BackgroundTransparency = 0.5 
+    HeaderFrame.BackgroundTransparency = 0.5 -- Slightly darker to separate from items
     HeaderFrame.LayoutOrder = currentLayoutOrder
     HeaderFrame.Parent = parent
 
@@ -260,9 +247,12 @@ local function createCategoryHeader(parent, category)
         State.Categories[category.Name] = newState
         updateVisuals(newState)
         
+        -- Loop through and update all child items to match the master category state
         for _, item in ipairs(category.Items) do
             State.Items[item] = newState
-            if VisualUpdaters[item] then VisualUpdaters[item](newState) end
+            if VisualUpdaters[item] then
+                VisualUpdaters[item](newState)
+            end
         end
     end)
 end
@@ -323,13 +313,20 @@ local function createToggle(parent, name, text, toggleType)
 
     VisualUpdaters[name] = updateVisuals
 
-    local startingState = toggleType == "Master" and State.Master or State.Items[name]
+    local startingState = false
+    if toggleType == "Master" then startingState = State.Master
+    elseif toggleType == "Noclip" then startingState = State.Noclip
+    else startingState = State.Items[name] end
+    
     updateVisuals(startingState)
 
     Button.MouseButton1Click:Connect(function()
         if toggleType == "Master" then
             State.Master = not State.Master
             updateVisuals(State.Master)
+        elseif toggleType == "Noclip" then
+            State.Noclip = not State.Noclip
+            updateVisuals(State.Noclip)
         else
             State.Items[name] = not State.Items[name]
             updateVisuals(State.Items[name])
@@ -346,6 +343,14 @@ MasterContainer.Parent = MainFrame
 
 createToggle(MasterContainer, "MasterToggle", "Master Auto-Buy Toggle", "Master")
 
+local NoclipContainer = Instance.new("Frame")
+NoclipContainer.Size = UDim2.new(1, -20, 0, 40)
+NoclipContainer.Position = UDim2.new(0, 10, 0, 95)
+NoclipContainer.BackgroundTransparency = 1
+NoclipContainer.Parent = MainFrame
+
+createToggle(NoclipContainer, "NoclipToggle", "Enable Noclip", "Noclip")
+
 for _, category in ipairs(ItemCategories) do
     createCategoryHeader(ScrollFrame, category)
     for _, itemName in ipairs(category.Items) do
@@ -354,10 +359,26 @@ for _, category in ipairs(ItemCategories) do
 end
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Instant Network Firing)
+-- NOCLIP LOGIC (RunService Stepped)
+-- ==========================================
+RunService.Stepped:Connect(function()
+    if State.Noclip then
+        local character = LocalPlayer.Character
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- AUTO-BUYER LOGIC
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.1 -- Can be much faster now that physics are gone
+local DELAY_BETWEEN_BUYS = 0.2 
 local myPlot = nil   
 
 local function findMyPlot()
@@ -396,10 +417,17 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
-            table.insert(buyableItems, {
-                Instance = item, -- This is the physical model the packet wants
-                Priority = ItemPriorityMap[item.Name] or 99
-            })
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
+            
+            if prompt and pad then
+                table.insert(buyableItems, {
+                    Instance = item,
+                    Prompt = prompt,
+                    Pad = pad,
+                    Priority = ItemPriorityMap[item.Name] or 99
+                })
+            end
         end
     end
 
@@ -413,17 +441,46 @@ end
 task.spawn(function()
     while task.wait(0.1) do
         if not State.Master then continue end
+        
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        hrp.Anchored = false
 
         local targets = getSortedItemsOnBelt()
 
         for _, target in ipairs(targets) do
             if not State.Master then break end 
             
-            if target.Instance and target.Instance.Parent then
-                -- Bypass all physics and fire the raw packet directly to the server
-                pcall(function()
-                    sendPurchase(target.Instance)
+            local pad = target.Pad
+            local prompt = target.Prompt
+
+            if pad and pad.Parent and prompt and prompt.Parent then
+                hrp.Anchored = true
+                
+                local isTracking = true
+                local trackConnection = RunService.Heartbeat:Connect(function()
+                    if isTracking and pad and pad.Parent then
+                        hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                    end
                 end)
+                
+                task.wait(0.1) 
+                
+                local oldLoS = prompt.RequiresLineOfSight
+                prompt.RequiresLineOfSight = false
+                
+                if fireproximityprompt then
+                    fireproximityprompt(prompt)
+                end
+                
+                prompt.RequiresLineOfSight = oldLoS
+                
+                isTracking = false
+                trackConnection:Disconnect()
+                hrp.Anchored = false
                 
                 task.wait(DELAY_BETWEEN_BUYS)
             end
