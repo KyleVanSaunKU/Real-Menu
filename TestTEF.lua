@@ -8,18 +8,34 @@ local LocalPlayer = Players.LocalPlayer
 -- ITEM CATEGORIES, PRIORITIES & COLORS
 -- ==========================================
 
+-- ==========================================
+-- ITEM CATEGORIES, PRIORITIES & COLORS
+-- ==========================================
+
 local ItemCategories = {
     {
         Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68), -- Red
         Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"}
     },
     {
-        Name = "Epic", Priority = 2, Color = Color3.fromRGB(168, 85, 247), -- Purple
+        Name = "Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8), -- Yellow
+        Items = {"ExcaliburUpgrader", "DinoUpgrader", "RubyDropper", "SatelliteUpgrader", "ScissorUpgrader", "AmethystDropper", "ButterflyFurnace", "RobosharkUpgrader", "ClioneUpgrader", "KrakenFurnace", "TopazDropper", "TomeFurnace", "VolcanicFurnace"}
+    },
+    {
+        Name = "Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247), -- Purple
         Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"}
     },
     {
-        Name = "Uncommon", Priority = 3, Color = Color3.fromRGB(34, 197, 94), -- Green
+        Name = "Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248), -- Blue
+        Items = {"GoalieFurnace", "SandcastleUpgrader", "CactusFurnace", "ChessUpgrader", "HeadphonesUpgrader", "CakeUpgrader", "IglooUpgrader", "SapphireDropper", "CheeseDropper", "MushroomUpgrader", "DonutUpgrader", "RubberDuckyUpgrader"}
+    },
+    {
+        Name = "Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94), -- Green
         Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"}
+    },
+    {
+        Name = "Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255), -- White
+        Items = {"BasicDropper", "BasicFurnace", "BasicUpgrader", "AdvancedUpgrader", "FishboneUpgrader", "CopperDropper", "NetworkFurnace", "PuzzleUpgrader", "SoccerUpgrader", "TrafficConeUpgrader"}
     }
 }
 
