@@ -375,7 +375,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC (Exact Prompt Tracking)
+-- AUTO-BUYER LOGIC (CoreGui Crash Bypass)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.1 
@@ -417,7 +417,6 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
-            -- We ONLY care about the prompt now, not the pad.
             local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             
             if prompt then
@@ -453,33 +452,36 @@ task.spawn(function()
             local prompt = target.Prompt
             local promptPart = prompt and prompt.Parent
 
-            -- Ensure the prompt is attached to a physical part
             if prompt and promptPart and promptPart:IsA("BasePart") then
                 hrp.Anchored = true
                 
                 local isTracking = true
                 local trackConnection = RunService.Heartbeat:Connect(function()
                     if isTracking and promptPart and promptPart.Parent then
-                        -- Teleport EXACTLY to the part holding the prompt (e.g., LabelAnchor)
-                        -- Added 1 stud on the Y axis so your torso centers on the button
+                        -- Teleport EXACTLY to the LabelAnchor holding the prompt
                         hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 1, 0))
                         hrp.AssemblyLinearVelocity = Vector3.zero
                         hrp.AssemblyAngularVelocity = Vector3.zero
                     end
                 end)
                 
-                -- Let server sync your position directly on top of the button
                 task.wait(0.1) 
                 
                 if prompt.Enabled then
                     local oldLoS = prompt.RequiresLineOfSight
+                    
+                    -- THE FIX: Disable Roblox's default UI for this prompt so the CoreScript doesn't crash
+                    local oldStyle = prompt.Style
+                    prompt.Style = Enum.ProximityPromptStyle.Custom
                     prompt.RequiresLineOfSight = false
                     
                     if fireproximityprompt then
                         fireproximityprompt(prompt)
                     end
                     
+                    -- Restore properties
                     prompt.RequiresLineOfSight = oldLoS
+                    prompt.Style = oldStyle
                 end
                 
                 isTracking = false
