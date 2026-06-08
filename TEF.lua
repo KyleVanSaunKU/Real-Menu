@@ -375,10 +375,10 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- AUTO-BUYER LOGIC
+-- AUTO-BUYER LOGIC (Exact Prompt Tracking)
 -- ==========================================
 
-local DELAY_BETWEEN_BUYS = 0.2 
+local DELAY_BETWEEN_BUYS = 0.1 
 local myPlot = nil   
 
 local function findMyPlot()
@@ -417,14 +417,13 @@ local function getSortedItemsOnBelt()
     
     for _, item in ipairs(activeItems:GetChildren()) do
         if State.Items[item.Name] then
+            -- We ONLY care about the prompt now, not the pad.
             local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local pad = item:FindFirstChild("PurchasePad", true) or item:FindFirstChild("Head", true) or item:FindFirstChildWhichIsA("BasePart", true)
             
-            if prompt and pad then
+            if prompt then
                 table.insert(buyableItems, {
                     Instance = item,
                     Prompt = prompt,
-                    Pad = pad,
                     Priority = ItemPriorityMap[item.Name] or 99
                 })
             end
@@ -446,37 +445,42 @@ task.spawn(function()
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
-        hrp.Anchored = false
-
         local targets = getSortedItemsOnBelt()
 
         for _, target in ipairs(targets) do
             if not State.Master then break end 
             
-            local pad = target.Pad
             local prompt = target.Prompt
+            local promptPart = prompt and prompt.Parent
 
-            if pad and pad.Parent and prompt and prompt.Parent then
+            -- Ensure the prompt is attached to a physical part
+            if prompt and promptPart and promptPart:IsA("BasePart") then
                 hrp.Anchored = true
                 
                 local isTracking = true
                 local trackConnection = RunService.Heartbeat:Connect(function()
-                    if isTracking and pad and pad.Parent then
-                        hrp.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
+                    if isTracking and promptPart and promptPart.Parent then
+                        -- Teleport EXACTLY to the part holding the prompt (e.g., LabelAnchor)
+                        -- Added 1 stud on the Y axis so your torso centers on the button
+                        hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 1, 0))
                         hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
                     end
                 end)
                 
+                -- Let server sync your position directly on top of the button
                 task.wait(0.1) 
                 
-                local oldLoS = prompt.RequiresLineOfSight
-                prompt.RequiresLineOfSight = false
-                
-                if fireproximityprompt then
-                    fireproximityprompt(prompt)
+                if prompt.Enabled then
+                    local oldLoS = prompt.RequiresLineOfSight
+                    prompt.RequiresLineOfSight = false
+                    
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt)
+                    end
+                    
+                    prompt.RequiresLineOfSight = oldLoS
                 end
-                
-                prompt.RequiresLineOfSight = oldLoS
                 
                 isTracking = false
                 trackConnection:Disconnect()
