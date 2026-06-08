@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
@@ -224,7 +223,7 @@ local function createDualToggleUI(parent, text, color, layoutOrder, isCategoryHe
         GoldBtn.BackgroundColor3 = goldState and Color3.fromRGB(234, 179, 8) or Color3.fromRGB(82, 82, 91)
         GoldInd.Position = goldState and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
     end
-
+    
     return Frame, MainBtn, GoldBtn, updateVisuals
 end
 
