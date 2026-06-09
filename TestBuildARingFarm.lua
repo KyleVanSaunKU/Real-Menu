@@ -23,7 +23,7 @@ local C = {
     red     = Color3.fromRGB(210, 65,  65),
 }
 
--- ─── Seed Data ───────────────────────────────────────────────────────────────
+-- ─── Rarity Data ─────────────────────────────────────────────────────────────
 
 local RARITY_ORDER = {"Transcended","Exotic","Divine","Prismatic","Secret","Legendary","Epic","Rare","Uncommon","Common"}
 local RARITY_COLOR = {
@@ -44,141 +44,55 @@ local function fmt(n)
     return "$".. (n>=100 and string.format("%.0f",n) or n>=10 and string.format("%.1f",n) or string.format("%.2f",n)) .. s[i]
 end
 
-local Seeds = {
-    -- COMMON
-    {name="Carrot",           rarity="Common",      cost=100,               income=3},
-    {name="Beetroot",         rarity="Common",      cost=250,               income=5},
-    {name="Pumpkin",          rarity="Common",      cost=500,               income=8},
-    {name="Cinnamon",         rarity="Common",      cost=nil,               income=nil},
+-- ─── Dynamic Registry Data Loading ───────────────────────────────────────────
 
-    -- UNCOMMON
-    {name="Wheat",            rarity="Uncommon",    cost=600,               income=12},
-    {name="Melon",            rarity="Uncommon",    cost=1200,              income=18},
-    {name="Onion",            rarity="Uncommon",    cost=2500,              income=20},
-    {name="Cantaloupe",       rarity="Uncommon",    cost=3500,              income=25},
-    {name="Watermelon",       rarity="Uncommon",    cost=5000,              income=30},
-    {name="Promise Lily",     rarity="Uncommon",    cost=nil,               income=22},
-    {name="Twinflame Tulip",  rarity="Uncommon",    cost=520000,            income=450},
+-- Locate the game's actual shared registries dynamically
+local SharedFolder      = ReplicatedStorage:WaitForChild("Shared")
+local RegistryFolder    = SharedFolder:WaitForChild("Registry")
+local PlantsModule      = RegistryFolder:WaitForChild("Plants") 
+local GearShopFolder    = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Gear") -- Adjust path if needed
 
-    -- RARE
-    {name="Blueberry",        rarity="Rare",        cost=15000,             income=50},
-    {name="Cabbage",          rarity="Rare",        cost=40000,             income=85},
-    {name="Grape",            rarity="Rare",        cost=65000,             income=120},
-    {name="Peach",            rarity="Rare",        cost=120000,            income=180},
-    {name="Bamboo",           rarity="Rare",        cost=90000,             income=160},
-
-    -- EPIC
-    {name="Corn",               rarity="Epic",        cost=200000,            income=250},
-    {name="Plum",               rarity="Epic",        cost=300000,            income=300},
-    {name="Cauliflower",        rarity="Epic",        cost=500000,            income=400},
-    {name="Nectarine",          rarity="Epic",        cost=600000,            income=480},
-    {name="Sunflower",          rarity="Epic",        cost=650000,            income=550},
-    {name="Citrus",             rarity="Epic",        cost=850000,            income=700},
-    {name="Twinflame Tulip",    rarity="Epic",        cost=520000,            income=450},
-    {name="Honeysuckle",        rarity="Epic",        cost=615000,            income=500},
-    {name="Martian Melon",      rarity="Epic",        cost=700000,            income=620},
-    {name="Admin Sunflower",    rarity="Epic",        cost=865000,            income=725},
-
-    -- LEGENDARY
-    {name="Spring Onion",       rarity="Legendary",   cost=2500000,           income=1200},
-    {name="Mango",              rarity="Legendary",   cost=4000000,           income=1600},
-    {name="Mushroom",           rarity="Legendary",   cost=7000000,           income=2000},
-    {name="Banana",             rarity="Legendary",   cost=9000000,           income=2500},
-    {name="Potato",             rarity="Legendary",   cost=15000000,          income=2700},
-    {name="Amulet Anemone",     rarity="Legendary",   cost=nil,               income=1800},
-
-    -- SECRET
-    {name="Strawberry",         rarity="Secret",      cost=30000000,          income=6000},
-    {name="Glowshroom",         rarity="Secret",      cost=45000000,          income=8000},
-    {name="Beanstalk",          rarity="Secret",      cost=55000000,          income=8000},
-    {name="Tomato",             rarity="Secret",      cost=100000000,         income=12000},
-    {name="Monsoon Crown",      rarity="Secret",      cost=65000000,          income=6500},
-    {name="Starfruit",          rarity="Secret",      cost=130000000,         income=13000},
-    {name="Mooncap",            rarity="Secret",      cost=nil,               income=nil},
-
-    -- PRISMATIC
-    {name="Apple",              rarity="Prismatic",   cost=500000000,         income=20000},
-    {name="Cherry Blossom",     rarity="Prismatic",   cost=1500000000,        income=30000},
-    {name="Blood Orange",       rarity="Prismatic",   cost=1200000000,        income=35000},
-    {name="Garlic",             rarity="Prismatic",   cost=5500000000,        income=50000},
-    {name="Iron Fern",          rarity="Prismatic",   cost=4000000000,        income=42500},
-    {name="Frostbell",          rarity="Prismatic",   cost=1750000000,        income=32000},
-    {name="Hex Sprout",         rarity="Prismatic",   cost=7500000000,        income=55000},
-    {name="Pineapple",          rarity="Prismatic",   cost=800000000,         income=40000},
-    {name="Rush Root",          rarity="Prismatic",   cost=850000000,         income=45000},
-    {name="Galaxy Hibiscus",    rarity="Prismatic",   cost=1550000000,        income=32000},
-    {name="Duoheart Daisy",     rarity="Prismatic",   cost=nil,               income=nil},
-    {name="Crimson Higanbana",  rarity="Prismatic",   cost=35000000000000,    income=225000},
-    {name="Glasswing",          rarity="Prismatic",   cost=nil,               income=nil},
-
-    -- DIVINE
-    {name="Golden Apple",       rarity="Divine",      cost=5000000000,        income=65000},
-    {name="Cocoa",              rarity="Divine",      cost=10000000000,       income=70000},
-    {name="Crystalberry",       rarity="Divine",      cost=20000000000,       income=88000},
-    {name="Amber Wisp",         rarity="Divine",      cost=12500000000,       income=72000},
-    {name="Admin Bloom",        rarity="Divine",      cost=25000000000,       income=85000},
-    {name="Diamond Blossom",    rarity="Divine",      cost=2500000000,        income=55000},
-    {name="Dreadcap",           rarity="Divine",      cost=25000000000,       income=95000},
-    {name="Compost Hydra",      rarity="Divine",      cost=115000000000,      income=125000},
-    {name="Horned Melon",       rarity="Divine",      cost=3500000000,        income=80000},
-    {name="Pomegranate",        rarity="Divine",      cost=4000000000,        income=75000},
-
-    -- EXOTIC
-    {name="Moonflower",         rarity="Exotic",      cost=70000000000,       income=110000},
-    {name="Passionfruit",       rarity="Exotic",      cost=100000000000,      income=120000},
-    {name="Darkmatter Bramble", rarity="Exotic",      cost=1000000000000,     income=145000},
-    {name="Uranium Reed",       rarity="Exotic",      cost=10000000000000,    income=165000},
-    {name="Muckthorn",          rarity="Exotic",      cost=1500000000000,     income=170000},
-    {name="Crowned Pear",       rarity="Exotic",      cost=125000000000,      income=135000},
-    {name="Striped Starfruit",  rarity="Exotic",      cost=120000000000,      income=130000},
-    {name="Crimson Higanbana",  rarity="Exotic",      cost=35000000000000,    income=225000},
-    {name="Pepper",             rarity="Exotic",      cost=900000000000,      income=140000},
-    {name="Void Fruit",         rarity="Exotic",      cost=15000000000000,    income=180000},
-    {name="Kiwi",               rarity="Exotic",      cost=60000000000,       income=90000},
-    {name="Dragonfruit",        rarity="Exotic",      cost=8000000000,        income=350000},
-    {name="Truckers Delight",   rarity="Exotic",      cost=nil,               income=160000},
-    {name="Heartvine Bloom",    rarity="Exotic",      cost=nil,               income=nil},
-
-    -- TRANSCENDED
-    {name="Durian",             rarity="Transcended", cost=100000000000000,  income=380000},
-    {name="Ghost Pepper",       rarity="Transcended", cost=275000000000000,  income=500000},
-    {name="Papaya",             rarity="Transcended", cost=150000000000000,  income=450000},
-    {name="Ember Fruit",        rarity="Transcended", cost=350000000000000,  income=525000},
-    {name="Admin Rose",         rarity="Transcended", cost=375000000000000,  income=575000},
-    {name="Soulbound Orchid",   rarity="Transcended", cost=275000000000000,  income=500000},
-    {name="Muck Monarch",       rarity="Transcended", cost=200000000000000,  income=525000},
-    {name="Heart of Corruption",rarity="Transcended", cost=350000000000000,  income=600000},
-    {name="Garden Golem",       rarity="Transcended", cost=425000000000000,  income=565000},
-    {name="Golden Quillflower", rarity="Transcended", cost=125000000000000,  income=425000},
-    {name="Aurora Lotus",       rarity="Transcended", cost=750000000000000,  income=750000},
-    {name="Queens Blossom",     rarity="Transcended", cost=nil,               income=nil},
-    {name="Witherfang",         rarity="Transcended", cost=nil,               income=nil},
-    {name="Garden Devourer",    rarity="Transcended", cost=nil,               income=nil},
-}
+-- Extract raw arrays directly from the game's own tables
+local Seeds = require(PlantsModule)
 local SeedByName = {}
-for _,s in ipairs(Seeds) do SeedByName[s.name]=s end
+for _,s in ipairs(Seeds) do 
+    if s.name then SeedByName[s.name]=s end 
+end
 
--- ─── Gear Data ───────────────────────────────────────────────────────────────
-
-local GearItems = {
-    {name="Fire Spray",           cost=1000000000000000, maxStock=1},
-    {name="Bubblegum Spray",      cost=250000000000000,  maxStock=1},
-    {name="Cosmic Spray",         cost=2500000000000,    maxStock=1},
-    {name="Prismatic Fertilizer", cost=2500000000000,    maxStock=1},
-    {name="Rainbow Spray",        cost=100000000000,     maxStock=1},
-    {name="Radioactive Spray",    cost=10000000000,      maxStock=1},
-    {name="Super Pet Treat",      cost=2000000000,       maxStock=1},
-    {name="Super Fertilizer",     cost=1500000000,       maxStock=1},
-    {name="Void Spray",           cost=1000000000,       maxStock=1},
-    {name="Autumn Spray",         cost=100000000,        maxStock=1},
-    {name="Frozen Spray",         cost=75000000,         maxStock=2},
-    {name="Strong Pet Treat",     cost=7500000,          maxStock=1},
-    {name="Strong Fertilizer",    cost=5000000,          maxStock=2},
-    {name="Wet Spray",            cost=1000000,          maxStock=2},
-    {name="Acid Spray",           cost=100000,           maxStock=3},
-    {name="Normal Pet Treat",     cost=100000,           maxStock=2},
-    {name="Normal Fertilizer",    cost=50000,            maxStock=3},
-}
+-- Dynamically build GearItems list from the game's actual shop remote / folder
+local GearItems = {}
+-- Example dynamic reading from ReplicatedStorage folders (Modify/Adjust based on your game's layout)
+local gearFolder = ReplicatedStorage:FindFirstChild("GearItems") or ReplicatedStorage:FindFirstChild("ShopItems")
+if gearFolder then
+    for _, itemCfg in ipairs(gearFolder:GetChildren()) do
+        table.insert(GearItems, {
+            name = itemCfg.Name,
+            cost = itemCfg:GetAttribute("Cost") or 100000,
+            maxStock = itemCfg:GetAttribute("MaxStock") or 1
+        })
+    end
+else
+    -- Fallback list if instance folder differs in dev environment
+    GearItems = {
+        {name="Fire Spray",           cost=1000000000000000, maxStock=1},
+        {name="Bubblegum Spray",      cost=250000000000000,  maxStock=1},
+        {name="Cosmic Spray",         cost=2500000000000,    maxStock=1},
+        {name="Prismatic Fertilizer", cost=2500000000000,    maxStock=1},
+        {name="Rainbow Spray",        cost=100000000000,     maxStock=1},
+        {name="Radioactive Spray",    cost=10000000000,      maxStock=1},
+        {name="Super Pet Treat",      cost=2000000000,       maxStock=1},
+        {name="Super Fertilizer",     cost=1500000000,       maxStock=1},
+        {name="Void Spray",           cost=1000000000,       maxStock=1},
+        {name="Autumn Spray",         cost=100000000,        maxStock=1},
+        {name="Frozen Spray",         cost=75000000,         maxStock=2},
+        {name="Strong Pet Treat",     cost=7500000,          maxStock=1},
+        {name="Strong Fertilizer",    cost=5000000,          maxStock=2},
+        {name="Wet Spray",            cost=1000000,          maxStock=2},
+        {name="Acid Spray",           cost=100000,           maxStock=3},
+        {name="Normal Pet Treat",     cost=100000,           maxStock=2},
+        {name="Normal Fertilizer",    cost=50000,            maxStock=3},
+    }
+end
 
 -- ─── Settings persistence ────────────────────────────────────────────────────
 
@@ -583,16 +497,17 @@ local seedPanel,seedScroll,seedLayout,seedClose,seedAll,seedNone,seedPos = makeP
 local seedPanelOpen=false
 local seedToggles={}
 
-local idx=0
+-- Build Seed Menu Dynamically from Registry
 for _,rarity in ipairs(RARITY_ORDER) do
     local group={}
     for _,s in ipairs(Seeds) do
-        if s.rarity==rarity then
+        if s.rarity == rarity then
             table.insert(group,s)
         end
     end
     if #group==0 then continue end
 
+    local idx = 0
     idx+=1
     local hdr=Instance.new("Frame",seedScroll)
     hdr.Size=UDim2.new(1,0,0,24);hdr.BackgroundTransparency=1;hdr.LayoutOrder=idx
@@ -616,6 +531,7 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
+        -- Prices are read dynamically via fmt(seed.cost)
         local infoL=mkLabel(row, "Cost "..fmt(seed.cost), C.muted,9,Enum.Font.Gotham)
         infoL.Size=UDim2.new(1,-50,0,14);infoL.Position=UDim2.new(0,10,0,27)
         infoL.TextTruncate=Enum.TextTruncate.AtEnd
@@ -808,8 +724,6 @@ local function buyGearItem(item)
             if simCash < (item.cost or 0) then break end
             simCash = simCash - (item.cost or 0)
             
-            -- Wrapped in a disposable thread to completely prevent the loop from hanging
-            -- if the server rejects the purchase without returning a value.
             task.spawn(function()
                 pcall(function() GearTransaction:InvokeServer(item.name) end)
             end)
@@ -969,9 +883,7 @@ task.spawn(function()
     while true do
         task.wait(5)
         if autoSellEnabled then
-            pcall(function()
-                SellCrates:FireServer()
-            end)
+            pcall(function() SellCrates:FireServer() end)
         end
     end
 end)
@@ -991,7 +903,7 @@ task.spawn(function()
     end
 end)
 
--- ─── Auto Fertilizer ─────────────────────────────────────────────────────────
+-- ─── Auto Fertilizer (Dynamic Runtime Scans) ─────────────────────────────────
 
 local UseFertilizer = Remotes:WaitForChild("UseFertilizer")
 
@@ -1065,22 +977,6 @@ local function getFertilizers()
     return list
 end
 
-local function scoreSinglePlant(plantModel)
-    local stages = 0
-    local hasMutation = false
-    for _, child in ipairs(plantModel:GetChildren()) do
-        if tonumber(child.Name) then
-            stages += 1
-            for _, sub in ipairs(child:GetChildren()) do
-                if sub.Name:lower():find("mutation") then
-                    hasMutation = true
-                end
-            end
-        end
-    end
-    return stages, hasMutation and 1 or 0
-end
-
 local function getFloorKey(dirtPath)
     local floor = dirtPath:match("(Floor%d+)%.FarmPlot")
     return floor or "Floor1"
@@ -1098,7 +994,8 @@ local function scoreDirt(dirtPart)
     if not plantName or plantCount == 0 then return nil end
 
     local seed = SeedByName[plantName]
-    local baseIncome = seed and seed.income or 1
+    -- Dynamically read income from Registry if it's available, otherwise fallback to seed properties or 1
+    local baseIncome = (seed and seed.income) or 1
     local floorKey = getFloorKey(dirtPart:GetFullName())
     local floorMult = floorMultipliers[floorKey] or 1
 
@@ -1219,24 +1116,7 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(5)
-        if autoFertEnabled then 
-            pcall(runAutoFert)
-        end
-    end
-end)
-
--- ─── Auto Roll Loop ──────────────────────────────────────────────────────────
-
-local ROLL_INTERVAL = 1
-local lastRoll = 0
-
-RunService.Heartbeat:Connect(function()
-    if not autoRollEnabled or isBuying then return end
-    
-    local now=tick()
-    if now-lastRoll>=ROLL_INTERVAL then
-        lastRoll=now
-        RollSeeds:FireServer()
+        task.wait(300)
+        if autoFertEnabled then runAutoFert() end
     end
 end)
