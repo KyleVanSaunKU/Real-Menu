@@ -249,7 +249,27 @@ local SellCrates      = Remotes:WaitForChild("SellCrates")
 local function getPlayerCash()
     local leaderstats = player:FindFirstChild("leaderstats")
     local cashObj = leaderstats and leaderstats:FindFirstChild("Cash")
-    return cashObj and cashObj.Value or 0
+    if not cashObj then return 0 end
+    
+    local val = cashObj.Value
+    if type(val) == "number" then return val end
+    
+    -- Strips commas out to prevent crash
+    local str = tostring(val):gsub(",", "")
+    -- Captures pure numbers and any suffixes (k, m, b)
+    local num, suf = str:match("([%d%.]+)([%a]*)")
+    
+    if num then
+        local n = tonumber(num) or 0
+        if suf and suf ~= "" then
+            suf = suf:lower()
+            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15}
+            n = n * (mults[suf] or 1)
+        end
+        return n
+    end
+    
+    return 0
 end
 
 -- ─── GUI ─────────────────────────────────────────────────────────────────────
@@ -879,17 +899,20 @@ RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
 
     buyLock=true;isBuying=true
     task.spawn(function()
-        task.wait(0.2)
-        for _,entry in ipairs(queue) do
-            if getPlayerCash() >= entry.cost then
-                BuySeed:FireServer(entry.slot)
-                showToast(entry.name)
-                task.wait(0.8)
-            else
-                break
+        pcall(function() -- Failsafe injected here
+            task.wait(0.2)
+            for _,entry in ipairs(queue) do
+                if getPlayerCash() >= entry.cost then
+                    BuySeed:FireServer(entry.slot)
+                    showToast(entry.name)
+                    task.wait(0.8)
+                else
+                    break
+                end
             end
-        end
-        task.wait(0.5)
+            task.wait(0.5)
+        end)
+        -- Guarantees resets
         isBuying=false;buyLock=false
     end)
 end)
