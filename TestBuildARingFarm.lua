@@ -254,9 +254,7 @@ local function getPlayerCash()
     local val = cashObj.Value
     if type(val) == "number" then return val end
     
-    -- Strips commas out to prevent crash
     local str = tostring(val):gsub(",", "")
-    -- Captures pure numbers and any suffixes (k, m, b)
     local num, suf = str:match("([%d%.]+)([%a]*)")
     
     if num then
@@ -352,7 +350,7 @@ win.Position=UDim2.new(0,20,0.5,-110)
 win.BackgroundColor3=C.bg
 win.BackgroundTransparency=0.08
 win.BorderSizePixel=0
-win.ClipsDescendants=true -- Added to allow smooth collapsing
+win.ClipsDescendants=true
 mkCorner(win,10)
 mkStroke(win,C.border,1,0.5)
 
@@ -373,7 +371,7 @@ hp.Size=UDim2.new(1,0,0.5,0);hp.Position=UDim2.new(0,0,0.5,0)
 hp.BackgroundColor3=C.surface;hp.BorderSizePixel=0
 
 local titleLbl=Instance.new("TextLabel",header)
-titleLbl.Size=UDim2.new(1,-70,1,0);titleLbl.Position=UDim2.new(0,16,0,0) -- Adjusted size to make room for buttons
+titleLbl.Size=UDim2.new(1,-70,1,0);titleLbl.Position=UDim2.new(0,16,0,0)
 titleLbl.BackgroundTransparency=1;titleLbl.Text="Build a Ring Farm"
 titleLbl.TextColor3=C.white;titleLbl.Font=Enum.Font.GothamBold;titleLbl.TextSize=14
 titleLbl.TextXAlignment=Enum.TextXAlignment.Left
@@ -439,7 +437,7 @@ local rollTrack,setRoll,getRoll             = addRow("Auto Roll")
 local buyTrack,setBuy,getBuy,buyCfgBtn      = addRow("Auto Buy","Seeds","Seeds")
 local gearTrack,setGear,getGear,gearCfgBtn = addRow("Auto Gear",true,"Items")
 local fertTrack,setFert,getFert             = addRow("Auto Fert")
-local sellTrack,setSell,getSell             = addRow("Auto Sell") -- New Row
+local sellTrack,setSell,getSell             = addRow("Auto Sell") 
 
 local statusY = START_Y + rowCount*(ROW_H+ROW_GAP) + 4
 
@@ -773,8 +771,10 @@ local function updateStockLabel(name, stock)
 end
 
 local function buyGearItem(item)
+    local simCash = getPlayerCash()
     for _ = 1, item.maxStock do
-        if getPlayerCash() < (item.cost or 0) then break end
+        if simCash < (item.cost or 0) then break end
+        simCash = simCash - (item.cost or 0)
         local ok, res = pcall(function() return GearTransaction:InvokeServer(item.name) end)
         if not ok or not res then break end
         task.wait(0.4)
@@ -801,7 +801,7 @@ local function watchGearShop()
             local newStock = parseStock(stockLbl)
             updateStockLabel(item.name, newStock)
 
-            if autoGearEnabled and gearBuyList[item.name] and newStock > 0 and getPlayerCash() >= (item.cost or 0) then
+            if autoGearEnabled and gearBuyList[item.name] and newStock > 0 then
                 task.spawn(function()
                     task.wait(0.3)
                     buyGearItem(item)
@@ -876,52 +876,73 @@ end
 
 -- ─── Auto Buy Seeds ──────────────────────────────────────────────────────────
 
-RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
-    if not autoBuyEnabled then return end
-    if buyLock then return end
-    if type(rolledSeeds)~="table" then return end
+local pendingSeeds = {}
 
-    local currentCash = getPlayerCash()
-    local queue={}
+-- Step 1: Update our memory bank of what's currently on the screen
+RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
+    if type(rolledSeeds) ~= "table" then return end
+    table.clear(pendingSeeds)
     
-    for slotIndex,seedName in ipairs(rolledSeeds) do
-        if type(seedName)=="string" and autoBuyList[seedName] then
-            local seedData = SeedByName[seedName]
-            local cost = seedData and seedData.cost or 0
-            
-            if currentCash >= cost then
-                table.insert(queue,{slot=slotIndex,name=seedName, cost=cost})
-                currentCash = currentCash - cost
-            end
+    for slotIndex, seedName in pairs(rolledSeeds) do
+        if type(seedName) == "string" then
+            pendingSeeds[tonumber(slotIndex) or slotIndex] = seedName
         end
     end
-    if #queue==0 then return end
+end)
 
-    buyLock=true;isBuying=true
-    task.spawn(function()
-        pcall(function() -- Failsafe injected here
-            task.wait(0.2)
-            for _,entry in ipairs(queue) do
-                if getPlayerCash() >= entry.cost then
-                    BuySeed:FireServer(entry.slot)
-                    showToast(entry.name)
-                    task.wait(0.8)
-                else
-                    break
+-- Step 2: Loop to continuously check if we can afford the pending seeds
+task.spawn(function()
+    while true do
+        task.wait(0.5) -- Checks your wallet every half second
+        if not autoBuyEnabled or buyLock then continue end
+
+        local currentCash = getPlayerCash()
+        local queue = {}
+        
+        -- See if we can afford anything sitting on the board
+        for slot, seedName in pairs(pendingSeeds) do
+            if autoBuyList[seedName] then
+                local seedData = SeedByName[seedName]
+                local cost = seedData and seedData.cost or 0
+                
+                if currentCash >= cost then
+                    table.insert(queue, {slot=slot, name=seedName, cost=cost})
+                    currentCash = currentCash - cost
                 end
             end
-            task.wait(0.5)
-        end)
-        -- Guarantees resets
-        isBuying=false;buyLock=false
-    end)
+        end
+
+        if #queue > 0 then
+            buyLock = true; isBuying = true
+            pcall(function()
+                task.wait(0.1)
+                local simCash = getPlayerCash()
+                
+                for _, entry in ipairs(queue) do
+                    -- Double-check it hasn't already been bought and we still have cash
+                    if pendingSeeds[entry.slot] and simCash >= entry.cost then
+                        simCash = simCash - entry.cost
+                        pendingSeeds[entry.slot] = nil -- Cross it off our list locally
+                        
+                        BuySeed:FireServer(entry.slot)
+                        showToast(entry.name)
+                        task.wait(0.8)
+                    elseif simCash < entry.cost then
+                        break
+                    end
+                end
+                task.wait(0.5)
+            end)
+            isBuying = false; buyLock = false
+        end
+    end
 end)
 
 -- ─── Auto Sell Crates ────────────────────────────────────────────────────────
 
 task.spawn(function()
     while true do
-        task.wait(5) -- Checks every 5 seconds to prevent rate-limiting
+        task.wait(5)
         if autoSellEnabled then
             pcall(function()
                 SellCrates:FireServer()
@@ -938,7 +959,7 @@ task.spawn(function()
         if not autoGearEnabled then continue end
         for _, item in ipairs(GearItems) do
             if not gearBuyList[item.name] then continue end
-            if (gearStock[item.name] or 0) > 0 and getPlayerCash() >= (item.cost or 0) then
+            if (gearStock[item.name] or 0) > 0 then
                 buyGearItem(item)
             end
         end
@@ -1173,8 +1194,10 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(300)
-        if autoFertEnabled then runAutoFert() end
+        task.wait(5)
+        if autoFertEnabled then 
+            pcall(runAutoFert)
+        end
     end
 end)
 
