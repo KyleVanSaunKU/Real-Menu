@@ -44,117 +44,116 @@ local function fmt(n)
     return "$".. (n>=100 and string.format("%.0f",n) or n>=10 and string.format("%.1f",n) or string.format("%.2f",n)) .. s[i]
 end
 
--- Seed data sourced directly from ReplicatedStorage.Shared.Registry.Plants
 local Seeds = {
     -- COMMON
-    {name="Carrot",           rarity="Common",      cost=100,               income=3,       chance="Common"},
-    {name="Beetroot",         rarity="Common",      cost=250,               income=5,       chance="Common"},
-    {name="Pumpkin",          rarity="Common",      cost=500,               income=8,       chance="Common"},
-    {name="Cinnamon",         rarity="Common",      cost=nil,               income=nil,     chance="?"},
+    {name="Carrot",           rarity="Common",      cost=100,               income=3},
+    {name="Beetroot",         rarity="Common",      cost=250,               income=5},
+    {name="Pumpkin",          rarity="Common",      cost=500,               income=8},
+    {name="Cinnamon",         rarity="Common",      cost=nil,               income=nil},
 
     -- UNCOMMON
-    {name="Wheat",            rarity="Uncommon",    cost=600,               income=12,      chance="Uncommon"},
-    {name="Melon",            rarity="Uncommon",    cost=1200,              income=18,      chance="Uncommon"},
-    {name="Onion",            rarity="Uncommon",    cost=2500,              income=20,      chance="Uncommon"},
-    {name="Cantaloupe",       rarity="Uncommon",    cost=3500,              income=25,      chance="Uncommon"},
-    {name="Watermelon",       rarity="Uncommon",    cost=5000,              income=30,      chance="Uncommon"},
-    {name="Promise Lily",     rarity="Uncommon",    cost=nil,               income=22,      chance="Friend-o-Tron"},
-    {name="Twinflame Tulip",  rarity="Uncommon",    cost=520000,            income=450,     chance="Not rollable"},
+    {name="Wheat",            rarity="Uncommon",    cost=600,               income=12},
+    {name="Melon",            rarity="Uncommon",    cost=1200,              income=18},
+    {name="Onion",            rarity="Uncommon",    cost=2500,              income=20},
+    {name="Cantaloupe",       rarity="Uncommon",    cost=3500,              income=25},
+    {name="Watermelon",       rarity="Uncommon",    cost=5000,              income=30},
+    {name="Promise Lily",     rarity="Uncommon",    cost=nil,               income=22},
+    {name="Twinflame Tulip",  rarity="Uncommon",    cost=520000,            income=450},
 
     -- RARE
-    {name="Blueberry",        rarity="Rare",        cost=15000,             income=50,      chance="Rare"},
-    {name="Cabbage",          rarity="Rare",        cost=40000,             income=85,      chance="Rare"},
-    {name="Grape",            rarity="Rare",        cost=65000,             income=120,     chance="Rare"},
-    {name="Peach",            rarity="Rare",        cost=120000,            income=180,     chance="Rare"},
-    {name="Bamboo",           rarity="Rare",        cost=90000,             income=160,     chance="Rare"},
+    {name="Blueberry",        rarity="Rare",        cost=15000,             income=50},
+    {name="Cabbage",          rarity="Rare",        cost=40000,             income=85},
+    {name="Grape",            rarity="Rare",        cost=65000,             income=120},
+    {name="Peach",            rarity="Rare",        cost=120000,            income=180},
+    {name="Bamboo",           rarity="Rare",        cost=90000,             income=160},
 
     -- EPIC
-    {name="Corn",               rarity="Epic",        cost=200000,            income=250,     chance="Epic"},
-    {name="Plum",               rarity="Epic",        cost=300000,            income=300,     chance="Epic"},
-    {name="Cauliflower",        rarity="Epic",        cost=500000,            income=400,     chance="Epic"},
-    {name="Nectarine",          rarity="Epic",        cost=600000,            income=480,     chance="Epic"},
-    {name="Sunflower",          rarity="Epic",        cost=650000,            income=550,     chance="Epic"},
-    {name="Citrus",             rarity="Epic",        cost=850000,            income=700,     chance="Epic"},
-    {name="Twinflame Tulip",    rarity="Epic",        cost=520000,            income=450,     chance="Not rollable"},
-    {name="Honeysuckle",        rarity="Epic",        cost=615000,            income=500,     chance="Bee Event"},
-    {name="Martian Melon",      rarity="Epic",        cost=700000,            income=620,     chance="Alien Event"},
-    {name="Admin Sunflower",    rarity="Epic",        cost=865000,            income=725,     chance="Admin"},
+    {name="Corn",               rarity="Epic",        cost=200000,            income=250},
+    {name="Plum",               rarity="Epic",        cost=300000,            income=300},
+    {name="Cauliflower",        rarity="Epic",        cost=500000,            income=400},
+    {name="Nectarine",          rarity="Epic",        cost=600000,            income=480},
+    {name="Sunflower",          rarity="Epic",        cost=650000,            income=550},
+    {name="Citrus",             rarity="Epic",        cost=850000,            income=700},
+    {name="Twinflame Tulip",    rarity="Epic",        cost=520000,            income=450},
+    {name="Honeysuckle",        rarity="Epic",        cost=615000,            income=500},
+    {name="Martian Melon",      rarity="Epic",        cost=700000,            income=620},
+    {name="Admin Sunflower",    rarity="Epic",        cost=865000,            income=725},
 
     -- LEGENDARY
-    {name="Spring Onion",       rarity="Legendary",   cost=2500000,           income=1200,    chance="Legendary"},
-    {name="Mango",              rarity="Legendary",   cost=4000000,           income=1600,    chance="Legendary"},
-    {name="Mushroom",           rarity="Legendary",   cost=7000000,           income=2000,    chance="Legendary"},
-    {name="Banana",             rarity="Legendary",   cost=9000000,           income=2500,    chance="Legendary"},
-    {name="Potato",             rarity="Legendary",   cost=15000000,          income=2700,    chance="Legendary"},
-    {name="Amulet Anemone",     rarity="Legendary",   cost=nil,               income=1800,    chance="Friend-o-Tron"},
+    {name="Spring Onion",       rarity="Legendary",   cost=2500000,           income=1200},
+    {name="Mango",              rarity="Legendary",   cost=4000000,           income=1600},
+    {name="Mushroom",           rarity="Legendary",   cost=7000000,           income=2000},
+    {name="Banana",             rarity="Legendary",   cost=9000000,           income=2500},
+    {name="Potato",             rarity="Legendary",   cost=15000000,          income=2700},
+    {name="Amulet Anemone",     rarity="Legendary",   cost=nil,               income=1800},
 
     -- SECRET
-    {name="Strawberry",         rarity="Secret",      cost=30000000,          income=6000,    chance="Secret"},
-    {name="Glowshroom",         rarity="Secret",      cost=45000000,          income=8000,    chance="Secret"},
-    {name="Beanstalk",          rarity="Secret",      cost=55000000,          income=8000,    chance="Secret"},
-    {name="Tomato",             rarity="Secret",      cost=100000000,         income=12000,   chance="Secret"},
-    {name="Monsoon Crown",      rarity="Secret",      cost=65000000,          income=6500,    chance="Rain Event"},
-    {name="Starfruit",          rarity="Secret",      cost=130000000,         income=13000,   chance="Not rollable"},
-    {name="Mooncap",            rarity="Secret",      cost=nil,               income=nil,     chance="?"},
+    {name="Strawberry",         rarity="Secret",      cost=30000000,          income=6000},
+    {name="Glowshroom",         rarity="Secret",      cost=45000000,          income=8000},
+    {name="Beanstalk",          rarity="Secret",      cost=55000000,          income=8000},
+    {name="Tomato",             rarity="Secret",      cost=100000000,         income=12000},
+    {name="Monsoon Crown",      rarity="Secret",      cost=65000000,          income=6500},
+    {name="Starfruit",          rarity="Secret",      cost=130000000,         income=13000},
+    {name="Mooncap",            rarity="Secret",      cost=nil,               income=nil},
 
     -- PRISMATIC
-    {name="Apple",              rarity="Prismatic",   cost=500000000,         income=20000,   chance="Prismatic"},
-    {name="Cherry Blossom",     rarity="Prismatic",   cost=1500000000,        income=30000,   chance="Prismatic"},
-    {name="Blood Orange",       rarity="Prismatic",   cost=1200000000,        income=35000,   chance="Prismatic"},
-    {name="Garlic",             rarity="Prismatic",   cost=5500000000,        income=50000,   chance="Prismatic"},
-    {name="Iron Fern",          rarity="Prismatic",   cost=4000000000,        income=42500,   chance="Prismatic"},
-    {name="Frostbell",          rarity="Prismatic",   cost=1750000000,        income=32000,   chance="Blizzard Event"},
-    {name="Hex Sprout",         rarity="Prismatic",   cost=7500000000,        income=55000,   chance="Not rollable"},
-    {name="Pineapple",          rarity="Prismatic",   cost=800000000,         income=40000,   chance="Seed Pack"},
-    {name="Rush Root",          rarity="Prismatic",   cost=850000000,         income=45000,   chance="Plant Rush"},
-    {name="Galaxy Hibiscus",    rarity="Prismatic",   cost=1550000000,        income=32000,   chance="Alien Event"},
-    {name="Duoheart Daisy",     rarity="Prismatic",   cost=nil,               income=nil,     chance="?"},
-    {name="Crimson Higanbana",  rarity="Prismatic",   cost=35000000000000,    income=225000,  chance="Not rollable"},
-    {name="Glasswing",          rarity="Prismatic",   cost=nil,               income=nil,     chance="?"},
+    {name="Apple",              rarity="Prismatic",   cost=500000000,         income=20000},
+    {name="Cherry Blossom",     rarity="Prismatic",   cost=1500000000,        income=30000},
+    {name="Blood Orange",       rarity="Prismatic",   cost=1200000000,        income=35000},
+    {name="Garlic",             rarity="Prismatic",   cost=5500000000,        income=50000},
+    {name="Iron Fern",          rarity="Prismatic",   cost=4000000000,        income=42500},
+    {name="Frostbell",          rarity="Prismatic",   cost=1750000000,        income=32000},
+    {name="Hex Sprout",         rarity="Prismatic",   cost=7500000000,        income=55000},
+    {name="Pineapple",          rarity="Prismatic",   cost=800000000,         income=40000},
+    {name="Rush Root",          rarity="Prismatic",   cost=850000000,         income=45000},
+    {name="Galaxy Hibiscus",    rarity="Prismatic",   cost=1550000000,        income=32000},
+    {name="Duoheart Daisy",     rarity="Prismatic",   cost=nil,               income=nil},
+    {name="Crimson Higanbana",  rarity="Prismatic",   cost=35000000000000,    income=225000},
+    {name="Glasswing",          rarity="Prismatic",   cost=nil,               income=nil},
 
     -- DIVINE
-    {name="Golden Apple",       rarity="Divine",      cost=5000000000,        income=65000,   chance="Divine"},
-    {name="Cocoa",              rarity="Divine",      cost=10000000000,       income=70000,   chance="Divine"},
-    {name="Crystalberry",       rarity="Divine",      cost=20000000000,       income=88000,   chance="Divine"},
-    {name="Amber Wisp",         rarity="Divine",      cost=12500000000,       income=72000,   chance="Fall Event"},
-    {name="Admin Bloom",        rarity="Divine",      cost=25000000000,       income=85000,   chance="Admin"},
-    {name="Diamond Blossom",    rarity="Divine",      cost=2500000000,        income=55000,   chance="Seed Collector"},
-    {name="Dreadcap",           rarity="Divine",      cost=25000000000,       income=95000,   chance="Not rollable"},
-    {name="Compost Hydra",      rarity="Divine",      cost=115000000000,      income=125000,  chance="Composter"},
-    {name="Horned Melon",       rarity="Divine",      cost=3500000000,        income=80000,   chance="Trucker"},
-    {name="Pomegranate",        rarity="Divine",      cost=4000000000,        income=75000,   chance="Seed Pack"},
+    {name="Golden Apple",       rarity="Divine",      cost=5000000000,        income=65000},
+    {name="Cocoa",              rarity="Divine",      cost=10000000000,       income=70000},
+    {name="Crystalberry",       rarity="Divine",      cost=20000000000,       income=88000},
+    {name="Amber Wisp",         rarity="Divine",      cost=12500000000,       income=72000},
+    {name="Admin Bloom",        rarity="Divine",      cost=25000000000,       income=85000},
+    {name="Diamond Blossom",    rarity="Divine",      cost=2500000000,        income=55000},
+    {name="Dreadcap",           rarity="Divine",      cost=25000000000,       income=95000},
+    {name="Compost Hydra",      rarity="Divine",      cost=115000000000,      income=125000},
+    {name="Horned Melon",       rarity="Divine",      cost=3500000000,        income=80000},
+    {name="Pomegranate",        rarity="Divine",      cost=4000000000,        income=75000},
 
     -- EXOTIC
-    {name="Moonflower",         rarity="Exotic",      cost=70000000000,       income=110000,  chance="Exotic"},
-    {name="Passionfruit",       rarity="Exotic",      cost=100000000000,      income=120000,  chance="Exotic"},
-    {name="Darkmatter Bramble", rarity="Exotic",      cost=1000000000000,     income=145000,  chance="Blackhole Event"},
-    {name="Uranium Reed",       rarity="Exotic",      cost=10000000000000,    income=165000,  chance="Nuclear Event"},
-    {name="Muckthorn",          rarity="Exotic",      cost=1500000000000,     income=170000,  chance="Not rollable"},
-    {name="Crowned Pear",       rarity="Exotic",      cost=125000000000,      income=135000,  chance="Not rollable"},
-    {name="Striped Starfruit",  rarity="Exotic",      cost=120000000000,      income=130000,  chance="Not rollable"},
-    {name="Crimson Higanbana",  rarity="Exotic",      cost=35000000000000,    income=225000,  chance="Not rollable"},
-    {name="Pepper",             rarity="Exotic",      cost=900000000000,      income=140000,  chance="Exotic"},
-    {name="Void Fruit",         rarity="Exotic",      cost=15000000000000,    income=180000,  chance="Exotic"},
-    {name="Kiwi",               rarity="Exotic",      cost=60000000000,       income=90000,   chance="Not rollable"},
-    {name="Dragonfruit",        rarity="Exotic",      cost=8000000000,        income=350000,  chance="Seed Pack"},
-    {name="Truckers Delight",   rarity="Exotic",      cost=nil,               income=160000,  chance="Trucker Event"},
-    {name="Heartvine Bloom",    rarity="Exotic",      cost=nil,               income=nil,     chance="Friend-o-Tron"},
+    {name="Moonflower",         rarity="Exotic",      cost=70000000000,       income=110000},
+    {name="Passionfruit",       rarity="Exotic",      cost=100000000000,      income=120000},
+    {name="Darkmatter Bramble", rarity="Exotic",      cost=1000000000000,     income=145000},
+    {name="Uranium Reed",       rarity="Exotic",      cost=10000000000000,    income=165000},
+    {name="Muckthorn",          rarity="Exotic",      cost=1500000000000,     income=170000},
+    {name="Crowned Pear",       rarity="Exotic",      cost=125000000000,      income=135000},
+    {name="Striped Starfruit",  rarity="Exotic",      cost=120000000000,      income=130000},
+    {name="Crimson Higanbana",  rarity="Exotic",      cost=35000000000000,    income=225000},
+    {name="Pepper",             rarity="Exotic",      cost=900000000000,      income=140000},
+    {name="Void Fruit",         rarity="Exotic",      cost=15000000000000,    income=180000},
+    {name="Kiwi",               rarity="Exotic",      cost=60000000000,       income=90000},
+    {name="Dragonfruit",        rarity="Exotic",      cost=8000000000,        income=350000},
+    {name="Truckers Delight",   rarity="Exotic",      cost=nil,               income=160000},
+    {name="Heartvine Bloom",    rarity="Exotic",      cost=nil,               income=nil},
 
     -- TRANSCENDED
-    {name="Durian",             rarity="Transcended", cost=100000000000000,  income=380000,  chance="Transcended"},
-    {name="Ghost Pepper",       rarity="Transcended", cost=275000000000000,  income=500000,  chance="Transcended"},
-    {name="Papaya",             rarity="Transcended", cost=150000000000000,  income=450000,  chance="Transcended"},
-    {name="Ember Fruit",        rarity="Transcended", cost=350000000000000,  income=525000,  chance="Transcended"},
-    {name="Admin Rose",         rarity="Transcended", cost=375000000000000,  income=575000,  chance="Admin"},
-    {name="Soulbound Orchid",   rarity="Transcended", cost=275000000000000,  income=500000,  chance="Friend Machine"},
-    {name="Muck Monarch",       rarity="Transcended", cost=200000000000000,  income=525000,  chance="Not rollable"},
-    {name="Heart of Corruption",rarity="Transcended", cost=350000000000000,  income=600000,  chance="Not rollable"},
-    {name="Garden Golem",       rarity="Transcended", cost=425000000000000,  income=565000,  chance="Plant Rush"},
-    {name="Golden Quillflower", rarity="Transcended", cost=125000000000000,  income=425000,  chance="Not rollable"},
-    {name="Aurora Lotus",       rarity="Transcended", cost=750000000000000,  income=750000,  chance="Transcended"},
-    {name="Queens Blossom",     rarity="Transcended", cost=nil,               income=nil,     chance="Bee Event"},
-    {name="Witherfang",         rarity="Transcended", cost=nil,               income=nil,     chance="?"},
-    {name="Garden Devourer",    rarity="Transcended", cost=nil,               income=nil,     chance="Composter"},
+    {name="Durian",             rarity="Transcended", cost=100000000000000,  income=380000},
+    {name="Ghost Pepper",       rarity="Transcended", cost=275000000000000,  income=500000},
+    {name="Papaya",             rarity="Transcended", cost=150000000000000,  income=450000},
+    {name="Ember Fruit",        rarity="Transcended", cost=350000000000000,  income=525000},
+    {name="Admin Rose",         rarity="Transcended", cost=375000000000000,  income=575000},
+    {name="Soulbound Orchid",   rarity="Transcended", cost=275000000000000,  income=500000},
+    {name="Muck Monarch",       rarity="Transcended", cost=200000000000000,  income=525000},
+    {name="Heart of Corruption",rarity="Transcended", cost=350000000000000,  income=600000},
+    {name="Garden Golem",       rarity="Transcended", cost=425000000000000,  income=565000},
+    {name="Golden Quillflower", rarity="Transcended", cost=125000000000000,  income=425000},
+    {name="Aurora Lotus",       rarity="Transcended", cost=750000000000000,  income=750000},
+    {name="Queens Blossom",     rarity="Transcended", cost=nil,               income=nil},
+    {name="Witherfang",         rarity="Transcended", cost=nil,               income=nil},
+    {name="Garden Devourer",    rarity="Transcended", cost=nil,               income=nil},
 }
 local SeedByName = {}
 for _,s in ipairs(Seeds) do SeedByName[s.name]=s end
@@ -233,6 +232,7 @@ local buyLock  = false
 local autoBuyList = {}
 local gearBuyList = {}
 local gearStock   = {}
+local gearLocks   = {} 
 
 loadSettings()
 
@@ -254,11 +254,16 @@ local function getPlayerCash()
     local val = cashObj.Value
     if type(val) == "number" then return val end
     
-    local str = tostring(val):gsub(",", "")
-    local num, suf = str:match("([%d%.]+)([%a]*)")
+    local str = tostring(val):gsub("[, ]", "")
+    local numStr, suf = str:match("^([%d%.]+)([%a]*)$")
     
-    if num then
-        local n = tonumber(num) or 0
+    if not numStr then
+        numStr = str:match("([%d%.]+)")
+        suf = str:match("[%d%.]+([%a]+)")
+    end
+    
+    if numStr then
+        local n = tonumber(numStr) or 0
         if suf and suf ~= "" then
             suf = suf:lower()
             local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15}
@@ -376,7 +381,6 @@ titleLbl.BackgroundTransparency=1;titleLbl.Text="Build a Ring Farm"
 titleLbl.TextColor3=C.white;titleLbl.Font=Enum.Font.GothamBold;titleLbl.TextSize=14
 titleLbl.TextXAlignment=Enum.TextXAlignment.Left
 
--- Header Controls
 local closeBtn=Instance.new("TextButton",header)
 closeBtn.Size=UDim2.new(0,24,0,24);closeBtn.Position=UDim2.new(1,-30,0.5,-12)
 closeBtn.BackgroundColor3=Color3.fromRGB(55,25,25)
@@ -470,11 +474,8 @@ footer.LineHeight=1.3
 local expandedHeight = statusY+58
 win.Size=UDim2.new(0,240,0,expandedHeight)
 
--- Window state logic
 local isMinimized = false
-closeBtn.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
 
 minBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
@@ -484,7 +485,6 @@ minBtn.MouseButton1Click:Connect(function()
         TweenService:Create(win, tw, {Size=UDim2.new(0,240,0,expandedHeight)}):Play()
     end
 end)
-
 
 local function setStatus(txt,col,dotCol)
     statusLbl.Text=txt;statusLbl.TextColor3=col or C.muted
@@ -583,18 +583,11 @@ local seedPanel,seedScroll,seedLayout,seedClose,seedAll,seedNone,seedPos = makeP
 local seedPanelOpen=false
 local seedToggles={}
 
-local NOT_FROM_ROLL = {
-    ["Not rollable"]=true,["Friend-o-Tron"]=true,["Trucker Event"]=true,
-    ["Alien Event"]=true,["Bee Event"]=true,["Plant Rush"]=true,
-    ["Seed Pack"]=true,["Seed Collector"]=true,["Composter"]=true,
-    ["Friend Machine"]=true,["Trucker"]=true,["?"]=true,
-}
-
 local idx=0
 for _,rarity in ipairs(RARITY_ORDER) do
     local group={}
     for _,s in ipairs(Seeds) do
-        if s.rarity==rarity and not NOT_FROM_ROLL[s.chance] then
+        if s.rarity==rarity then
             table.insert(group,s)
         end
     end
@@ -602,9 +595,16 @@ for _,rarity in ipairs(RARITY_ORDER) do
 
     idx+=1
     local hdr=Instance.new("Frame",seedScroll)
-    hdr.Size=UDim2.new(1,0,0,18);hdr.BackgroundTransparency=1;hdr.LayoutOrder=idx
-    local hl=mkLabel(hdr,rarity,RARITY_COLOR[rarity],9,Enum.Font.GothamBold)
-    hl.TextTransparency=0.2
+    hdr.Size=UDim2.new(1,0,0,24);hdr.BackgroundTransparency=1;hdr.LayoutOrder=idx
+    
+    local hl=mkLabel(hdr,rarity,RARITY_COLOR[rarity],11,Enum.Font.GothamBold)
+    hl.TextTransparency=0.1
+    hl.Size=UDim2.new(1,-50,1,0); hl.Position=UDim2.new(0,6,0,0)
+    
+    local rTrack, rSet, rGet = mkToggle(hdr)
+    rTrack.Position=UDim2.new(1,-42,0.5,-10)
+
+    local myToggles = {}
 
     for _,seed in ipairs(group) do
         idx+=1
@@ -616,14 +616,14 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
-        local infoL=mkLabel(row,
-            "Cost "..fmt(seed.cost).."  ·  "..seed.chance,
-            C.muted,9,Enum.Font.Gotham)
+        local infoL=mkLabel(row, "Cost "..fmt(seed.cost), C.muted,9,Enum.Font.Gotham)
         infoL.Size=UDim2.new(1,-50,0,14);infoL.Position=UDim2.new(0,10,0,27)
         infoL.TextTruncate=Enum.TextTruncate.AtEnd
 
         local ttrack,setT,getT=mkToggle(row)
         ttrack.Size=UDim2.new(0,36,0,18);ttrack.Position=UDim2.new(1,-42,0.5,-9)
+        
+        table.insert(myToggles, {set=setT, get=getT, name=seed.name})
 
         ttrack.InputBegan:Connect(function(i)
             if i.UserInputType==Enum.UserInputType.MouseButton1 then
@@ -632,6 +632,17 @@ for _,rarity in ipairs(RARITY_ORDER) do
         end)
         seedToggles[seed.name]={set=setT,get=getT}
     end
+
+    rTrack.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            local s = not rGet(); rSet(s)
+            for _, t in ipairs(myToggles) do
+                t.set(s)
+                autoBuyList[t.name] = s or nil
+            end
+            saveSettings()
+        end
+    end)
 end
 
 seedAll.MouseButton1Click:Connect(function()
@@ -733,7 +744,6 @@ for name in pairs(gearBuyList) do if gearToggles[name] then gearToggles[name].se
 rollTrack.InputBegan:Connect(function(i)
     if i.UserInputType~=Enum.UserInputType.MouseButton1 then return end
     autoRollEnabled=not getRoll();setRoll(autoRollEnabled)
-    setStatus(autoRollEnabled and "Rolling" or "Idle",autoRollEnabled and C.accent or C.muted,autoRollEnabled and C.accent or C.muted)
     saveSettings()
 end)
 buyTrack.InputBegan:Connect(function(i)
@@ -752,7 +762,24 @@ sellTrack.InputBegan:Connect(function(i)
     saveSettings()
 end)
 
--- ─── Gear Stock Polling ──────────────────────────────────────────────────────
+-- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
+
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        if autoRollEnabled then
+            if isBuying then
+                setStatus("Buying...", C.accent, C.accent)
+            else
+                setStatus("Rolling", C.green, C.green)
+            end
+        else
+            setStatus("Idle", C.muted, C.muted)
+        end
+    end
+end)
+
+-- ─── Gear Stock Polling & Purchasing ─────────────────────────────────────────
 
 local function parseStock(lbl)
     if not lbl then return 0 end
@@ -771,14 +798,21 @@ local function updateStockLabel(name, stock)
 end
 
 local function buyGearItem(item)
-    local simCash = getPlayerCash()
-    for _ = 1, item.maxStock do
-        if simCash < (item.cost or 0) then break end
-        simCash = simCash - (item.cost or 0)
-        local ok, res = pcall(function() return GearTransaction:InvokeServer(item.name) end)
-        if not ok or not res then break end
-        task.wait(0.4)
-    end
+    if gearLocks[item.name] then return end 
+    if getPlayerCash() < (item.cost or 0) then return end
+    
+    gearLocks[item.name] = true
+    task.spawn(function()
+        local simCash = getPlayerCash()
+        for _ = 1, item.maxStock do
+            if simCash < (item.cost or 0) then break end
+            simCash = simCash - (item.cost or 0)
+            
+            pcall(function() GearTransaction:InvokeServer(item.name) end)
+            task.wait(0.4)
+        end
+        gearLocks[item.name] = false
+    end)
 end
 
 local function watchGearShop()
@@ -802,10 +836,7 @@ local function watchGearShop()
             updateStockLabel(item.name, newStock)
 
             if autoGearEnabled and gearBuyList[item.name] and newStock > 0 then
-                task.spawn(function()
-                    task.wait(0.3)
-                    buyGearItem(item)
-                end)
+                buyGearItem(item)
             end
         end)
     end
@@ -874,11 +905,10 @@ local function showToast(seedName)
     end)
 end
 
--- ─── Auto Buy Seeds ──────────────────────────────────────────────────────────
+-- ─── Auto Buy Seeds (The Memory Bank) ────────────────────────────────────────
 
 local pendingSeeds = {}
 
--- Step 1: Update our memory bank of what's currently on the screen
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
     table.clear(pendingSeeds)
@@ -890,24 +920,23 @@ RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     end
 end)
 
--- Step 2: Loop to continuously check if we can afford the pending seeds
 task.spawn(function()
     while true do
-        task.wait(0.5) -- Checks your wallet every half second
+        task.wait(0.3)
         if not autoBuyEnabled or buyLock then continue end
 
-        local currentCash = getPlayerCash()
+        local simCash = getPlayerCash()
         local queue = {}
         
-        -- See if we can afford anything sitting on the board
         for slot, seedName in pairs(pendingSeeds) do
             if autoBuyList[seedName] then
                 local seedData = SeedByName[seedName]
                 local cost = seedData and seedData.cost or 0
                 
-                if currentCash >= cost then
+                -- If we can't afford it, it just skips it here. No pausing occurs.
+                if simCash >= cost then
                     table.insert(queue, {slot=slot, name=seedName, cost=cost})
-                    currentCash = currentCash - cost
+                    simCash = simCash - cost
                 end
             end
         end
@@ -915,20 +944,12 @@ task.spawn(function()
         if #queue > 0 then
             buyLock = true; isBuying = true
             pcall(function()
-                task.wait(0.1)
-                local simCash = getPlayerCash()
-                
                 for _, entry in ipairs(queue) do
-                    -- Double-check it hasn't already been bought and we still have cash
-                    if pendingSeeds[entry.slot] and simCash >= entry.cost then
-                        simCash = simCash - entry.cost
-                        pendingSeeds[entry.slot] = nil -- Cross it off our list locally
-                        
+                    if pendingSeeds[entry.slot] then
+                        pendingSeeds[entry.slot] = nil 
                         BuySeed:FireServer(entry.slot)
                         showToast(entry.name)
                         task.wait(0.8)
-                    elseif simCash < entry.cost then
-                        break
                     end
                 end
                 task.wait(0.5)
@@ -951,7 +972,7 @@ task.spawn(function()
     end
 end)
 
--- ─── Gear Poll Loop ──────────────────────────────────────────────────────────
+-- ─── Auto Gear Loop ──────────────────────────────────────────────────────────
 
 task.spawn(function()
     while true do
@@ -1208,6 +1229,7 @@ local lastRoll = 0
 
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled or isBuying then return end
+    
     local now=tick()
     if now-lastRoll>=ROLL_INTERVAL then
         lastRoll=now
