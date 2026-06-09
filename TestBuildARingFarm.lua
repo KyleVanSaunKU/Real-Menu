@@ -266,7 +266,7 @@ local function getPlayerCash()
         local n = tonumber(numStr) or 0
         if suf and suf ~= "" then
             suf = suf:lower()
-            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15}
+            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15, qd=1e18, qn=1e21}
             n = n * (mults[suf] or 1)
         end
         return n
@@ -808,7 +808,12 @@ local function buyGearItem(item)
             if simCash < (item.cost or 0) then break end
             simCash = simCash - (item.cost or 0)
             
-            pcall(function() GearTransaction:InvokeServer(item.name) end)
+            -- Wrapped in a disposable thread to completely prevent the loop from hanging
+            -- if the server rejects the purchase without returning a value.
+            task.spawn(function()
+                pcall(function() GearTransaction:InvokeServer(item.name) end)
+            end)
+            
             task.wait(0.4)
         end
         gearLocks[item.name] = false
@@ -933,7 +938,6 @@ task.spawn(function()
                 local seedData = SeedByName[seedName]
                 local cost = seedData and seedData.cost or 0
                 
-                -- If we can't afford it, it just skips it here. No pausing occurs.
                 if simCash >= cost then
                     table.insert(queue, {slot=slot, name=seedName, cost=cost})
                     simCash = simCash - cost
