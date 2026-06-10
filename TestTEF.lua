@@ -160,7 +160,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Shifted down to accommodate the Auto-Collect button
 local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
 ScrollFrame.Size = UDim2.new(1, -20, 1, -195) 
 ScrollFrame.Position = UDim2.new(0, 10, 0, 185)
@@ -511,26 +510,36 @@ populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 local myPlot = nil 
 local function findMyPlot()
-    local character = LocalPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-
     local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
     if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
         plotsFolder = plotsFolder.Plots
     end
     if not plotsFolder then return nil end
 
+    -- Smart Plot Finder: Instantly checks via Owner property to avoid distance-based failures
     for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local plotZone = plot:FindFirstChild("PlotZone", true)
-        if plotZone and plotZone:IsA("BasePart") then
-            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
-            local halfSize = plotZone.Size * 0.5
-            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                return plot
+        local ownerVal = plot:FindFirstChild("Owner")
+        if ownerVal and (ownerVal.Value == LocalPlayer or ownerVal.Value == LocalPlayer.Name) then
+            return plot
+        end
+    end
+
+    -- Fallback: Check via Proximity
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        for _, plot in ipairs(plotsFolder:GetChildren()) do
+            local plotZone = plot:FindFirstChild("PlotZone", true)
+            if plotZone and plotZone:IsA("BasePart") then
+                local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
+                local halfSize = plotZone.Size * 0.5
+                if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                    return plot
+                end
             end
         end
     end
+
     return nil
 end
 
@@ -552,7 +561,7 @@ end)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
-local isExecutingAction = false -- Lock to prevent character physics glitching
+local isExecutingAction = false 
 local HoverPlatform = Instance.new("Part")
 HoverPlatform.Name = "AutoBuyPlatform"
 HoverPlatform.Size = Vector3.new(10, 1, 10)
@@ -585,14 +594,23 @@ local function getPromptPos(prompt)
 end
 
 local function executeBuy(target, hrp)
-    -- Traffic controller to keep loops from ripping you in half
-    while isExecutingAction do task.wait(0.1) end
+    -- Timeout logic so a deadlocked loop won't freeze the script forever
+    local waitStart = os.time()
+    while isExecutingAction do 
+        task.wait(0.1) 
+        if os.time() - waitStart > 3 then isExecutingAction = false end 
+    end
+    
     isExecutingAction = true
 
-    local prompt = target.Prompt
-    local targetPos = getPromptPos(prompt)
+    -- PCALL wrap entirely secures the script against game objects spontaneously deleting
+    local success, err = pcall(function()
+        local prompt = target.Prompt
+        if not prompt or not prompt.Parent then return end
 
-    if prompt and prompt.Enabled and targetPos then
+        local targetPos = getPromptPos(prompt)
+        if not targetPos then return end
+
         local originalCFrame = hrp.CFrame
         hrp.Anchored = false 
         
@@ -602,7 +620,8 @@ local function executeBuy(target, hrp)
                 local pos = getPromptPos(prompt)
                 if pos then
                     HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
-                    hrp.CFrame = CFrame.new(pos)
+                    -- Safe altitude added so we don't glitch inside solid items like furnaces
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 1.5, 0))
                     hrp.AssemblyLinearVelocity = Vector3.zero
                     hrp.AssemblyAngularVelocity = Vector3.zero
                 end
@@ -611,21 +630,23 @@ local function executeBuy(target, hrp)
 
         task.wait(0.35) 
 
-        if prompt.Enabled and fireproximityprompt then
-            fireproximityprompt(prompt)
+        if prompt and prompt.Parent and prompt.Enabled and fireproximityprompt then
+            pcall(function() fireproximityprompt(prompt) end)
             task.wait(0.05)
-            if prompt.Enabled then fireproximityprompt(prompt) end
+            if prompt and prompt.Parent and prompt.Enabled then 
+                pcall(function() fireproximityprompt(prompt) end) 
+            end
         end
 
         isTracking = false
-        trackConnection:Disconnect()
+        if trackConnection then trackConnection:Disconnect() end
         
         HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
         hrp.CFrame = originalCFrame
         
         task.wait(DELAY_BETWEEN_BUYS)
-    end
-    
+    end)
+
     isExecutingAction = false
 end
 
@@ -654,7 +675,6 @@ local function getMyFurnace()
 end
 
 task.spawn(function()
-    -- Runs on an independent, non-intrusive 5-second interval
     while task.wait(5) do
         if not State.Master or not State.AutoCollect then continue end
         
