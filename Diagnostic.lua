@@ -2,11 +2,18 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 print("=====================================")
-print("  STARTING AUTO-COLLECT DIAGNOSTIC   ")
+print("  STARTING AUTO-COLLECT DIAGNOSTIC V2")
 print("=====================================")
 
--- STEP 1: Find Plot
+-- STEP 1: Find Plot (Using the PROVEN Proximity Method)
 local function findMyPlot()
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        print("❌ ERROR: Character/HumanoidRootPart not found.")
+        return nil 
+    end
+
     local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
     if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
         plotsFolder = plotsFolder.Plots
@@ -18,13 +25,17 @@ local function findMyPlot()
     end
 
     for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local ownerVal = plot:FindFirstChild("Owner")
-        if ownerVal and (ownerVal.Value == LocalPlayer or ownerVal.Value == LocalPlayer.Name) then
-            print("✅ STEP 1 SUCCESS: Found your plot -> " .. plot.Name)
-            return plot
+        local plotZone = plot:FindFirstChild("PlotZone", true)
+        if plotZone and plotZone:IsA("BasePart") then
+            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
+            local halfSize = plotZone.Size * 0.5
+            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                print("✅ STEP 1 SUCCESS: Found your plot by proximity -> " .. plot.Name)
+                return plot
+            end
         end
     end
-    print("❌ ERROR: Could not find a plot owned by you.")
+    print("❌ ERROR: Could not find your plot. Make sure you are standing inside it!")
     return nil
 end
 
@@ -48,7 +59,15 @@ for _, item in ipairs(placedItems:GetChildren()) do
     if string.find(string.lower(item.Name), "furnace") then
         print("   -> Found Furnace Model: " .. item.Name)
         
-        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+        -- Check Hitbox first (most likely place)
+        local hitbox = item:FindFirstChild("Hitbox")
+        local prompt = hitbox and hitbox:FindFirstChildWhichIsA("ProximityPrompt", true)
+        
+        -- Fallback to anywhere in the model
+        if not prompt then
+            prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+        end
+
         if prompt then
             print("✅ STEP 3 SUCCESS: Found ProximityPrompt inside -> " .. prompt:GetFullName())
             furnaceObj = item
@@ -76,7 +95,7 @@ if hrp then
     if pos then
         local oldCFrame = hrp.CFrame
         hrp.Anchored = true
-        hrp.CFrame = CFrame.new(pos)
+        hrp.CFrame = CFrame.new(pos) -- Dead center teleport
         print("   -> Teleported to prompt. Waiting 0.5s for server sync...")
         task.wait(0.5) 
         
@@ -87,7 +106,7 @@ if hrp then
         if fireproximityprompt then
             pcall(function() fireproximityprompt(targetPrompt) end)
             task.wait(0.1)
-            pcall(function() fireproximityprompt(targetPrompt) end) -- Double tap just in case
+            pcall(function() fireproximityprompt(targetPrompt) end) 
             print("✅ EXECUTED: fireproximityprompt was triggered.")
         else
             print("❌ ERROR: Your executor does not support fireproximityprompt.")
