@@ -590,12 +590,17 @@ local function processQueue()
     isProcessingQueue = true
     
     while #ActionQueue > 0 do
-        if not State.Master then 
+        -- If both switches are off, purge the queue and stop entirely
+        if not State.Master and not State.AutoCollect then 
             ActionQueue = {}
             break 
         end
         
         local action = table.remove(ActionQueue, 1)
+        
+        -- Filter out dynamic toggle changes
+        if not action.IsCollect and not State.Master then continue end
+        if action.IsCollect and not State.AutoCollect then continue end
         
         pcall(function()
             local target = action.Target
@@ -639,7 +644,7 @@ local function processQueue()
                     end
                 end
                 
-                -- Physics Jitter (Forces the game engine to register you as physically "touching" the furnace)
+                -- Physics Jitter
                 hrp.CFrame = hrp.CFrame + Vector3.new(0, 0.5, 0)
                 task.wait(0.1)
                 hrp.CFrame = hrp.CFrame - Vector3.new(0, 0.5, 0)
@@ -672,7 +677,6 @@ end
 
 -- Sends Normal Items to the Queue
 local function executeBuy(target, hrp)
-    -- Prevent duplicates from piling up
     for _, item in ipairs(ActionQueue) do
         if item.Target.Prompt == target.Prompt and not item.IsCollect then return end
     end
@@ -685,7 +689,6 @@ local function executeCollect(target, hrp)
     for _, item in ipairs(ActionQueue) do
         if item.IsCollect then return end 
     end
-    -- Position 1 forces Auto-Collect to skip the line
     table.insert(ActionQueue, 1, {Target = target, HRP = hrp, IsCollect = true})
     if not isProcessingQueue then task.spawn(processQueue) end
 end
@@ -723,14 +726,15 @@ end
 
 task.spawn(function()
     while task.wait(5) do
-        if not State.Master or not State.AutoCollect then continue end
+        -- ONLY check if AutoCollect is toggled on, ignore Master switch entirely
+        if not State.AutoCollect then continue end
         
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
 
         local furnaceTarget = getMyFurnace()
         if furnaceTarget then
-            executeCollect(furnaceTarget, hrp) -- Skips the line
+            executeCollect(furnaceTarget, hrp) 
         end
     end
 end)
