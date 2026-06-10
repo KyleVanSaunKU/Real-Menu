@@ -1,5 +1,5 @@
 -- ==========================================
--- SCRIPT INITIALIZATION & NAMESPACE
+-- REAL'S MENU
 -- ==========================================
 
 -- A table to store script data globally
