@@ -134,9 +134,9 @@ local CloseButton = Instance.new("TextButton", TopBar)
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -35, 0, 5)
 CloseButton.BackgroundTransparency = 1
-CloseButton.AutoButtonColor = false
+CloseButton.AutoButtonColor = false 
 CloseButton.Text = "x"
-CloseButton.TextSize = 20
+CloseButton.TextSize = 16
 CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 CloseButton.Font = Enum.Font.GothamBold
 
@@ -150,13 +150,12 @@ CloseButton.MouseButton1Click:Connect(function()
     TycoonGui:Destroy()  
 end)
 
- New Collapse Button
 local CollapseButton = Instance.new("TextButton", TopBar)
 CollapseButton.Size = UDim2.new(0, 30, 0, 30)
 CollapseButton.Position = UDim2.new(1, -65, 0, 5)
 CollapseButton.BackgroundTransparency = 1
 CollapseButton.AutoButtonColor = false 
-CollapseButton.Text = "—"
+CollapseButton.Text = "-"
 CollapseButton.TextSize = 16
 CollapseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 CollapseButton.Font = Enum.Font.GothamBold
@@ -180,7 +179,7 @@ CollapseButton.MouseButton1Click:Connect(function()
     else
         MainFrame.Size = UDim2.new(0, 350, 0, 500)
         ScrollFrame.Visible = true
-        CollapseButton.Text = "—"
+        CollapseButton.Text = "-"
     end
 end)
 
