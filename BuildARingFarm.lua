@@ -1,3 +1,5 @@
+-- Build A Ring Farm Script
+
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local CoreGui           = game:GetService("CoreGui")
