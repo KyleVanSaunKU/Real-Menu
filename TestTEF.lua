@@ -65,6 +65,7 @@ local ItemCategories = {
 local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, AutoCollect = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
+
 local IsJunkyardItem = {}
 local IsBeltItem = {}
 
@@ -102,6 +103,7 @@ local MainFrame = Instance.new("Frame", TycoonGui)
 MainFrame.Size = UDim2.new(0, 350, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
+MainFrame.ClipsDescendants = true -- Prevents content from spilling when collapsed
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local TopBar = Instance.new("Frame", MainFrame)
@@ -116,7 +118,7 @@ TopBarExtension.BackgroundColor3 = Color3.fromRGB(39, 39, 42)
 TopBarExtension.BorderSizePixel = 0
 
 local Title = Instance.new("TextLabel", TopBar)
-Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Size = UDim2.new(1, -80, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "The Everything Factory - Exploits Menu"
@@ -124,18 +126,60 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Cleaned up Exit Button
 local CloseButton = Instance.new("TextButton", TopBar)
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -35, 0, 5)
 CloseButton.BackgroundTransparency = 1
+CloseButton.AutoButtonColor = false -- Removes the weird square hover effect
 CloseButton.Text = "✕"
+CloseButton.TextSize = 16
 CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 CloseButton.Font = Enum.Font.GothamBold
+
+CloseButton.MouseEnter:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(239, 68, 68) end)
+CloseButton.MouseLeave:Connect(function() CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170) end)
+
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
     State.Noclip = false
     State.AutoCollect = false
     TycoonGui:Destroy()  
+end)
+
+-- New Collapse Button
+local CollapseButton = Instance.new("TextButton", TopBar)
+CollapseButton.Size = UDim2.new(0, 30, 0, 30)
+CollapseButton.Position = UDim2.new(1, -65, 0, 5)
+CollapseButton.BackgroundTransparency = 1
+CollapseButton.AutoButtonColor = false 
+CollapseButton.Text = "—"
+CollapseButton.TextSize = 16
+CollapseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
+CollapseButton.Font = Enum.Font.GothamBold
+
+CollapseButton.MouseEnter:Connect(function() CollapseButton.TextColor3 = Color3.fromRGB(255, 255, 255) end)
+CollapseButton.MouseLeave:Connect(function() CollapseButton.TextColor3 = Color3.fromRGB(161, 161, 170) end)
+
+local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -195) 
+ScrollFrame.Position = UDim2.new(0, 10, 0, 185)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 4
+
+-- Collapse Logic
+local isCollapsed = false
+CollapseButton.MouseButton1Click:Connect(function()
+    isCollapsed = not isCollapsed
+    if isCollapsed then
+        MainFrame.Size = UDim2.new(0, 350, 0, 40)
+        ScrollFrame.Visible = false
+        CollapseButton.Text = "+"
+    else
+        MainFrame.Size = UDim2.new(0, 350, 0, 500)
+        ScrollFrame.Visible = true
+        CollapseButton.Text = "—"
+    end
 end)
 
 local dragging, dragInput, dragStart, startPos
@@ -158,12 +202,6 @@ RunService.Heartbeat:Connect(function()
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
-local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
-ScrollFrame.Size = UDim2.new(1, -20, 1, -195) 
-ScrollFrame.Position = UDim2.new(0, 10, 0, 185)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.ScrollBarThickness = 4
 
 local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
 UIListLayout.Padding = UDim.new(0, 5)
