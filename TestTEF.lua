@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
@@ -62,8 +63,9 @@ local ItemCategories = {
 }
 
 local ItemPriorityMap = {}
-local State = { Master = false, Noclip = false, Categories = {}, Items = {} }
+local State = { Master = false, Noclip = false, AutoCollect = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
+
 local IsJunkyardItem = {}
 local IsBeltItem = {}
 
@@ -133,6 +135,7 @@ CloseButton.Font = Enum.Font.GothamBold
 CloseButton.MouseButton1Click:Connect(function()
     State.Master = false 
     State.Noclip = false
+    State.AutoCollect = false
     TycoonGui:Destroy()  
 end)
 
@@ -157,9 +160,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Shifted down to accommodate the Auto-Collect button
 local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
-ScrollFrame.Size = UDim2.new(1, -20, 1, -150) 
-ScrollFrame.Position = UDim2.new(0, 10, 0, 140)
+ScrollFrame.Size = UDim2.new(1, -20, 1, -195) 
+ScrollFrame.Position = UDim2.new(0, 10, 0, 185)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 4
 
@@ -381,11 +385,19 @@ NoclipContainer.Position = UDim2.new(0, 10, 0, 95)
 NoclipContainer.BackgroundTransparency = 1
 local _, NoclipBtn, updateNoclip = createSingleToggleUI(NoclipContainer, "Enable Noclip", 0)
 
+local CollectContainer = Instance.new("Frame", MainFrame)
+CollectContainer.Size = UDim2.new(1, -20, 0, 40)
+CollectContainer.Position = UDim2.new(0, 10, 0, 140)
+CollectContainer.BackgroundTransparency = 1
+local _, CollectBtn, updateCollect = createSingleToggleUI(CollectContainer, "Enable Auto-Collect", 0)
+
 updateMaster(State.Master)
 updateNoclip(State.Noclip)
+updateCollect(State.AutoCollect)
 
 MasterBtn.MouseButton1Click:Connect(function() State.Master = not State.Master updateMaster(State.Master) end)
 NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip updateNoclip(State.Noclip) end)
+CollectBtn.MouseButton1Click:Connect(function() State.AutoCollect = not State.AutoCollect updateCollect(State.AutoCollect) end)
 
 local function populateJunkyardCategoryUI(categoriesList, headerText)
     currentLayoutOrder += 1
@@ -494,9 +506,37 @@ populateJunkyardCategoryUI(JunkyardCategories, "--- JUNKYARD NATIVE ITEMS ---")
 populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 -- ==========================================
--- NOCLIP LOGIC
+-- COMMON PLOT LOGIC
 -- ==========================================
 
+local myPlot = nil 
+local function findMyPlot()
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
+    if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
+        plotsFolder = plotsFolder.Plots
+    end
+    if not plotsFolder then return nil end
+
+    for _, plot in ipairs(plotsFolder:GetChildren()) do
+        local plotZone = plot:FindFirstChild("PlotZone", true)
+        if plotZone and plotZone:IsA("BasePart") then
+            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
+            local halfSize = plotZone.Size * 0.5
+            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                return plot
+            end
+        end
+    end
+    return nil
+end
+
+-- ==========================================
+-- NOCLIP LOGIC
+-- ==========================================
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -512,6 +552,7 @@ end)
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
+local isExecutingAction = false -- Lock to prevent character physics glitching
 local HoverPlatform = Instance.new("Part")
 HoverPlatform.Name = "AutoBuyPlatform"
 HoverPlatform.Size = Vector3.new(10, 1, 10)
@@ -526,13 +567,11 @@ local function isItemGold(item)
     if hitbox and (hitbox:FindFirstChild("Gold_01") or hitbox:FindFirstChild("Gold_02")) then 
         return true 
     end
-    
     for _, desc in ipairs(item:GetDescendants()) do
         if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
             return true
         end
     end
-    
     return false
 end
 
@@ -546,6 +585,10 @@ local function getPromptPos(prompt)
 end
 
 local function executeBuy(target, hrp)
+    -- Traffic controller to keep loops from ripping you in half
+    while isExecutingAction do task.wait(0.1) end
+    isExecutingAction = true
+
     local prompt = target.Prompt
     local targetPos = getPromptPos(prompt)
 
@@ -582,37 +625,53 @@ local function executeBuy(target, hrp)
         
         task.wait(DELAY_BETWEEN_BUYS)
     end
+    
+    isExecutingAction = false
 end
 
 -- ==========================================
--- BELT ITEMS LOOP
+-- AUTO-COLLECT LOOP (FURNACE)
 -- ==========================================
 
-local function findMyPlot()
-    local character = LocalPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-
-    local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
-    if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
-        plotsFolder = plotsFolder.Plots
+local function getMyFurnace()
+    if not myPlot then 
+        myPlot = findMyPlot() 
+        if not myPlot then return nil end
     end
-    if not plotsFolder then return nil end
 
-    for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local plotZone = plot:FindFirstChild("PlotZone", true)
-        if plotZone and plotZone:IsA("BasePart") then
-            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
-            local halfSize = plotZone.Size * 0.5
-            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                return plot
+    local placedItems = myPlot:FindFirstChild("PlacedItems")
+    if not placedItems then return nil end
+
+    for _, item in ipairs(placedItems:GetChildren()) do
+        if string.find(item.Name, "Furnace") then
+            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if prompt then
+                return {Prompt = prompt, Priority = 0} 
             end
         end
     end
     return nil
 end
 
-local myPlot = nil 
+task.spawn(function()
+    -- Runs on an independent, non-intrusive 5-second interval
+    while task.wait(5) do
+        if not State.Master or not State.AutoCollect then continue end
+        
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        local furnaceTarget = getMyFurnace()
+        if furnaceTarget then
+            executeBuy(furnaceTarget, hrp)
+        end
+    end
+end)
+
+-- ==========================================
+-- BELT ITEMS LOOP
+-- ==========================================
+
 local function getSortedItemsOnBelt()
     if not myPlot then
         myPlot = findMyPlot()
@@ -706,6 +765,7 @@ local function getSortedJunkyardItems()
                     end
                 end
             end
+            
         end
     end
     
