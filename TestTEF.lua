@@ -65,7 +65,6 @@ local ItemCategories = {
 local ItemPriorityMap = {}
 local State = { Master = false, Noclip = false, AutoCollect = false, Categories = {}, Items = {} }
 local VisualUpdaters = {} 
-
 local IsJunkyardItem = {}
 local IsBeltItem = {}
 
@@ -505,7 +504,7 @@ populateJunkyardCategoryUI(JunkyardCategories, "--- JUNKYARD NATIVE ITEMS ---")
 populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 -- ==========================================
--- COMMON PLOT LOGIC
+-- FIND PLOT LOGIC
 -- ==========================================
 
 local myPlot = nil 
@@ -537,6 +536,7 @@ end
 -- ==========================================
 -- NOCLIP LOGIC
 -- ==========================================
+
 RunService.Stepped:Connect(function()
     if State.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -584,13 +584,11 @@ local function getPromptPos(prompt)
     return nil
 end
 
--- Unified Processor for the Action Queue
 local function processQueue()
     if isProcessingQueue then return end
     isProcessingQueue = true
     
     while #ActionQueue > 0 do
-        -- If both switches are off, purge the queue and stop entirely
         if not State.Master and not State.AutoCollect then 
             ActionQueue = {}
             break 
@@ -598,7 +596,6 @@ local function processQueue()
         
         local action = table.remove(ActionQueue, 1)
         
-        -- Filter out dynamic toggle changes
         if not action.IsCollect and not State.Master then continue end
         if action.IsCollect and not State.AutoCollect then continue end
         
@@ -635,7 +632,6 @@ local function processQueue()
                 isTracking = false
                 if trackConnection then trackConnection:Disconnect() end
                 
-                -- Force Touch Events Natively
                 if target.Model and firetouchinterest then
                     for _, part in ipairs(target.Model:GetDescendants()) do
                         if part:IsA("BasePart") then
@@ -644,7 +640,6 @@ local function processQueue()
                     end
                 end
                 
-                -- Physics Jitter
                 hrp.CFrame = hrp.CFrame + Vector3.new(0, 0.5, 0)
                 task.wait(0.1)
                 hrp.CFrame = hrp.CFrame - Vector3.new(0, 0.5, 0)
@@ -675,7 +670,6 @@ local function processQueue()
     isProcessingQueue = false
 end
 
--- Sends Normal Items to the Queue
 local function executeBuy(target, hrp)
     for _, item in ipairs(ActionQueue) do
         if item.Target.Prompt == target.Prompt and not item.IsCollect then return end
@@ -684,7 +678,6 @@ local function executeBuy(target, hrp)
     if not isProcessingQueue then task.spawn(processQueue) end
 end
 
--- Sends the Furnace directly to the front of the Queue
 local function executeCollect(target, hrp)
     for _, item in ipairs(ActionQueue) do
         if item.IsCollect then return end 
@@ -694,7 +687,7 @@ local function executeCollect(target, hrp)
 end
 
 -- ==========================================
--- AUTO-COLLECT LOOP (FURNACE)
+-- AUTO-COLLECT LOGIC
 -- ==========================================
 
 local function getMyFurnace()
@@ -725,8 +718,7 @@ local function getMyFurnace()
 end
 
 task.spawn(function()
-    while task.wait(5) do
-        -- ONLY check if AutoCollect is toggled on, ignore Master switch entirely
+    while task.wait(1) do
         if not State.AutoCollect then continue end
         
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -740,7 +732,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- BELT ITEMS LOOP
+-- GET BELT ITEMS LOGIC
 -- ==========================================
 
 local function getSortedItemsOnBelt()
@@ -792,7 +784,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- JUNKYARD ITEMS LOOP
+-- GET JUNKYARD ITEMS LOGIC
 -- ==========================================
 
 local function getSortedJunkyardItems()
