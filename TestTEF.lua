@@ -516,7 +516,6 @@ local function findMyPlot()
     end
     if not plotsFolder then return nil end
 
-    -- Smart Plot Finder: Instantly checks via Owner property to avoid distance-based failures
     for _, plot in ipairs(plotsFolder:GetChildren()) do
         local ownerVal = plot:FindFirstChild("Owner")
         if ownerVal and (ownerVal.Value == LocalPlayer or ownerVal.Value == LocalPlayer.Name) then
@@ -524,7 +523,6 @@ local function findMyPlot()
         end
     end
 
-    -- Fallback: Check via Proximity
     local character = LocalPlayer.Character
     local hrp = character and character:FindFirstChild("HumanoidRootPart")
     if hrp then
@@ -594,7 +592,6 @@ local function getPromptPos(prompt)
 end
 
 local function executeBuy(target, hrp)
-    -- Timeout logic so a deadlocked loop won't freeze the script forever
     local waitStart = os.time()
     while isExecutingAction do 
         task.wait(0.1) 
@@ -603,7 +600,6 @@ local function executeBuy(target, hrp)
     
     isExecutingAction = true
 
-    -- PCALL wrap entirely secures the script against game objects spontaneously deleting
     local success, err = pcall(function()
         local prompt = target.Prompt
         if not prompt or not prompt.Parent then return end
@@ -620,8 +616,7 @@ local function executeBuy(target, hrp)
                 local pos = getPromptPos(prompt)
                 if pos then
                     HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
-                    -- Safe altitude added so we don't glitch inside solid items like furnaces
-                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 1.5, 0))
+                    hrp.CFrame = CFrame.new(pos) -- Offset totally removed, perfectly centered
                     hrp.AssemblyLinearVelocity = Vector3.zero
                     hrp.AssemblyAngularVelocity = Vector3.zero
                 end
@@ -631,11 +626,17 @@ local function executeBuy(target, hrp)
         task.wait(0.35) 
 
         if prompt and prompt.Parent and prompt.Enabled and fireproximityprompt then
+            -- Bypass Line of Sight blockages natively
+            local oldLoS = prompt.RequiresLineOfSight
+            prompt.RequiresLineOfSight = false 
+            
             pcall(function() fireproximityprompt(prompt) end)
             task.wait(0.05)
             if prompt and prompt.Parent and prompt.Enabled then 
                 pcall(function() fireproximityprompt(prompt) end) 
             end
+            
+            prompt.RequiresLineOfSight = oldLoS
         end
 
         isTracking = false
@@ -664,10 +665,20 @@ local function getMyFurnace()
     if not placedItems then return nil end
 
     for _, item in ipairs(placedItems:GetChildren()) do
-        if string.find(item.Name, "Furnace") then
-            local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt then
-                return {Prompt = prompt, Priority = 0} 
+        -- Case insensitive check so "Malevolentfurnace" or "Furnace" both trigger
+        if string.find(string.lower(item.Name), "furnace") then
+            
+            -- Specifically target the Hitbox to grab the right prompt
+            local hitbox = item:FindFirstChild("Hitbox")
+            if hitbox then
+                local prompt = hitbox:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt then return {Prompt = prompt, Priority = 0} end
+            end
+            
+            -- Fallback
+            local fallbackPrompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if fallbackPrompt then
+                return {Prompt = fallbackPrompt, Priority = 0} 
             end
         end
     end
