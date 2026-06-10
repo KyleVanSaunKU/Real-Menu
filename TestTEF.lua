@@ -525,7 +525,6 @@ local function findMyPlot()
         if plotZone and plotZone:IsA("BasePart") then
             local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
             local halfSize = plotZone.Size * 0.5
-            -- Uses physical proximity to claim the plot, resolving the missing Owner tag issue
             if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
                 return plot
             end
@@ -549,11 +548,13 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ==========================================
--- GHOST PLATFORM & BUY LOGIC
+-- GHOST PLATFORM & QUEUE LOGIC
 -- ==========================================
 
 local DELAY_BETWEEN_BUYS = 0.2 
-local isExecutingAction = false 
+local ActionQueue = {}
+local isProcessingQueue = false
+
 local HoverPlatform = Instance.new("Part")
 HoverPlatform.Name = "AutoBuyPlatform"
 HoverPlatform.Size = Vector3.new(10, 1, 10)
@@ -569,9 +570,7 @@ local function isItemGold(item)
         return true 
     end
     for _, desc in ipairs(item:GetDescendants()) do
-        if desc.Name == "Gold_01" or desc.Name == "Gold_02" then
-            return true
-        end
+        if desc.Name == "Gold_01" or desc.Name == "Gold_02" then return true end
     end
     return false
 end
@@ -585,63 +584,110 @@ local function getPromptPos(prompt)
     return nil
 end
 
-local function executeBuy(target, hrp)
-    local waitStart = os.time()
-    while isExecutingAction do 
-        task.wait(0.1) 
-        if os.time() - waitStart > 3 then isExecutingAction = false end 
+-- Unified Processor for the Action Queue
+local function processQueue()
+    if isProcessingQueue then return end
+    isProcessingQueue = true
+    
+    while #ActionQueue > 0 do
+        if not State.Master then 
+            ActionQueue = {}
+            break 
+        end
+        
+        local action = table.remove(ActionQueue, 1)
+        
+        pcall(function()
+            local target = action.Target
+            local hrp = action.HRP
+            local isCollect = action.IsCollect
+            
+            local prompt = target.Prompt
+            if not prompt or not prompt.Parent then return end
+
+            local targetPos = getPromptPos(prompt)
+            if not targetPos then return end
+
+            local originalCFrame = hrp.CFrame
+            hrp.Anchored = false 
+            
+            local isTracking = true
+            local trackConnection = RunService.Heartbeat:Connect(function()
+                if isTracking and prompt.Parent then
+                    local pos = getPromptPos(prompt)
+                    if pos then
+                        HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
+                        hrp.CFrame = CFrame.new(pos)
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.AssemblyAngularVelocity = Vector3.zero
+                    end
+                end
+            end)
+
+            task.wait(0.35) 
+
+            if isCollect then
+                isTracking = false
+                if trackConnection then trackConnection:Disconnect() end
+                
+                -- Force Touch Events Natively
+                if target.Model and firetouchinterest then
+                    for _, part in ipairs(target.Model:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            pcall(function() firetouchinterest(hrp, part, 0); firetouchinterest(hrp, part, 1) end)
+                        end
+                    end
+                end
+                
+                -- Physics Jitter (Forces the game engine to register you as physically "touching" the furnace)
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, 0.5, 0)
+                task.wait(0.1)
+                hrp.CFrame = hrp.CFrame - Vector3.new(0, 0.5, 0)
+                task.wait(0.1)
+            end
+
+            if prompt and prompt.Parent and prompt.Enabled and fireproximityprompt then
+                local oldLoS = prompt.RequiresLineOfSight
+                prompt.RequiresLineOfSight = false 
+                
+                pcall(function() fireproximityprompt(prompt) end)
+                task.wait(0.05)
+                if prompt.Enabled then pcall(function() fireproximityprompt(prompt) end) end
+                
+                prompt.RequiresLineOfSight = oldLoS
+            end
+
+            isTracking = false
+            if trackConnection then trackConnection:Disconnect() end
+            
+            HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
+            hrp.CFrame = originalCFrame
+            
+            task.wait(DELAY_BETWEEN_BUYS)
+        end)
     end
     
-    isExecutingAction = true
+    isProcessingQueue = false
+end
 
-    local success, err = pcall(function()
-        local prompt = target.Prompt
-        if not prompt or not prompt.Parent then return end
+-- Sends Normal Items to the Queue
+local function executeBuy(target, hrp)
+    -- Prevent duplicates from piling up
+    for _, item in ipairs(ActionQueue) do
+        if item.Target.Prompt == target.Prompt and not item.IsCollect then return end
+    end
+    table.insert(ActionQueue, {Target = target, HRP = hrp, IsCollect = false})
+    if not isProcessingQueue then task.spawn(processQueue) end
+end
 
-        local targetPos = getPromptPos(prompt)
-        if not targetPos then return end
-
-        local originalCFrame = hrp.CFrame
-        hrp.Anchored = false 
-        
-        local isTracking = true
-        local trackConnection = RunService.Heartbeat:Connect(function()
-            if isTracking and prompt.Parent then
-                local pos = getPromptPos(prompt)
-                if pos then
-                    HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
-                    hrp.CFrame = CFrame.new(pos) -- Teleport directly to center, no offset
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                end
-            end
-        end)
-
-        task.wait(0.35) 
-
-        if prompt and prompt.Parent and prompt.Enabled and fireproximityprompt then
-            local oldLoS = prompt.RequiresLineOfSight
-            prompt.RequiresLineOfSight = false 
-            
-            pcall(function() fireproximityprompt(prompt) end)
-            task.wait(0.05)
-            if prompt and prompt.Parent and prompt.Enabled then 
-                pcall(function() fireproximityprompt(prompt) end) 
-            end
-            
-            prompt.RequiresLineOfSight = oldLoS
-        end
-
-        isTracking = false
-        if trackConnection then trackConnection:Disconnect() end
-        
-        HoverPlatform.CFrame = CFrame.new(0, 10000, 0)
-        hrp.CFrame = originalCFrame
-        
-        task.wait(DELAY_BETWEEN_BUYS)
-    end)
-
-    isExecutingAction = false
+-- Sends the Furnace directly to the front of the Queue
+local function executeCollect(target, hrp)
+    for _, item in ipairs(ActionQueue) do
+        if item.IsCollect then return end 
+    end
+    -- Position 1 forces Auto-Collect to skip the line
+    table.insert(ActionQueue, 1, {Target = target, HRP = hrp, IsCollect = true})
+    if not isProcessingQueue then task.spawn(processQueue) end
 end
 
 -- ==========================================
@@ -663,12 +709,12 @@ local function getMyFurnace()
             local hitbox = item:FindFirstChild("Hitbox")
             if hitbox then
                 local prompt = hitbox:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt then return {Prompt = prompt, Priority = 0} end
+                if prompt then return {Prompt = prompt, Model = item, Priority = 0} end
             end
             
             local fallbackPrompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             if fallbackPrompt then
-                return {Prompt = fallbackPrompt, Priority = 0} 
+                return {Prompt = fallbackPrompt, Model = item, Priority = 0} 
             end
         end
     end
@@ -684,7 +730,7 @@ task.spawn(function()
 
         local furnaceTarget = getMyFurnace()
         if furnaceTarget then
-            executeBuy(furnaceTarget, hrp)
+            executeCollect(furnaceTarget, hrp) -- Skips the line
         end
     end
 end)
