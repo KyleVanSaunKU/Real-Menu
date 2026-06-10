@@ -757,7 +757,7 @@ local function getMyFurnace()
 end
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(5) do
         if not State.AutoCollect then continue end
         
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
