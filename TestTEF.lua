@@ -103,7 +103,7 @@ local MainFrame = Instance.new("Frame", TycoonGui)
 MainFrame.Size = UDim2.new(0, 350, 0, 500) 
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27) 
-MainFrame.ClipsDescendants = true -- Prevents content from spilling when collapsed
+MainFrame.ClipsDescendants = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local TopBar = Instance.new("Frame", MainFrame)
@@ -126,14 +126,13 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Cleaned up Exit Button
 local CloseButton = Instance.new("TextButton", TopBar)
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -35, 0, 5)
 CloseButton.BackgroundTransparency = 1
-CloseButton.AutoButtonColor = false -- Removes the weird square hover effect
-CloseButton.Text = "✕"
-CloseButton.TextSize = 16
+CloseButton.AutoButtonColor = false
+CloseButton.Text = "x"
+CloseButton.TextSize = 20
 CloseButton.TextColor3 = Color3.fromRGB(161, 161, 170)
 CloseButton.Font = Enum.Font.GothamBold
 
@@ -147,7 +146,7 @@ CloseButton.MouseButton1Click:Connect(function()
     TycoonGui:Destroy()  
 end)
 
--- New Collapse Button
+ New Collapse Button
 local CollapseButton = Instance.new("TextButton", TopBar)
 CollapseButton.Size = UDim2.new(0, 30, 0, 30)
 CollapseButton.Position = UDim2.new(1, -65, 0, 5)
@@ -167,7 +166,6 @@ ScrollFrame.Position = UDim2.new(0, 10, 0, 185)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 4
 
--- Collapse Logic
 local isCollapsed = false
 CollapseButton.MouseButton1Click:Connect(function()
     isCollapsed = not isCollapsed
