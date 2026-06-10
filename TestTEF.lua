@@ -510,6 +510,10 @@ populateBeltCategoryUI(ItemCategories, "--- BELT ITEMS ---")
 
 local myPlot = nil 
 local function findMyPlot()
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
     local plotsFolder = workspace:FindFirstChild("Plots") or workspace:FindFirstChild("Map")
     if plotsFolder and plotsFolder.Name == "Map" and plotsFolder:FindFirstChild("Plots") then
         plotsFolder = plotsFolder.Plots
@@ -517,23 +521,13 @@ local function findMyPlot()
     if not plotsFolder then return nil end
 
     for _, plot in ipairs(plotsFolder:GetChildren()) do
-        local ownerVal = plot:FindFirstChild("Owner")
-        if ownerVal and (ownerVal.Value == LocalPlayer or ownerVal.Value == LocalPlayer.Name) then
-            return plot
-        end
-    end
-
-    local character = LocalPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        for _, plot in ipairs(plotsFolder:GetChildren()) do
-            local plotZone = plot:FindFirstChild("PlotZone", true)
-            if plotZone and plotZone:IsA("BasePart") then
-                local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
-                local halfSize = plotZone.Size * 0.5
-                if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
-                    return plot
-                end
+        local plotZone = plot:FindFirstChild("PlotZone", true)
+        if plotZone and plotZone:IsA("BasePart") then
+            local localPos = plotZone.CFrame:PointToObjectSpace(hrp.Position)
+            local halfSize = plotZone.Size * 0.5
+            -- Uses physical proximity to claim the plot, resolving the missing Owner tag issue
+            if math.abs(localPos.X) <= halfSize.X and math.abs(localPos.Z) <= halfSize.Z then
+                return plot
             end
         end
     end
@@ -616,7 +610,7 @@ local function executeBuy(target, hrp)
                 local pos = getPromptPos(prompt)
                 if pos then
                     HoverPlatform.CFrame = CFrame.new(pos - Vector3.new(0, 3, 0))
-                    hrp.CFrame = CFrame.new(pos) -- Offset totally removed, perfectly centered
+                    hrp.CFrame = CFrame.new(pos) -- Teleport directly to center, no offset
                     hrp.AssemblyLinearVelocity = Vector3.zero
                     hrp.AssemblyAngularVelocity = Vector3.zero
                 end
@@ -626,7 +620,6 @@ local function executeBuy(target, hrp)
         task.wait(0.35) 
 
         if prompt and prompt.Parent and prompt.Enabled and fireproximityprompt then
-            -- Bypass Line of Sight blockages natively
             local oldLoS = prompt.RequiresLineOfSight
             prompt.RequiresLineOfSight = false 
             
@@ -665,17 +658,14 @@ local function getMyFurnace()
     if not placedItems then return nil end
 
     for _, item in ipairs(placedItems:GetChildren()) do
-        -- Case insensitive check so "Malevolentfurnace" or "Furnace" both trigger
         if string.find(string.lower(item.Name), "furnace") then
             
-            -- Specifically target the Hitbox to grab the right prompt
             local hitbox = item:FindFirstChild("Hitbox")
             if hitbox then
                 local prompt = hitbox:FindFirstChildWhichIsA("ProximityPrompt", true)
                 if prompt then return {Prompt = prompt, Priority = 0} end
             end
             
-            -- Fallback
             local fallbackPrompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
             if fallbackPrompt then
                 return {Prompt = fallbackPrompt, Priority = 0} 
