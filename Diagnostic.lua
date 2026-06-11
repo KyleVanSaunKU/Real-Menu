@@ -1,63 +1,60 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
--- Change this to "SeperatedEgg" if you want to target the other one
-local TARGET_EGG = "RareEgg" 
+-- Configuration: Target specific physical egg models found in the world
+-- Options spotted from your scan: "RareEgg", "SeperatedEgg"
+local TARGET_EGG_NAME = "RareEgg"
+
 _G.AutoHatch = true
 
-print("🥚 Auto-Hatch Sniper Started targeting: " .. TARGET_EGG)
+print("🥚 [Auto-Hatch] Started scanning for: " .. TARGET_EGG_NAME)
 
--- Common remote names devs use for eggs if they aren't named "Buy"
-local possibleRemotes = {"OpenEgg", "HatchEgg", "BuyEgg", "PurchaseEgg", "RollEgg"}
+local function triggerInteraction(obj)
+    -- Method 1: Fire ProximityPrompt (hold 'E' mechanism)
+    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+    if prompt and fireproximityprompt then
+        pcall(function() 
+            fireproximityprompt(prompt) 
+        end)
+        return
+    end
 
-task.spawn(function()
-    while _G.AutoHatch do
-        task.wait(0.5) -- Speed of opening
-        
-        -- 1. Try to find the Egg in the Workspace
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if obj.Name == TARGET_EGG then
-                
-                -- METHOD A: Proximity Prompt (Holding E)
-                local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt and fireproximityprompt then
-                    pcall(function() fireproximityprompt(prompt, 1) end)
-                end
-                
-                -- METHOD B: Click Detector (Clicking the egg)
-                local click = obj:FindFirstChildWhichIsA("ClickDetector", true)
-                if click and fireclickdetector then
-                    pcall(function() fireclickdetector(click) end)
-                end
-                
-                -- METHOD C: Billboard GUI Button Clicker (If it uses a floating UI)
-                if getconnections then
-                    for _, ui in ipairs(obj:GetDescendants()) do
-                        if ui:IsA("GuiButton") then
-                            pcall(function()
-                                for _, conn in ipairs(getconnections(ui.MouseButton1Click)) do conn:Fire() end
-                                for _, conn in ipairs(getconnections(ui.Activated)) do conn:Fire() end
-                            end)
-                        end
-                    end
-                end
+    -- Method 2: Fire ClickDetector (click mechanism)
+    local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
+    if clickDetector and fireclickdetector then
+        pcall(function() 
+            fireclickdetector(clickDetector) 
+        end)
+        return
+    end
+
+    -- Method 3: Fallback Brute-Force Touch interest (simulates character stepping on/touching the pad)
+    local touchInterest = obj:FindFirstChild("TouchTransmitter") or obj:FindFirstChild("TouchInterest")
+    if touchInterest and firetouchinterest then
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                firetouchinterest(obj, char.HumanoidRootPart, 0)
+                task.wait(0.05)
+                firetouchinterest(obj, char.HumanoidRootPart, 1)
             end
+        end)
+    end
+end
+
+-- Main processing loop running on Heartbeat for maximum speed and responsiveness
+RunService.Heartbeat:Connect(function()
+    if not _G.AutoHatch then return end
+
+    -- Deep recursive search using GetDescendants to locate objects even inside nested folders/maps
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        -- Match target egg names or partial terms
+        if descendant.Name == TARGET_EGG_NAME and descendant:IsA("BasePart") or descendant:IsA("Model") then
+            
+            -- Make sure we are only hitting physical world items, not UI components
+            if descendant:IsDescendantOf(game.Players.LocalPlayer.Character) then continue end
+            
+            triggerInteraction(descendant)
         end
-        
-        -- METHOD D: Brute-Force the Remotes Folder
-        for _, rName in ipairs(possibleRemotes) do
-            local remote = Remotes:FindFirstChild(rName)
-            if remote then
-                if remote:IsA("RemoteEvent") then
-                    pcall(function() remote:FireServer(TARGET_EGG, 1) end)
-                    pcall(function() remote:FireServer(TARGET_EGG) end)
-                elseif remote:IsA("RemoteFunction") then
-                    task.spawn(function()
-                        pcall(function() remote:InvokeServer(TARGET_EGG, 1) end)
-                    end)
-                end
-            end
-        end
-        
     end
 end)
