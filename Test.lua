@@ -7,22 +7,20 @@ local workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-getgenv().MouseAimbotEnabled = false
+getgenv().AimbotEnabled = false
+getgenv().AimbotKeybind = Enum.KeyCode.Q 
 
--- --- CONFIGURATION ---
--- Tweak these two numbers if it's still too fast or too slow
-local Smoothness = 4 -- Higher number = slower, smoother mouse movement. Lower number = faster snap.
-local Deadzone = 5   -- If the cursor is within this many pixels of the target, it stops moving.
+local isBinding = false 
 
 -- --- UI SETUP ---
 local guiParent = (gethui and gethui()) or CoreGui
 
-if guiParent:FindFirstChild("StabilizedMouseAimbot") then
-    guiParent.StabilizedMouseAimbot:Destroy()
+if guiParent:FindFirstChild("FastMouseAimbot") then
+    guiParent.FastMouseAimbot:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StabilizedMouseAimbot"
+ScreenGui.Name = "FastMouseAimbot"
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
@@ -38,48 +36,85 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Smooth Mouse Aimbot"
+Title.Text = "Fast Mouse Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
 Title.Parent = MainFrame
 
+local ExitButton = Instance.new("TextButton")
+ExitButton.Size = UDim2.new(0, 20, 0, 20)
+ExitButton.Position = UDim2.new(1, -25, 0, 2)
+ExitButton.BackgroundTransparency = 1
+ExitButton.Text = "X"
+ExitButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+ExitButton.Font = Enum.Font.SourceSansBold
+ExitButton.TextSize = 16
+ExitButton.Parent = MainFrame
+
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(0.8, 0, 0, 35)
 ToggleButton.Position = UDim2.new(0.1, 0, 0.45, 0)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-ToggleButton.Text = "Mouse Aim: OFF"
+ToggleButton.Text = "Mouse Aim [Q]: OFF"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.Font = Enum.Font.SourceSansBold
 ToggleButton.TextSize = 18
 ToggleButton.Parent = MainFrame
 
--- --- BUTTON LOGIC ---
-ToggleButton.MouseButton1Click:Connect(function()
-    getgenv().MouseAimbotEnabled = not getgenv().MouseAimbotEnabled
-    if getgenv().MouseAimbotEnabled then
+-- --- TOGGLE LOGIC ---
+local function UpdateAimbotState(forceState)
+    if forceState ~= nil then
+        getgenv().AimbotEnabled = forceState
+    else
+        getgenv().AimbotEnabled = not getgenv().AimbotEnabled
+    end
+
+    local keyName = getgenv().AimbotKeybind.Name
+
+    if getgenv().AimbotEnabled then
         ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        ToggleButton.Text = "Mouse Aim: ON"
+        ToggleButton.Text = "Mouse Aim [" .. keyName .. "]: ON"
     else
         ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        ToggleButton.Text = "Mouse Aim: OFF"
+        ToggleButton.Text = "Mouse Aim [" .. keyName .. "]: OFF"
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(function()
+    if not isBinding then
+        UpdateAimbotState()
     end
 end)
 
--- --- TARGETING LOGIC ---
-local function getClosestSlime()
+ToggleButton.MouseButton2Click:Connect(function()
+    isBinding = true
+    ToggleButton.Text = "...Press New Key..."
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+end)
+
+-- --- KEYBOARD INPUT LOGIC ---
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if isBinding then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            getgenv().AimbotKeybind = input.KeyCode
+            isBinding = false
+            UpdateAimbotState(getgenv().AimbotEnabled)
+        end
+    elseif not gameProcessed then
+        if input.KeyCode == getgenv().AimbotKeybind then
+            UpdateAimbotState()
+        end
+    end
+end)
+
+-- --- OPTIMIZED TARGETING LOGIC ---
+local function getFirstSlime()
     local Runtime = workspace:FindFirstChild("Runtime")
     if not Runtime then return nil end
 
     local SlimesFolder = Runtime:FindFirstChild("Slimes")
     if not SlimesFolder then return nil end
-
-    local closestSlime = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
-    local playerPos = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
-
-    if not playerPos then return nil end
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
         if string.sub(obj.Name, 1, 6) == "Slime_" then
@@ -88,44 +123,47 @@ local function getClosestSlime()
                 or obj:FindFirstChildWhichIsA("BasePart")
             
             if targetPart then
-                local distance = (playerPos - targetPart.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestSlime = targetPart
-                end
+                return targetPart
             end
         end
     end
 
-    return closestSlime
+    return nil
 end
 
--- --- STABILIZED MOUSE MOVEMENT LOOP ---
-RunService.RenderStepped:Connect(function()
-    if not getgenv().MouseAimbotEnabled then return end
+-- --- MOUSE SNAP LOOP ---
+local renderConnection
+renderConnection = RunService.RenderStepped:Connect(function()
+    if not getgenv().AimbotEnabled then return end
 
-    local target = getClosestSlime()
+    local target = getFirstSlime()
     
     if target then
-        -- Convert 3D position to 2D screen coordinates
+        -- Convert 3D target position to 2D screen coordinates
         local screenPoint, onScreen = Camera:WorldToViewportPoint(target.Position)
         
-        -- Only attempt to move if the target is actually on the screen
+        -- Only move mouse if the slime is visibly rendered on your monitor
         if onScreen then
             local mouseLocation = UserInputService:GetMouseLocation()
             
             local deltaX = screenPoint.X - mouseLocation.X
             local deltaY = screenPoint.Y - mouseLocation.Y
             
-            -- Calculate the total 2D distance the mouse needs to travel
-            local mouseDistance = math.sqrt((deltaX ^ 2) + (deltaY ^ 2))
+            -- Deadzone check: If the mouse is already within 3 pixels of the center, don't move it.
+            -- This stops the cursor from aggressively vibrating once it hits the target.
+            local distance = math.sqrt((deltaX ^ 2) + (deltaY ^ 2))
             
-            -- Apply deadzone check and smoothness
-            if mouseDistance > Deadzone then
-                if mousemoverel then
-                    mousemoverel(deltaX / Smoothness, deltaY / Smoothness)
-                end
+            if distance > 3 and mousemoverel then
+                -- Dividing by 2 keeps it lightning fast but prevents engine freakout
+                mousemoverel(deltaX / 2, deltaY / 2)
             end
         end
     end
+end)
+
+-- --- EXIT BUTTON LOGIC ---
+ExitButton.MouseButton1Click:Connect(function()
+    if renderConnection then renderConnection:Disconnect() end
+    getgenv().AimbotEnabled = false
+    ScreenGui:Destroy()
 end)
