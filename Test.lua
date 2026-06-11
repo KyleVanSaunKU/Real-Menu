@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -15,12 +16,12 @@ local isBinding = false
 -- --- UI SETUP ---
 local guiParent = (gethui and gethui()) or CoreGui
 
-if guiParent:FindFirstChild("FastMouseAimbot") then
-    guiParent.FastMouseAimbot:Destroy()
+if guiParent:FindFirstChild("VirtualMouseAimbot") then
+    guiParent.VirtualMouseAimbot:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FastMouseAimbot"
+ScreenGui.Name = "VirtualMouseAimbot"
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
@@ -36,7 +37,7 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Fast Mouse Aimbot"
+Title.Text = "Virtual Mouse Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
@@ -118,7 +119,6 @@ local function getFirstSlime()
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
         if string.sub(obj.Name, 1, 6) == "Slime_" then
-            -- The 'true' argument here makes it search all layers of the slime model for a physical part
             local targetPart = obj:FindFirstChild("HumanoidRootPart") 
                 or obj:FindFirstChild("PrimaryPart") 
                 or obj:FindFirstChildWhichIsA("BasePart", true) 
@@ -132,7 +132,7 @@ local function getFirstSlime()
     return nil
 end
 
--- --- MOUSE SNAP LOOP ---
+-- --- ENGINE LEVEL MOUSE LOOP ---
 local renderConnection
 renderConnection = RunService.RenderStepped:Connect(function()
     if not getgenv().AimbotEnabled then return end
@@ -140,24 +140,12 @@ renderConnection = RunService.RenderStepped:Connect(function()
     local target = getFirstSlime()
     
     if target then
-        local screenPoint, onScreen = Camera:WorldToViewportPoint(target.Position)
+        -- WorldToScreenPoint ensures accuracy with the Roblox Top Bar
+        local screenPoint, onScreen = Camera:WorldToScreenPoint(target.Position)
         
-        -- The slime must be physically visible on your monitor
         if onScreen then
-            local mouseLocation = UserInputService:GetMouseLocation()
-            
-            local deltaX = screenPoint.X - mouseLocation.X
-            local deltaY = screenPoint.Y - mouseLocation.Y
-            
-            local distance = math.sqrt((deltaX ^ 2) + (deltaY ^ 2))
-            
-            if distance > 3 and mousemoverel then
-                -- FIX: math.round forces whole numbers so the executor doesn't silently reject the input
-                local moveX = math.round(deltaX / 2)
-                local moveY = math.round(deltaY / 2)
-                
-                mousemoverel(moveX, moveY)
-            end
+            -- Sends fake mouse coordinate directly to the engine
+            VirtualInputManager:SendMouseMoveEvent(screenPoint.X, screenPoint.Y, workspace)
         end
     end
 end)
