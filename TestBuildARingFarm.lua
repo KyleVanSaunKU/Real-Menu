@@ -451,7 +451,14 @@ local function makePanel(title, w, h)
     hdr.BorderSizePixel=0
     hdr.ZIndex=2
     mkCorner(hdr,10)
-    
+    local hpatch=Instance.new("Frame",hdr)
+    hpatch.Size=UDim2.new(1,0,0.5,0);hpatch.Position=UDim2.new(0,0,0.5,0)
+    hpatch.BackgroundColor3=C.surface;hpatch.BorderSizePixel=0;hpatch.ZIndex=2
+
+    local abar=Instance.new("Frame",hdr)
+    abar.Size=UDim2.new(0,3,0,18);abar.Position=UDim2.new(0,12,0.5,-9)
+    abar.BackgroundColor3=C.accent;abar.BorderSizePixel=0;abar.ZIndex=3;mkCorner(abar,2)
+
     local tlbl=Instance.new("TextLabel",hdr)
     tlbl.Size=UDim2.new(1,-60,1,0);tlbl.Position=UDim2.new(0,22,0,0)
     tlbl.BackgroundTransparency=1;tlbl.Text=title
@@ -461,7 +468,8 @@ local function makePanel(title, w, h)
     local xBtn=Instance.new("TextButton",hdr)
     xBtn.Size=UDim2.new(0,24,0,24);xBtn.Position=UDim2.new(1,-30,0.5,-12)
     xBtn.BackgroundColor3=Color3.fromRGB(55,25,25)
-    xBtn.BorderSizePixel=0;xBtn.Text="X";xBtn.TextColor3=C.red
+    xBtn.BorderSizePixel=0
+    xBtn.Text="X";xBtn.TextColor3=C.red
     xBtn.Font=Enum.Font.GothamBold;xBtn.TextSize=12
     xBtn.ZIndex=4;xBtn.AutoButtonColor=false
     mkCorner(xBtn,5)
@@ -469,31 +477,39 @@ local function makePanel(title, w, h)
     draggable(hdr,p)
 
     local allBtn=mkBtn(p,"All",C.surface,C.sub,10)
-    allBtn.Size=UDim2.new(0,40,0,20);allBtn.Position=UDim2.new(0,12,0,46);allBtn.ZIndex=3
+    allBtn.Size=UDim2.new(0,40,0,20);allBtn.Position=UDim2.new(0,12,0,46)
+    allBtn.ZIndex=3
     mkCorner(allBtn,5);mkStroke(allBtn,C.border,1,0.5)
 
     local noneBtn=mkBtn(p,"None",C.surface,C.sub,10)
-    noneBtn.Size=UDim2.new(0,44,0,20);noneBtn.Position=UDim2.new(0,56,0,46);noneBtn.ZIndex=3
+    noneBtn.Size=UDim2.new(0,44,0,20);noneBtn.Position=UDim2.new(0,56,0,46)
+    noneBtn.ZIndex=3
     mkCorner(noneBtn,5);mkStroke(noneBtn,C.border,1,0.5)
 
     local scroll=Instance.new("ScrollingFrame",p)
     scroll.Size=UDim2.new(1,-8,1,-72);scroll.Position=UDim2.new(0,4,0,68)
     scroll.BackgroundTransparency=1;scroll.BorderSizePixel=0
     scroll.ScrollBarThickness=2;scroll.ScrollBarImageColor3=C.accent
-    scroll.CanvasSize=UDim2.new(0,0,0,0);scroll.ZIndex=2
+    scroll.CanvasSize=UDim2.new(0,0,0,0)
+    scroll.ZIndex=2
+    
+    -- THE FIX: Native Automatic Scrolling
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     local layout=Instance.new("UIListLayout",scroll)
     layout.Padding=UDim.new(0,2);layout.SortOrder=Enum.SortOrder.LayoutOrder
     local pad=Instance.new("UIPadding",scroll)
     pad.PaddingLeft=UDim.new(0,6);pad.PaddingRight=UDim.new(0,6);pad.PaddingTop=UDim.new(0,4)
 
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scroll.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+8)
-    end)
-
     local function positionNextTo()
-        p.Position=UDim2.new(win.Position.X.Scale, win.Position.X.Offset+win.AbsoluteSize.X+8, win.Position.Y.Scale, win.Position.Y.Offset)
+        p.Position=UDim2.new(
+            win.Position.X.Scale,
+            win.Position.X.Offset+win.AbsoluteSize.X+8,
+            win.Position.Y.Scale,
+            win.Position.Y.Offset
+        )
     end
+
     return p,scroll,layout,xBtn,allBtn,noneBtn,positionNextTo
 end
 
