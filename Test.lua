@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
 local workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -11,12 +12,12 @@ getgenv().AimbotEnabled = false
 -- --- UI SETUP ---
 local guiParent = (gethui and gethui()) or CoreGui
 
-if guiParent:FindFirstChild("StableSlimeAimbot") then
-    guiParent.StableSlimeAimbot:Destroy()
+if guiParent:FindFirstChild("MouseSlimeAimbot") then
+    guiParent.MouseSlimeAimbot:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StableSlimeAimbot"
+ScreenGui.Name = "MouseSlimeAimbot"
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
@@ -32,7 +33,7 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Camera Slime Aimbot"
+Title.Text = "Mouse Slime Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
@@ -68,7 +69,6 @@ end)
 
 -- --- TARGETING LOGIC ---
 local function getClosestSlime()
-    -- Corrected path
     local Runtime = workspace:FindFirstChild("Runtime")
     if not Runtime then return nil end
 
@@ -83,7 +83,6 @@ local function getClosestSlime()
     if not playerPos then return nil end
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
-        -- Strict check for "Slime_" prefix
         if string.sub(obj.Name, 1, 6) == "Slime_" then
             local targetPart = obj:FindFirstChild("HumanoidRootPart") 
                 or obj:FindFirstChild("PrimaryPart") 
@@ -102,15 +101,33 @@ local function getClosestSlime()
     return closestSlime
 end
 
--- --- CAMERA SNAP LOOP ---
+-- --- MOUSE MOVEMENT LOOP ---
+-- Tweak this value between 0.1 and 1. (1 = instant snap, 0.2 = smooth tracking)
+local Smoothing = 0.5 
+
 RunService.RenderStepped:Connect(function()
     if not getgenv().AimbotEnabled then return end
 
     local target = getClosestSlime()
     
     if target then
-        -- Snap camera to the target
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+        -- 1. Convert 3D position to 2D screen position
+        local screenPoint, onScreen = Camera:WorldToViewportPoint(target.Position)
+        
+        -- 2. Only move the mouse if the slime is actually visible on your screen
+        if onScreen then
+            -- 3. Get current mouse location
+            local mouseLocation = UserInputService:GetMouseLocation()
+            
+            -- 4. Calculate how far the mouse needs to move (Delta X and Delta Y)
+            local moveX = (screenPoint.X - mouseLocation.X) * Smoothing
+            local moveY = (screenPoint.Y - mouseLocation.Y) * Smoothing
+            
+            -- 5. Move the mouse using executor UNC functions
+            if mousemoverel then
+                mousemoverel(moveX, moveY)
+            end
+        end
         
         -- Update visual highlight
         if target.Parent and target.Parent ~= TargetHighlight.Parent then
