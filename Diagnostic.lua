@@ -1,34 +1,43 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
-print("--- 🥚 INSPECTING VISIBLE RARE EGG OBJECTS ---")
-for _, obj in ipairs(workspace:GetChildren()) do
-    if obj.Name == "RareEgg" then
-        print("Found visible RareEgg instance:", obj)
-        
-        -- Check for prompts, click detectors, or touch pads inside the model
-        for _, descendant in ipairs(obj:GetDescendants()) do
-            if descendant:IsA("ProximityPrompt") then
-                print(" -> Found ProximityPrompt:", descendant:GetFullName())
-            elseif descendant:IsA("ClickDetector") then
-                print(" -> Found ClickDetector:", descendant:GetFullName())
-            elseif descendant.Name == "TouchTransmitter" or descendant.Name == "TouchInterest" then
-                print(" -> Found Touch/Hitbox part:", descendant:GetFullName())
-            elseif descendant:IsA("GuiButton") then
-                print(" -> Found UI Button inside egg model:", descendant:GetFullName())
+print("=============================================")
+print("🚀 RUNNING INSPECTION FOR: " .. player.Name)
+print("=============================================")
+
+-- 1. Scan ReplicatedStorage Remotes for any pet/egg handling network code
+local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+if remotesFolder then
+    print("\n📦 Checking ReplicatedStorage.Remotes:")
+    for _, child in ipairs(remotesFolder:GetDescendants()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            local lowerName = child.Name:lower()
+            if lowerName:find("pet") or lowerName:find("egg") or lowerName:find("hatch") or lowerName:find("buy") then
+                print(" -> Found Relevant Remote:", child:GetFullName())
             end
         end
     end
+else
+    print("\n⚠️ Remotes folder not found in ReplicatedStorage.")
 end
 
-print("\n--- 🖥️ CHECKING PLAYER GUI MENUS FOR EGG/PET SHOPS ---")
-local mainUI = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("MainUI")
-local menus = mainUI and mainUI:FindFirstChild("Menus")
-if menus then
-    for _, menu in ipairs(menus:GetChildren()) do
-        if menu.Name:lower():find("egg") or menu.Name:lower():find("pet") or menu.Name:lower():find("shop") then
-            print(" -> Potentially relevant menu in PlayerGui:", menu:GetFullName())
+-- 2. Inspect the PetFrame GUI for interactive buttons
+local petMenu = player:WaitForChild("PlayerGui")
+    :WaitForChild("MainUI")
+    :WaitForChild("Menus")
+    :WaitForChild("PetFrame")
+
+print("\n🖥️ Scanning PlayerGui.MainUI.Menus.PetFrame:")
+if petMenu then
+    for _, descendant in ipairs(petMenu:GetDescendants()) do
+        if descendant:IsA("TextButton") or descendant:IsA("ImageButton") then
+            print(" -> Button Element:", descendant.Name, "Full Path: ", descendant:GetFullName())
         end
     end
+else
+    print("⚠️ PetFrame menu could not be located.")
 end
-print("--- END INSPECTION ---")
+print("=============================================")
+print("📋 Copy and paste the console output above!")
+print("=============================================")
