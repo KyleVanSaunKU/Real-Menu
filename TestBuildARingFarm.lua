@@ -634,7 +634,6 @@ RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
 
     local queue = {}
-    -- EXACT original logic using ipairs for sequential slot arrays
     for slotIndex, seedName in ipairs(rolledSeeds) do
         if type(seedName) == "string" and autoBuyList[seedName] then
             table.insert(queue, {slot = slotIndex, name = seedName})
@@ -648,11 +647,21 @@ RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     
     task.spawn(function()
         task.wait(0.2)
+        
+        -- Simulated cash to strictly prevent "Buy with Robux" popups
+        local simCash = getPlayerCash()
+        
         for _, entry in ipairs(queue) do
-            -- EXACT original buying loop
-            pcall(function() BuySeed:FireServer(entry.slot) end)
-            showToast(entry.name)
-            task.wait(0.8)
+            -- Look up cost from our cached data, default to math.huge if completely unknown to be safe
+            local cost = (SeedByName[entry.name] and SeedByName[entry.name].cost) or 0
+            if cost == 0 then cost = math.huge end 
+            
+            if simCash >= cost then
+                pcall(function() BuySeed:FireServer(entry.slot) end)
+                simCash = simCash - cost -- Deduct simulated cash so we don't accidentally overspend
+                showToast(entry.name)
+                task.wait(0.8)
+            end
         end
         task.wait(0.5)
         isBuying = false
@@ -709,9 +718,15 @@ local function updateStockLabel(name, stock)
 end
 
 local function buyGearItem(item)
+    -- Also added simCash to the Gear buyer just in case
+    local currentCost = getGearCost(item.name)
+    local simCash = getPlayerCash()
+    
     for _ = 1, item.maxStock do
+        if simCash < currentCost then break end
         local ok, res = pcall(function() return GearTransaction:InvokeServer(item.name) end)
         if not ok or not res then break end
+        simCash = simCash - currentCost
         task.wait(0.4)
     end
 end
