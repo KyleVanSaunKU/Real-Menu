@@ -8,16 +8,19 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 getgenv().AimbotEnabled = false
+getgenv().AimbotKeybind = Enum.KeyCode.Q -- Default Keybind
+
+local isBinding = false -- Tracks if the user is currently assigning a new key
 
 -- --- UI SETUP ---
 local guiParent = (gethui and gethui()) or CoreGui
 
-if guiParent:FindFirstChild("MouseSlimeAimbot") then
-    guiParent.MouseSlimeAimbot:Destroy()
+if guiParent:FindFirstChild("FastSlimeAimbot") then
+    guiParent.FastSlimeAimbot:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MouseSlimeAimbot"
+ScreenGui.Name = "FastSlimeAimbot"
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
@@ -33,17 +36,28 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Mouse Slime Aimbot"
+Title.Text = "Fast Camera Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
 Title.Parent = MainFrame
 
+-- --- EXIT BUTTON ---
+local ExitButton = Instance.new("TextButton")
+ExitButton.Size = UDim2.new(0, 20, 0, 20)
+ExitButton.Position = UDim2.new(1, -25, 0, 2)
+ExitButton.BackgroundTransparency = 1
+ExitButton.Text = "X"
+ExitButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+ExitButton.Font = Enum.Font.SourceSansBold
+ExitButton.TextSize = 16
+ExitButton.Parent = MainFrame
+
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(0.8, 0, 0, 35)
 ToggleButton.Position = UDim2.new(0.1, 0, 0.45, 0)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-ToggleButton.Text = "Aimbot: OFF"
+ToggleButton.Text = "Aimbot [Q]: OFF"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.Font = Enum.Font.SourceSansBold
 ToggleButton.TextSize = 18
@@ -54,33 +68,60 @@ TargetHighlight.FillColor = Color3.fromRGB(255, 0, 0)
 TargetHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 TargetHighlight.FillTransparency = 0.5
 
--- --- BUTTON LOGIC ---
-ToggleButton.MouseButton1Click:Connect(function()
-    getgenv().AimbotEnabled = not getgenv().AimbotEnabled
+-- --- TOGGLE LOGIC ---
+local function UpdateAimbotState(forceState)
+    if forceState ~= nil then
+        getgenv().AimbotEnabled = forceState
+    else
+        getgenv().AimbotEnabled = not getgenv().AimbotEnabled
+    end
+
+    local keyName = getgenv().AimbotKeybind.Name
+
     if getgenv().AimbotEnabled then
         ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        ToggleButton.Text = "Aimbot: ON"
+        ToggleButton.Text = "Aimbot [" .. keyName .. "]: ON"
     else
         ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        ToggleButton.Text = "Aimbot: OFF"
+        ToggleButton.Text = "Aimbot [" .. keyName .. "]: OFF"
         TargetHighlight.Parent = nil
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(function()
+    if not isBinding then
+        UpdateAimbotState()
     end
 end)
 
--- --- TARGETING LOGIC ---
-local function getClosestSlime()
+ToggleButton.MouseButton2Click:Connect(function()
+    isBinding = true
+    ToggleButton.Text = "...Press New Key..."
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+end)
+
+-- --- KEYBOARD INPUT LOGIC ---
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if isBinding then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            getgenv().AimbotKeybind = input.KeyCode
+            isBinding = false
+            UpdateAimbotState(getgenv().AimbotEnabled)
+        end
+    elseif not gameProcessed then
+        if input.KeyCode == getgenv().AimbotKeybind then
+            UpdateAimbotState()
+        end
+    end
+end)
+
+-- --- OPTIMIZED TARGETING LOGIC ---
+local function getFirstSlime()
     local Runtime = workspace:FindFirstChild("Runtime")
     if not Runtime then return nil end
 
     local SlimesFolder = Runtime:FindFirstChild("Slimes")
     if not SlimesFolder then return nil end
-
-    local closestSlime = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
-    local playerPos = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
-
-    if not playerPos then return nil end
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
         if string.sub(obj.Name, 1, 6) == "Slime_" then
@@ -88,45 +129,30 @@ local function getClosestSlime()
                 or obj:FindFirstChild("PrimaryPart") 
                 or obj:FindFirstChildWhichIsA("BasePart")
             
+            -- Instantly return the first valid part found and kill the loop
             if targetPart then
-                local distance = (playerPos - targetPart.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestSlime = targetPart
-                end
+                return targetPart
             end
         end
     end
 
-    return closestSlime
+    return nil
 end
 
--- --- MOUSE MOVEMENT LOOP ---
--- Tweak this value between 0.1 and 1. (1 = instant snap, 0.2 = smooth tracking)
-local Smoothing = 0.5 
-
+-- --- MOUSE AIMBOT LOOP ---
 RunService.RenderStepped:Connect(function()
     if not getgenv().AimbotEnabled then return end
 
     local target = getClosestSlime()
     
     if target then
-        -- 1. Convert 3D position to 2D screen position
-        local screenPoint, onScreen = Camera:WorldToViewportPoint(target.Position)
+        -- Convert 3D world position to 2D screen position
+        local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
         
-        -- 2. Only move the mouse if the slime is actually visible on your screen
         if onScreen then
-            -- 3. Get current mouse location
-            local mouseLocation = UserInputService:GetMouseLocation()
-            
-            -- 4. Calculate how far the mouse needs to move (Delta X and Delta Y)
-            local moveX = (screenPoint.X - mouseLocation.X) * Smoothing
-            local moveY = (screenPoint.Y - mouseLocation.Y) * Smoothing
-            
-            -- 5. Move the mouse using executor UNC functions
-            if mousemoverel then
-                mousemoverel(moveX, moveY)
-            end
+            -- Move mouse to the screen position
+            -- Note: mousemoveabs works with absolute screen coordinates
+            mousemoveabs(screenPos.X, screenPos.Y)
         end
         
         -- Update visual highlight
@@ -136,4 +162,12 @@ RunService.RenderStepped:Connect(function()
     else
         TargetHighlight.Parent = nil
     end
+end)
+
+-- --- EXIT BUTTON LOGIC ---
+ExitButton.MouseButton1Click:Connect(function()
+    if renderConnection then renderConnection:Disconnect() end
+    getgenv().AimbotEnabled = false
+    TargetHighlight:Destroy()
+    ScreenGui:Destroy()
 end)
