@@ -199,7 +199,6 @@ local autoBuyList = {}
 local gearBuyList = {}
 local gearStock   = {}
 local gearLocks   = {} 
-local isSpinning  = false -- MASTER STATE LOCK
 
 local function saveSettings()
     local data = {
@@ -753,21 +752,6 @@ sellTrack.InputBegan:Connect(function(i)
     saveSettings()
 end)
 
--- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        task.wait(0.3)
-        if isSpinning then
-            setStatus("Spinning/Buying...", C.accent, C.accent)
-        elseif autoRollEnabled then
-            setStatus("Rolling", C.green, C.green)
-        else
-            setStatus("Idle", C.muted, C.muted)
-        end
-    end
-end)
-
 -- ─── Gear Stock Polling & Purchasing ─────────────────────────────────────────
 
 local function parseStock(lbl)
@@ -911,61 +895,91 @@ local function showToast(seedName)
     end)
 end
 
--- ─── Auto Roll & Auto Buy (The Unified Pipeline) ─────────────────────────────
+-- ─── Workspace Silence Detector & Unified Auto Buy ───────────────────────────
+
+local pendingBuys = {}
+local lastSpinActivity = tick()
+
+-- Detects any flickering/spinning models entering or leaving the workspace
+workspace.ChildAdded:Connect(function(child)
+    if SeedByName[child.Name] then lastSpinActivity = tick() end
+end)
+workspace.ChildRemoved:Connect(function(child)
+    if SeedByName[child.Name] then lastSpinActivity = tick() end
+end)
 
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
-    
-    -- Lock the state machine! Auto Roll will not fire while this is true.
-    isSpinning = true 
-    
-    -- Cache the batch of seeds to a temporary table
-    local currentBatch = {}
     for slotIndex, seedName in pairs(rolledSeeds) do
         if type(seedName) == "string" then
-            currentBatch[tonumber(slotIndex) or slotIndex] = seedName
+            pendingBuys[tonumber(slotIndex) or slotIndex] = seedName
         end
     end
-    
-    -- Wait for the physical spin animation to end
-    task.wait(2.6)
-    
-    -- Now that the models are resting in workspace, run the buy array
-    if autoBuyEnabled then
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        -- Don't do anything if we have no seeds to buy
+        if next(pendingBuys) == nil then continue end
+        
+        -- The Silence Detector: Wait until the Workspace has stopped flickering for 1.2 seconds
+        if tick() - lastSpinActivity < 1.2 then continue end
+        
+        -- Workspace is stable. Process all pending seeds sequentially.
         local simCash = getPlayerCash()
-        for slot, seedName in pairs(currentBatch) do
-            if autoBuyList[seedName] then
-                -- Get cost (from background cache, or fallback to direct scrape)
+        for slot, seedName in pairs(pendingBuys) do
+            if autoBuyEnabled and autoBuyList[seedName] then
                 local cost = SeedByName[seedName].cost
                 if not cost or cost == math.huge then
                     cost = scrapeSeedCostFromWorkspace(seedName)
-                    SeedByName[seedName].cost = cost -- save it for next time
+                    SeedByName[seedName].cost = cost
                 end
                 
                 if cost ~= math.huge and simCash >= cost then
                     pcall(function() BuySeed:FireServer(slot) end)
                     simCash = simCash - cost
                     showToast(seedName)
-                    task.wait(0.1) -- Rapid-fire yield to not drop packets on multi-buys
+                    task.wait(0.15) -- Safe yield ensures all 6 purchases register with the server
                 end
             end
+            -- Clear from queue so AutoRoll is allowed to spin again
+            pendingBuys[slot] = nil
         end
     end
-    
-    -- Unlock the state machine! Auto Roll is free to fire again.
-    isSpinning = false
 end)
 
 local lastRoll = 0
-
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled then return end
-    if isSpinning then return end -- Enforces the lock
+    
+    -- Safety Lock 1: Do not roll while models are physically spinning
+    if tick() - lastSpinActivity < 1.2 then return end
+    
+    -- Safety Lock 2: Do not roll if we are currently buying previous seeds
+    if next(pendingBuys) ~= nil then return end
     
     local now = tick()
-    if now - lastRoll >= 0.5 then -- Half-second buffer after unlock
+    if now - lastRoll >= 0.5 then
         lastRoll = now
         RollSeeds:FireServer()
+    end
+end)
+
+-- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
+
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        if tick() - lastSpinActivity < 1.2 then
+            setStatus("Spinning...", C.accent, C.accent)
+        elseif next(pendingBuys) ~= nil then
+            setStatus("Processing Buys...", C.accent, C.accent)
+        elseif autoRollEnabled then
+            setStatus("Rolling", C.green, C.green)
+        else
+            setStatus("Idle", C.muted, C.muted)
+        end
     end
 end)
 
