@@ -1,60 +1,34 @@
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
--- Configuration: Target specific physical egg models found in the world
--- Options spotted from your scan: "RareEgg", "SeperatedEgg"
-local TARGET_EGG_NAME = "RareEgg"
-
-_G.AutoHatch = true
-
-print("🥚 [Auto-Hatch] Started scanning for: " .. TARGET_EGG_NAME)
-
-local function triggerInteraction(obj)
-    -- Method 1: Fire ProximityPrompt (hold 'E' mechanism)
-    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-    if prompt and fireproximityprompt then
-        pcall(function() 
-            fireproximityprompt(prompt) 
-        end)
-        return
-    end
-
-    -- Method 2: Fire ClickDetector (click mechanism)
-    local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
-    if clickDetector and fireclickdetector then
-        pcall(function() 
-            fireclickdetector(clickDetector) 
-        end)
-        return
-    end
-
-    -- Method 3: Fallback Brute-Force Touch interest (simulates character stepping on/touching the pad)
-    local touchInterest = obj:FindFirstChild("TouchTransmitter") or obj:FindFirstChild("TouchInterest")
-    if touchInterest and firetouchinterest then
-        pcall(function()
-            local char = game.Players.LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                firetouchinterest(obj, char.HumanoidRootPart, 0)
-                task.wait(0.05)
-                firetouchinterest(obj, char.HumanoidRootPart, 1)
+print("--- 🥚 INSPECTING VISIBLE RARE EGG OBJECTS ---")
+for _, obj in ipairs(workspace:GetChildren()) do
+    if obj.Name == "RareEgg" then
+        print("Found visible RareEgg instance:", obj)
+        
+        -- Check for prompts, click detectors, or touch pads inside the model
+        for _, descendant in ipairs(obj:GetDescendants()) do
+            if descendant:IsA("ProximityPrompt") then
+                print(" -> Found ProximityPrompt:", descendant:GetFullName())
+            elseif descendant:IsA("ClickDetector") then
+                print(" -> Found ClickDetector:", descendant:GetFullName())
+            elseif descendant.Name == "TouchTransmitter" or descendant.Name == "TouchInterest" then
+                print(" -> Found Touch/Hitbox part:", descendant:GetFullName())
+            elseif descendant:IsA("GuiButton") then
+                print(" -> Found UI Button inside egg model:", descendant:GetFullName())
             end
-        end)
+        end
     end
 end
 
--- Main processing loop running on Heartbeat for maximum speed and responsiveness
-RunService.Heartbeat:Connect(function()
-    if not _G.AutoHatch then return end
-
-    -- Deep recursive search using GetDescendants to locate objects even inside nested folders/maps
-    for _, descendant in ipairs(workspace:GetDescendants()) do
-        -- Match target egg names or partial terms
-        if descendant.Name == TARGET_EGG_NAME and descendant:IsA("BasePart") or descendant:IsA("Model") then
-            
-            -- Make sure we are only hitting physical world items, not UI components
-            if descendant:IsDescendantOf(game.Players.LocalPlayer.Character) then continue end
-            
-            triggerInteraction(descendant)
+print("\n--- 🖥️ CHECKING PLAYER GUI MENUS FOR EGG/PET SHOPS ---")
+local mainUI = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("MainUI")
+local menus = mainUI and mainUI:FindFirstChild("Menus")
+if menus then
+    for _, menu in ipairs(menus:GetChildren()) do
+        if menu.Name:lower():find("egg") or menu.Name:lower():find("pet") or menu.Name:lower():find("shop") then
+            print(" -> Potentially relevant menu in PlayerGui:", menu:GetFullName())
         end
     end
-end)
+end
+print("--- END INSPECTION ---")
