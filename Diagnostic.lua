@@ -1,43 +1,27 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
+local RollEgg = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RollEgg")
 
-print("=============================================")
-print("🚀 RUNNING INSPECTION FOR: " .. player.Name)
-print("=============================================")
+-- Change this to test different egg names from the shop (e.g., "RareEgg", "SeperatedEgg", etc.)
+local testEggName = "RareEgg"
 
--- 1. Scan ReplicatedStorage Remotes for any pet/egg handling network code
-local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
-if remotesFolder then
-    print("\n📦 Checking ReplicatedStorage.Remotes:")
-    for _, child in ipairs(remotesFolder:GetDescendants()) do
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-            local lowerName = child.Name:lower()
-            if lowerName:find("pet") or lowerName:find("egg") or lowerName:find("hatch") or lowerName:find("buy") then
-                print(" -> Found Relevant Remote:", child:GetFullName())
-            end
-        end
+-- Set to true to start, set to false in your executor console to stop
+_G.TestHatch = true
+
+print("🥚 [Standalone Test] Firing RollEgg for: " .. testEggName)
+
+task.spawn(function()
+    while _G.TestHatch do
+        task.wait(0.5)
+        
+        pcall(function()
+            -- Simulator remotes usually take the egg name and an amount (e.g., 1)
+            RollEgg:FireServer(testEggName, 1)
+            print("Successfully fired RollEgg for " .. testEggName)
+        end)
+        
+        pcall(function()
+            -- Fallback in case it's an InvokeServer (RemoteFunction) or takes no arguments
+            RollEgg:InvokeServer(testEggName)
+        end)
     end
-else
-    print("\n⚠️ Remotes folder not found in ReplicatedStorage.")
-end
-
--- 2. Inspect the PetFrame GUI for interactive buttons
-local petMenu = player:WaitForChild("PlayerGui")
-    :WaitForChild("MainUI")
-    :WaitForChild("Menus")
-    :WaitForChild("PetFrame")
-
-print("\n🖥️ Scanning PlayerGui.MainUI.Menus.PetFrame:")
-if petMenu then
-    for _, descendant in ipairs(petMenu:GetDescendants()) do
-        if descendant:IsA("TextButton") or descendant:IsA("ImageButton") then
-            print(" -> Button Element:", descendant.Name, "Full Path: ", descendant:GetFullName())
-        end
-    end
-else
-    print("⚠️ PetFrame menu could not be located.")
-end
-print("=============================================")
-print("📋 Copy and paste the console output above!")
-print("=============================================")
+end)
