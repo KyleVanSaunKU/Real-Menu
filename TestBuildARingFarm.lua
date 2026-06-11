@@ -160,18 +160,15 @@ local function saveSettings()
 end
 
 local function loadSettings()
-    -- Initialize defaults
     for _, defaultItem in ipairs(DEFAULT_SEEDS) do
         local item = {name = defaultItem.name, rarity = defaultItem.rarity, cost = 0, income = 1}
         table.insert(CONFIG_SEEDS, item)
         SeedByName[item.name] = item
     end
 
-    -- Load from file
     if isfile and readfile and isfile(FILE_NAME) then
         local success, savedData = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
         if success and type(savedData) == "table" then
-            
             if savedData.autoRoll then autoRollEnabled = true end
             if savedData.autoBuy  then autoBuyEnabled  = true end
             if savedData.autoGear then autoGearEnabled = true end
@@ -668,109 +665,57 @@ local function showToast(seedName)
     end)
 end
 
--- ─── The NEW Synchronized Auto Buy Pipeline ──────────────────────────────────
+-- ─── The NEW Brute Force Auto Buy System ─────────────────────────────────────
 
-local pendingRolls = {}
-
-RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
-    if type(rolledSeeds) ~= "table" then return end
-    table.clear(pendingRolls)
-    for slot, seedName in pairs(rolledSeeds) do
-        if type(seedName) == "string" then
-            -- Stores exactly how the server organizes it, preserving duplicates
-            pendingRolls[tonumber(slot) or slot] = seedName
-        end
-    end
-end)
+local buyCooldowns = {}
 
 task.spawn(function()
     while true do
         task.wait(0.1)
+        if not autoBuyEnabled then continue end
         
-        -- If we have a fresh roll to process from the server
-        if next(pendingRolls) ~= nil then
-            
-            -- 1. Wait for the physical workspace to match the server's spin EXACTLY.
-            local timeout = tick() + 6.0 
-            while tick() < timeout do
-                local foundCounts = {}
-                for _, obj in ipairs(workspace:GetChildren()) do
-                    local seedData = SeedByName[obj.Name]
-                    if seedData then
-                        local costLbl = obj:FindFirstChild("Cost", true)
-                        -- The model must exist AND its UI must be loaded to count as "stable"
-                        if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                            local c = parseMoneyString(costLbl.Text)
-                            if c ~= math.huge then
-                                foundCounts[obj.Name] = (foundCounts[obj.Name] or 0) + 1
-                                
-                                -- Quietly update dynamic costs
-                                if seedData.cost ~= c then
-                                    seedData.cost = c
-                                    saveSettings()
-                                    if seedToggles[obj.Name] and seedToggles[obj.Name].label then
-                                        seedToggles[obj.Name].label.Text = "Cost " .. fmt(c)
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                -- Verify the workspace contains everything the server just rolled
-                local isStable = true
-                for slot, seedName in pairs(pendingRolls) do
-                    if not foundCounts[seedName] or foundCounts[seedName] <= 0 then
-                        isStable = false
-                        break
-                    else
-                        foundCounts[seedName] = foundCounts[seedName] - 1
-                    end
-                end
-                
-                if isStable then break end
-                task.wait(0.2)
-            end
-            
-            -- 2. The Workspace has completely stabilized. We can buy cleanly!
-            if autoBuyEnabled then
-                local simCash = getPlayerCash()
-                for slot, seedName in pairs(pendingRolls) do
-                    if autoBuyList[seedName] then
-                        local cost = SeedByName[seedName].cost
-                        if cost and simCash >= cost then
-                            -- Uses native, exact server slot indexing
-                            pcall(function() BuySeed:FireServer(slot) end)
-                            simCash = simCash - cost
-                            showToast(seedName)
-                            task.wait(0.35) -- Safe yield prevents dropped packets entirely
-                        end
-                    end
-                end
-            end
-            
-            -- 3. Clear queue to release the Auto Roll lock
-            table.clear(pendingRolls)
-        end
-    end
-end)
-
--- Background Cost Scraper for manually rolled seeds
-task.spawn(function()
-    while true do
-        task.wait(2.5)
+        local simCash = getPlayerCash()
+        
         for _, obj in ipairs(workspace:GetChildren()) do
+            -- Anti-spam: Don't process this specific seed model if we just shot it
+            if buyCooldowns[obj] and (tick() - buyCooldowns[obj] < 2.0) then continue end
+            
             local seedData = SeedByName[obj.Name]
-            if seedData and (not seedData.cost or seedData.cost == 0) then
+            if seedData and autoBuyList[obj.Name] then
+                
+                -- Wait until the UI actually populates with cost text (confirms physical spin is done)
                 local costLbl = obj:FindFirstChild("Cost", true)
                 if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                    
                     local cost = parseMoneyString(costLbl.Text)
-                    if cost ~= math.huge then
+                    if cost == math.huge then continue end
+                    
+                    -- Update config dynamically in background
+                    if seedData.cost ~= cost then
                         seedData.cost = cost
                         saveSettings()
                         if seedToggles[obj.Name] and seedToggles[obj.Name].label then
                             seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
                         end
+                    end
+                    
+                    -- The Actual Buy Logic
+                    if simCash >= cost then
+                        buyCooldowns[obj] = tick() -- Trigger cooldown
+                        
+                        -- THE BRUTE FORCE: Fire slots 1 through 6 simultaneously
+                        task.spawn(function()
+                            for i = 1, 6 do
+                                pcall(function() BuySeed:FireServer(i) end)
+                                pcall(function() BuySeed:FireServer(tostring(i)) end) -- Covers strings just in case
+                            end
+                        end)
+                        
+                        simCash = simCash - cost
+                        showToast(obj.Name)
+                        
+                        -- Small yield between different seeds to not completely nuke the network
+                        task.wait(0.2) 
                     end
                 end
             end
@@ -785,12 +730,25 @@ local lastRollTime = tick()
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled then return end
     
-    -- Enforce the lock! Do not roll if the pipeline is still spinning or buying.
-    if next(pendingRolls) ~= nil then return end
+    -- Check if there are any seeds currently sitting in the workspace that we WANT to buy.
+    local waitingToBuy = false
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if SeedByName[obj.Name] and autoBuyList[obj.Name] then
+            -- It exists and we want it. Can we afford it?
+            local costLbl = obj:FindFirstChild("Cost", true)
+            if costLbl and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                local cost = parseMoneyString(costLbl.Text)
+                if cost ~= math.huge and getPlayerCash() >= cost then
+                    waitingToBuy = true
+                    break
+                end
+            end
+        end
+    end
     
-    local now = tick()
-    if now - lastRollTime > 0.4 then
-        lastRollTime = now
+    -- If there's nothing we want to buy, go ahead and roll!
+    if not waitingToBuy and (tick() - lastRollTime > 0.5) then
+        lastRollTime = tick()
         RollSeeds:FireServer()
     end
 end)
@@ -801,8 +759,17 @@ task.spawn(function()
     while true do
         task.wait(0.2)
         if autoRollEnabled then
-            if next(pendingRolls) ~= nil then
-                setStatus("Spinning/Buying...", C.accent, C.accent)
+            -- Check if any seeds are in cooldown state (meaning we just shot them)
+            local isProcessing = false
+            for obj, time in pairs(buyCooldowns) do
+                if obj.Parent and (tick() - time < 2.0) then
+                    isProcessing = true
+                    break
+                end
+            end
+            
+            if isProcessing then
+                setStatus("Buying/Waiting...", C.accent, C.accent)
             else
                 setStatus("Rolling", C.green, C.green)
             end
