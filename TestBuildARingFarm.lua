@@ -59,66 +59,69 @@ local function parseMoneyString(str)
     return n * (mults[suffix] or 1)
 end
 
--- ─── Configuration ───────────────────────────────────────────────────────────
+-- ─── Local Config Seeds ────────────────────────────────────────────────────────
 
 local CONFIG_SEEDS = {
     -- COMMON
-    {name="Carrot", rarity="Common"}, {name="Beetroot", rarity="Common"},
-    {name="Pumpkin", rarity="Common"}, {name="Cinnamon", rarity="Common"},
+    {name="Beetroot", rarity="Common"}, {name="Carrot", rarity="Common"},
+    {name="Pumpkin", rarity="Common"},
+    
     -- UNCOMMON
-    {name="Wheat", rarity="Uncommon"}, {name="Melon", rarity="Uncommon"},
-    {name="Onion", rarity="Uncommon"}, {name="Cantaloupe", rarity="Uncommon"},
-    {name="Watermelon", rarity="Uncommon"}, {name="Promise Lily", rarity="Uncommon"},
-    {name="Twinflame Tulip", rarity="Uncommon"},
+    {name="Cantaloupe", rarity="Uncommon"}, {name="Melon", rarity="Uncommon"},
+    {name="Onion", rarity="Uncommon"}, {name="Watermelon", rarity="Uncommon"},
+    {name="Wheat", rarity="Uncommon"},
+    
     -- RARE
-    {name="Blueberry", rarity="Rare"}, {name="Cabbage", rarity="Rare"},
-    {name="Grape", rarity="Rare"}, {name="Peach", rarity="Rare"},
-    {name="Bamboo", rarity="Rare"},
+    {name="Bamboo", rarity="Rare"}, {name="Blueberry", rarity="Rare"},
+    {name="Cabbage", rarity="Rare"}, {name="Grape", rarity="Rare"},
+    {name="Peach", rarity="Rare"},
+    
     -- EPIC
-    {name="Corn", rarity="Epic"}, {name="Plum", rarity="Epic"},
-    {name="Cauliflower", rarity="Epic"}, {name="Nectarine", rarity="Epic"},
-    {name="Sunflower", rarity="Epic"}, {name="Citrus", rarity="Epic"},
-    {name="Honeysuckle", rarity="Epic"}, {name="Martian Melon", rarity="Epic"},
-    {name="Admin Sunflower", rarity="Epic"},
+    {name="Cauliflower", rarity="Epic"}, {name="Citrus", rarity="Epic"},
+    {name="Corn", rarity="Epic"}, {name="Honeysuckle", rarity="Epic"},
+    {name="Martian Melon", rarity="Epic"}, {name="Nectarine", rarity="Epic"},
+    {name="Plum", rarity="Epic"}, {name="Sunflower", rarity="Epic"},
+    {name="Twinflame Tulip", rarity="Epic"},
+    
     -- LEGENDARY
-    {name="Spring Onion", rarity="Legendary"}, {name="Mango", rarity="Legendary"},
-    {name="Mushroom", rarity="Legendary"}, {name="Banana", rarity="Legendary"},
-    {name="Potato", rarity="Legendary"}, {name="Amulet Anemone", rarity="Legendary"},
+    {name="Amulet Anemone", rarity="Legendary"}, {name="Banana", rarity="Legendary"},
+    {name="Mango", rarity="Legendary"}, {name="Mushroom", rarity="Legendary"},
+    {name="Potato", rarity="Legendary"}, {name="Spring Onion", rarity="Legendary"},
+    
     -- SECRET
-    {name="Strawberry", rarity="Secret"}, {name="Glowshroom", rarity="Secret"},
-    {name="Beanstalk", rarity="Secret"}, {name="Tomato", rarity="Secret"},
-    {name="Monsoon Crown", rarity="Secret"}, {name="Starfruit", rarity="Secret"},
-    {name="Mooncap", rarity="Secret"},
+    {name="Admin Crownflower", rarity="Secret"}, {name="Beanstalk", rarity="Secret"},
+    {name="Glasswing", rarity="Secret"}, {name="Monsoon Crown", rarity="Secret"},
+    {name="Starfruit", rarity="Secret"}, {name="Strawberry", rarity="Secret"},
+    {name="Tomato", rarity="Secret"},
+    
     -- PRISMATIC
-    {name="Apple", rarity="Prismatic"}, {name="Cherry Blossom", rarity="Prismatic"},
-    {name="Blood Orange", rarity="Prismatic"}, {name="Garlic", rarity="Prismatic"},
-    {name="Iron Fern", rarity="Prismatic"}, {name="Frostbell", rarity="Prismatic"},
-    {name="Hex Sprout", rarity="Prismatic"}, {name="Pineapple", rarity="Prismatic"},
-    {name="Rush Root", rarity="Prismatic"}, {name="Galaxy Hibiscus", rarity="Prismatic"},
-    {name="Duoheart Daisy", rarity="Prismatic"}, {name="Crimson Higanbana", rarity="Prismatic"},
-    {name="Glasswing", rarity="Prismatic"},
+    {name="Apple", rarity="Prismatic"}, {name="Blood Orange", rarity="Prismatic"},
+    {name="Cherry Blossom", rarity="Prismatic"}, {name="Cinnamon", rarity="Prismatic"},
+    {name="Duoheart Daisy", rarity="Prismatic"}, {name="Galaxy Hibiscus", rarity="Prismatic"},
+    {name="Garlic", rarity="Prismatic"}, {name="Hex Sprout", rarity="Prismatic"},
+    {name="Iron Fern", rarity="Prismatic"}, {name="Pineapple", rarity="Prismatic"},
+    {name="Rush Root", rarity="Prismatic"},
+    
     -- DIVINE
-    {name="Golden Apple", rarity="Divine"}, {name="Cocoa", rarity="Divine"},
-    {name="Crystalberry", rarity="Divine"}, {name="Amber Wisp", rarity="Divine"},
-    {name="Admin Bloom", rarity="Divine"}, {name="Diamond Blossom", rarity="Divine"},
-    {name="Dreadcap", rarity="Divine"}, {name="Compost Hydra", rarity="Divine"},
-    {name="Horned Melon", rarity="Divine"}, {name="Pomegranate", rarity="Divine"},
+    {name="Admin Bloom", rarity="Divine"}, {name="Cocoa", rarity="Divine"},
+    {name="Compost Hydra", rarity="Divine"}, {name="Crystalberry", rarity="Divine"},
+    {name="Diamond Blossom", rarity="Divine"}, {name="Dreadcap", rarity="Divine"},
+    {name="Golden Apple", rarity="Divine"}, {name="Horned Melon", rarity="Divine"},
+    {name="Pomegranate", rarity="Divine"},
+    
     -- EXOTIC
-    {name="Moonflower", rarity="Exotic"}, {name="Passionfruit", rarity="Exotic"},
-    {name="Darkmatter Bramble", rarity="Exotic"}, {name="Uranium Reed", rarity="Exotic"},
-    {name="Muckthorn", rarity="Exotic"}, {name="Crowned Pear", rarity="Exotic"},
-    {name="Striped Starfruit", rarity="Exotic"}, {name="Pepper", rarity="Exotic"},
-    {name="Void Fruit", rarity="Exotic"}, {name="Kiwi", rarity="Exotic"},
-    {name="Dragonfruit", rarity="Exotic"}, {name="Truckers Delight", rarity="Exotic"},
-    {name="Heartvine Bloom", rarity="Exotic"},
+    {name="Crimson Higanbana", rarity="Exotic"}, {name="Dragonfruit", rarity="Exotic"},
+    {name="Elder Dragonroot", rarity="Exotic"}, {name="Heartvine", rarity="Exotic"},
+    {name="Kiwi", rarity="Exotic"}, {name="Moonflower", rarity="Exotic"},
+    {name="Passionfruit", rarity="Exotic"}, {name="Pepper", rarity="Exotic"},
+    {name="Striped Starfruit", rarity="Exotic"}, {name="Truckers Delight", rarity="Exotic"},
+    {name="Void Fruit", rarity="Exotic"},
+    
     -- TRANSCENDED
-    {name="Durian", rarity="Transcended"}, {name="Ghost Pepper", rarity="Transcended"},
-    {name="Papaya", rarity="Transcended"}, {name="Ember Fruit", rarity="Transcended"},
-    {name="Admin Rose", rarity="Transcended"}, {name="Soulbound Orchid", rarity="Transcended"},
-    {name="Muck Monarch", rarity="Transcended"}, {name="Heart of Corruption", rarity="Transcended"},
-    {name="Garden Golem", rarity="Transcended"}, {name="Golden Quillflower", rarity="Transcended"},
-    {name="Aurora Lotus", rarity="Transcended"}, {name="Queens Blossom", rarity="Transcended"},
-    {name="Witherfang", rarity="Transcended"}, {name="Garden Devourer", rarity="Transcended"},
+    {name="Durian", rarity="Transcended"}, {name="Ember Fruit", rarity="Transcended"},
+    {name="Garden Devourer", rarity="Transcended"}, {name="Garden Golem", rarity="Transcended"},
+    {name="Ghost Pepper", rarity="Transcended"}, {name="Heart of Corruption", rarity="Transcended"},
+    {name="Papaya", rarity="Transcended"}, {name="Queens Blossom", rarity="Transcended"},
 }
 
 local CONFIG_GEARS = {
@@ -610,7 +613,6 @@ end
 
 gearLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     gearPanel.Size=UDim2.new(0,250,0,math.min(gearLayout.AbsoluteContentSize.Y+80,480))
-    gearScroll.CanvasSize=UDim2.new(0,0,0,gearLayout.AbsoluteContentSize.Y+8)
 end)
 
 gearAll.MouseButton1Click:Connect(function()
