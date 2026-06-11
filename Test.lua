@@ -1,82 +1,48 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+print("--- STARTING SLIME PATH TEST ---")
+
 local workspace = game:GetService("Workspace")
 
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- Create a visual indicator to show which slime is currently targeted
-local TargetHighlight = Instance.new("Highlight")
-TargetHighlight.FillColor = Color3.fromRGB(255, 0, 0)
-TargetHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-TargetHighlight.FillTransparency = 0.5
-
--- Function to locate the closest slime based on your specific folder hierarchy
-local function getClosestSlime()
-    -- Safely navigate the workspace path
-    local SpawnPoints = workspace:FindFirstChild("SpawnPoints")
-    if not SpawnPoints then return nil end
-
-    local SlimeResp = SpawnPoints:FindFirstChild("SlimeResp")
-    if not SlimeResp then return nil end
-
-    local closestSlime = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
-    local playerPos = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
-
-    -- If the player hasn't loaded properly, abort the search for this frame
-    if not playerPos then return nil end
-
-    -- Loop through SlimeResp -> Resp objects -> Objects with "Slime" in the name
-    for _, respObj in ipairs(SlimeResp:GetChildren()) do
-        if respObj.Name == "Resp" then
-            for _, obj in ipairs(respObj:GetChildren()) do
-                if string.match(obj.Name, "Slime") then
-                    
-                    -- Look for a physical part of the slime to lock the camera onto
-                    local targetPart = obj:FindFirstChild("HumanoidRootPart") 
-                        or obj:FindFirstChild("PrimaryPart") 
-                        or obj:FindFirstChildWhichIsA("BasePart")
-                    
-                    if targetPart then
-                        local distance = (playerPos - targetPart.Position).Magnitude
-                        
-                        -- Update the target if this slime is closer than the previous ones
-                        if distance < shortestDistance then
-                            shortestDistance = distance
-                            closestSlime = targetPart
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return closestSlime
+-- Step 1: Check SpawnPoints
+local SpawnPoints = workspace:FindFirstChild("SpawnPoints")
+if not SpawnPoints then
+    print("ERROR: Could not find 'SpawnPoints' in workspace.")
+    return
 end
+print("Found SpawnPoints!")
 
--- Bind the aimbot to RenderStepped so it updates exactly when the camera renders
-local aimbotConnection
-aimbotConnection = RunService.RenderStepped:Connect(function()
-    local target = getClosestSlime()
+-- Step 2: Check SlimeResp
+local SlimeResp = SpawnPoints:FindFirstChild("SlimeResp")
+if not SlimeResp then
+    print("ERROR: Could not find 'SlimeResp' inside SpawnPoints.")
+    return
+end
+print("Found SlimeResp!")
+
+-- Step 3: Loop through the contents
+local foundSlime = false
+for _, respObj in ipairs(SlimeResp:GetChildren()) do
+    print("Checking inside:", respObj.Name)
     
-    if target then
-        -- Snap the camera's CFrame to look at the targeted slime's position
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+    for _, obj in ipairs(respObj:GetChildren()) do
+        print(" - Found object:", obj.Name)
         
-        -- Move the red highlight to the active target model
-        if target.Parent and target.Parent ~= TargetHighlight.Parent then
-            TargetHighlight.Parent = target.Parent
+        if string.match(obj.Name, "Slime") then
+            print("   -> MATCH! Found a slime:", obj.Name)
+            
+            -- Check if it has a physical part we can lock onto
+            if obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("PrimaryPart") or obj:FindFirstChildWhichIsA("BasePart") then
+                 print("   -> AND it has a physical part we can target!")
+            else
+                 print("   -> WARNING: Slime found, but it has no physical BasePart to lock onto.")
+            end
+            
+            foundSlime = true
         end
-    else
-        -- Hide the highlight if no slimes are currently spawned/found
-        TargetHighlight.Parent = nil
     end
-end)
-
--- Execute this in your executor to kill the aimbot loop cleanly if needed
-getgenv().stopSlimeAimbot = function() 
-    if aimbotConnection then aimbotConnection:Disconnect() end
-    if TargetHighlight then TargetHighlight:Destroy() end
 end
+
+if not foundSlime then
+    print("WARNING: Reached the end of the folders but didn't find any object with 'Slime' in its name.")
+end
+
+print("--- END SLIME PATH TEST ---")
