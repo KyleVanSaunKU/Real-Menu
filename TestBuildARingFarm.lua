@@ -68,7 +68,7 @@ local function parseMoneyString(str)
     return math.huge
 end
 
--- ─── Dynamic Cost Finders ────────────────────────────────────────────────────
+-- ─── Dynamic Cost Finders & Caching ──────────────────────────────────────────
 
 local function getGearCost(gearName)
     local pg = player:FindFirstChild("PlayerGui")
@@ -88,14 +88,21 @@ local function getGearCost(gearName)
     return math.huge
 end
 
-local function getSeedCost(seedName)
-    local seedModel = workspace:FindFirstChild(seedName)
-    if seedModel and seedModel:FindFirstChild("Handle") then
-        local gui = seedModel.Handle:FindFirstChild("SeedGui")
-        if gui and gui:FindFirstChild("Frame") and gui.Frame:FindFirstChild("InfoFrame") then
-            local costLbl = gui.Frame.InfoFrame:FindFirstChild("Cost")
-            if costLbl and costLbl.Text ~= "" then
-                return parseMoneyString(costLbl.Text)
+local function scrapeSeedCostFromWorkspace(seedName)
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name == seedName and obj:FindFirstChild("Handle") then
+            local gui = obj.Handle:FindFirstChild("SeedGui")
+            if gui and gui:FindFirstChild("Frame") then
+                local infoFrame = gui.Frame:FindFirstChild("InfoFrame")
+                if infoFrame then
+                    local costLbl = infoFrame:FindFirstChild("Cost")
+                    if costLbl and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                        local parsed = parseMoneyString(costLbl.Text)
+                        if parsed ~= math.huge then
+                            return parsed
+                        end
+                    end
+                end
             end
         end
     end
@@ -180,7 +187,8 @@ for _, def in ipairs(CONFIG_SEEDS) do
     local seedObj = {
         name = def.name,
         rarity = def.rarity,
-        income = 1
+        income = 1,
+        cost = nil -- Will cache dynamically
     }
     table.insert(Seeds, seedObj)
     SeedByName[def.name] = seedObj
@@ -352,13 +360,6 @@ win.ClipsDescendants=true
 mkCorner(win,10)
 mkStroke(win,C.border,1,0.5)
 
-local winBlocker=Instance.new("TextButton",win)
-winBlocker.Size=UDim2.new(1,0,1,0)
-winBlocker.BackgroundTransparency=1
-winBlocker.Text=""
-winBlocker.ZIndex=0
-winBlocker.AutoButtonColor=false
-
 local header=Instance.new("Frame",win)
 header.Size=UDim2.new(1,0,0,44)
 header.BackgroundColor3=C.surface
@@ -494,12 +495,6 @@ local function makePanel(title, w, h)
     p.Visible=false
     mkCorner(p,10)
     mkStroke(p,C.border,1,0.4)
-    local blocker=Instance.new("TextButton",p)
-    blocker.Size=UDim2.new(1,0,1,0)
-    blocker.BackgroundTransparency=1
-    blocker.Text=""
-    blocker.ZIndex=1
-    blocker.AutoButtonColor=false
 
     local hdr=Instance.new("Frame",p)
     hdr.Size=UDim2.new(1,0,0,40)
@@ -580,9 +575,7 @@ local idx=0
 for _,rarity in ipairs(RARITY_ORDER) do
     local group={}
     for _,s in ipairs(Seeds) do
-        if s.rarity==rarity then
-            table.insert(group,s)
-        end
+        if s.rarity==rarity then table.insert(group,s) end
     end
     if #group==0 then continue end
 
@@ -609,9 +602,7 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
-        -- Initial dynamic cost check
-        local initialCost = getSeedCost(seed.name)
-        local infoL=mkLabel(row, "Cost "..fmt(initialCost), C.muted,9,Enum.Font.Gotham)
+        local infoL=mkLabel(row, "Cost ?", C.muted,9,Enum.Font.Gotham)
         infoL.Size=UDim2.new(1,-50,0,14);infoL.Position=UDim2.new(0,10,0,27)
         infoL.TextTruncate=Enum.TextTruncate.AtEnd
 
@@ -640,16 +631,21 @@ for _,rarity in ipairs(RARITY_ORDER) do
     end)
 end
 
--- Periodically update missing seed costs in UI
+-- Update missing UI costs dynamically in the background by checking our cache
 task.spawn(function()
     while true do
-        task.wait(3)
+        task.wait(1.5)
         for name, data in pairs(seedToggles) do
-            if data.label.Text:find("?") then
-                local cost = getSeedCost(name)
+            -- If cost is not yet cached, try scanning the workspace for it.
+            if not SeedByName[name].cost then
+                local cost = scrapeSeedCostFromWorkspace(name)
                 if cost ~= math.huge then
+                    SeedByName[name].cost = cost
                     data.label.Text = "Cost " .. fmt(cost)
                 end
+            elseif data.label.Text:find("?") then
+                -- Fallback if cache exists but UI hasn't updated
+                data.label.Text = "Cost " .. fmt(SeedByName[name].cost)
             end
         end
     end
@@ -780,7 +776,7 @@ task.spawn(function()
         task.wait(0.3)
         if autoRollEnabled then
             if isBuying then
-                setStatus("Buying...", C.accent, C.accent)
+                setStatus("Buying/Waiting for Spin...", C.accent, C.accent)
             else
                 setStatus("Rolling", C.green, C.green)
             end
@@ -855,36 +851,24 @@ end
 
 task.spawn(watchGearShop)
 
--- Auto Gear Loop with Priority Logic (Lowest $ to Highest $)
 task.spawn(function()
     while true do
         task.wait(2)
         if not autoGearEnabled then continue end
         
         local availableGears = {}
-        
         for _, item in ipairs(GearItems) do
             if not gearBuyList[item.name] then continue end
             if (gearStock[item.name] or 0) > 0 then
                 local currentCost = getGearCost(item.name)
                 if currentCost ~= math.huge then
-                    table.insert(availableGears, {
-                        item = item,
-                        cost = currentCost
-                    })
+                    table.insert(availableGears, {item = item, cost = currentCost})
                 end
             end
         end
         
-        -- Sort lowest to highest $
-        table.sort(availableGears, function(a, b)
-            return a.cost < b.cost
-        end)
-        
-        -- Attempt to purchase in sorted order
-        for _, data in ipairs(availableGears) do
-            buyGearItem(data.item, data.cost)
-        end
+        table.sort(availableGears, function(a, b) return a.cost < b.cost end)
+        for _, data in ipairs(availableGears) do buyGearItem(data.item, data.cost) end
     end
 end)
 
@@ -920,15 +904,12 @@ toastSub.TextSize = 12
 toastSub.TextXAlignment = Enum.TextXAlignment.Center
 toastSub.TextTransparency = 1
 
-local toastActive = false
-
 local function showToast(seedName)
     local seed = SeedByName[seedName]
     local col = seed and RARITY_COLOR[seed.rarity] or C.white
     toastSeedName.Text = seedName
     toastSeedName.TextColor3 = col
     toastFrame.Visible = true
-    toastActive = true
 
     local s = toastFrame:FindFirstChildWhichIsA("UIStroke")
     if s then s.Color = col end
@@ -945,18 +926,16 @@ local function showToast(seedName)
         TweenService:Create(toastSub, fadeOut, {TextTransparency=1}):Play()
         task.wait(0.5)
         toastFrame.Visible = false
-        toastActive = false
     end)
 end
 
--- ─── Auto Buy Seeds (The Memory Bank) ────────────────────────────────────────
+-- ─── Auto Buy Seeds (Smart Spin Detection) ───────────────────────────────────
 
 local pendingSeeds = {}
 
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
     table.clear(pendingSeeds)
-    
     for slotIndex, seedName in pairs(rolledSeeds) do
         if type(seedName) == "string" then
             pendingSeeds[tonumber(slotIndex) or slotIndex] = seedName
@@ -969,36 +948,72 @@ task.spawn(function()
         task.wait(0.3)
         if not autoBuyEnabled or buyLock then continue end
 
-        local simCash = getPlayerCash()
-        local queue = {}
-        
-        for slot, seedName in pairs(pendingSeeds) do
-            if autoBuyList[seedName] then
-                -- Dynamically verify cost via workspace before pulling the trigger
-                local cost = getSeedCost(seedName) 
+        local hasPending = false
+        for _, _ in pairs(pendingSeeds) do hasPending = true break end
+
+        if hasPending then
+            buyLock = true
+            isBuying = true
+            
+            -- Wait until the spinning stops. We look for ONE of the rolled seeds in the Workspace.
+            -- If it survives for 0.6 seconds without being deleted, the spin is officially over.
+            local stabilityAchieved = false
+            local timeout = tick() + 8 -- Max 8 seconds before giving up and trying anyway
+            
+            while tick() < timeout do
+                local candidate = nil
+                for _, sName in pairs(pendingSeeds) do
+                    for _, obj in ipairs(workspace:GetChildren()) do
+                        if obj.Name == sName and obj:FindFirstChild("Handle") then
+                            candidate = obj
+                            break
+                        end
+                    end
+                    if candidate then break end
+                end
                 
-                -- If we can't afford it, it just skips silently.
-                if cost ~= math.huge and simCash >= cost then
-                    table.insert(queue, {slot=slot, name=seedName, cost=cost})
-                    simCash = simCash - cost
+                if candidate then
+                    task.wait(0.6)
+                    -- If the game deleted it during the wait, it was just a fake spin model.
+                    if candidate.Parent == workspace then
+                        stabilityAchieved = true
+                        break
+                    end
+                else
+                    task.wait(0.2)
                 end
             end
-        end
 
-        if #queue > 0 then
-            buyLock = true; isBuying = true
-            pcall(function()
-                for _, entry in ipairs(queue) do
-                    if pendingSeeds[entry.slot] then
-                        pendingSeeds[entry.slot] = nil 
+            -- Time to Buy
+            local simCash = getPlayerCash()
+            local queue = {}
+            
+            for slot, seedName in pairs(pendingSeeds) do
+                if autoBuyList[seedName] then
+                    -- Pull from cache or immediately scrape the finalized workspace model
+                    local cost = SeedByName[seedName].cost or scrapeSeedCostFromWorkspace(seedName) 
+                    
+                    if cost ~= math.huge and simCash >= cost then
+                        table.insert(queue, {slot=slot, name=seedName, cost=cost})
+                        simCash = simCash - cost
+                    end
+                end
+            end
+
+            if #queue > 0 then
+                pcall(function()
+                    for _, entry in ipairs(queue) do
                         BuySeed:FireServer(entry.slot)
                         showToast(entry.name)
                         task.wait(0.8)
                     end
-                end
+                end)
                 task.wait(0.5)
-            end)
-            isBuying = false; buyLock = false
+            end
+            
+            table.clear(pendingSeeds)
+            isBuying = false
+            buyLock = false
         end
     end
 end)
@@ -1008,9 +1023,7 @@ end)
 task.spawn(function()
     while true do
         task.wait(5)
-        if autoSellEnabled then
-            pcall(function() SellCrates:FireServer() end)
-        end
+        if autoSellEnabled then pcall(function() SellCrates:FireServer() end) end
     end
 end)
 
@@ -1045,28 +1058,22 @@ local function loadGCPlantData()
                type(obj.Mutation)=="string" and type(obj.EarningsMultiplier)=="number" and
                type(obj.FloorKey)=="string" then
                 local fk = obj.FloorKey
-                if not floorMultipliers[fk] then
-                    floorMultipliers[fk] = obj.EarningsMultiplier
-                end
+                if not floorMultipliers[fk] then floorMultipliers[fk] = obj.EarningsMultiplier end
                 local key = obj.Name.."|"..fk.."|"..obj.Mutation
                 if not harvestedData[key] then
                     harvestedData[key] = {mult=obj.EarningsMultiplier, level=obj.Level, mutation=obj.Mutation, name=obj.Name, floor=fk}
                 end
             end
 
-            if type(obj.PlantName)=="string" and type(obj.PlantLevel)=="number" and
-               type(obj.PlantMutation)=="string" then
-                local entry = {
-                    name = obj.PlantName,
-                    level = obj.PlantLevel,
-                    mutation = obj.PlantMutation,
-                    stage = obj.PlantStage or 0,
-                    maxStages = obj.PlantMaxStages or 1,
-                    fullyGrown = obj.PlantFullyGrown or false,
-                    fertBoost = obj.FertilizerBoostRemaining or 0,
-                }
+            if type(obj.PlantName)=="string" and type(obj.PlantLevel)=="number" and type(obj.PlantMutation)=="string" then
                 local pk = obj.PlantName.."|"..obj.PlantMutation.."|"..(obj.PlantLevel or 0)
-                if not plantsData[pk] then plantsData[pk] = entry end
+                if not plantsData[pk] then 
+                    plantsData[pk] = {
+                        name = obj.PlantName, level = obj.PlantLevel, mutation = obj.PlantMutation,
+                        stage = obj.PlantStage or 0, maxStages = obj.PlantMaxStages or 1,
+                        fullyGrown = obj.PlantFullyGrown or false, fertBoost = obj.FertilizerBoostRemaining or 0,
+                    }
+                end
             end
         end)
     end
@@ -1111,7 +1118,6 @@ local function scoreDirt(dirtPart)
 
     local bestScore = 0
     local bestMut = "None"
-    local bestLevel = 58
     for key, entry in pairs(harvestedData) do
         if entry.name == plantName and entry.floor == floorKey then
             local mutRank = MUTATION_RANK[entry.mutation] or 0
@@ -1119,22 +1125,16 @@ local function scoreDirt(dirtPart)
             if s > bestScore then
                 bestScore = s
                 bestMut = entry.mutation
-                bestLevel = entry.level
             end
         end
     end
 
-    if bestScore == 0 then
-        bestScore = baseIncome * floorMult
-    end
-
+    if bestScore == 0 then bestScore = baseIncome * floorMult end
     return bestScore, plantName, plantCount, bestMut
 end
 
 local function getPlantedDirts()
-    local ok, plotName = pcall(function()
-        return Remotes.Plot.GetPlot:InvokeServer()
-    end)
+    local ok, plotName = pcall(function() return Remotes.Plot.GetPlot:InvokeServer() end)
     if not ok or not plotName then return {} end
 
     local plotModel = workspace:FindFirstChild("Map")
@@ -1227,9 +1227,7 @@ end)
 task.spawn(function()
     while true do
         task.wait(5)
-        if autoFertEnabled then 
-            pcall(runAutoFert)
-        end
+        if autoFertEnabled then pcall(runAutoFert) end
     end
 end)
 
@@ -1241,9 +1239,15 @@ local lastRoll = 0
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled or isBuying then return end
     
-    local now=tick()
-    if now-lastRoll>=ROLL_INTERVAL then
-        lastRoll=now
-        RollSeeds:FireServer()
+    local now = tick()
+    if now - lastRoll >= ROLL_INTERVAL then
+        -- Ensure we aren't currently holding un-bought seeds
+        local hasPending = false
+        for _, _ in pairs(pendingSeeds) do hasPending = true break end
+        
+        if not hasPending then
+            lastRoll = now
+            RollSeeds:FireServer()
+        end
     end
 end)
