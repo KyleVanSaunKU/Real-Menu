@@ -339,7 +339,7 @@ statusLbl.Text="Idle";statusLbl.TextColor3=C.muted;statusLbl.Font=Enum.Font.Goth
 
 local footer=Instance.new("TextLabel",win)
 footer.Size=UDim2.new(1,-16,0,34);footer.Position=UDim2.new(0,8,0,statusY+24);footer.BackgroundTransparency=1
-footer.Text="made by @Jacksblox\nGet Executors at vanishhub.com";footer.TextColor3=Color3.fromRGB(190,200,240)
+footer.Text="Real Menu - BuildARingFarm Script";footer.TextColor3=Color3.fromRGB(190,200,240)
 footer.Font=Enum.Font.Gotham;footer.TextSize=11;footer.TextXAlignment=Enum.TextXAlignment.Center
 
 local expandedHeight = statusY+58
