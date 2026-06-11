@@ -118,9 +118,10 @@ local function getFirstSlime()
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
         if string.sub(obj.Name, 1, 6) == "Slime_" then
+            -- The 'true' argument here makes it search all layers of the slime model for a physical part
             local targetPart = obj:FindFirstChild("HumanoidRootPart") 
                 or obj:FindFirstChild("PrimaryPart") 
-                or obj:FindFirstChildWhichIsA("BasePart")
+                or obj:FindFirstChildWhichIsA("BasePart", true) 
             
             if targetPart then
                 return targetPart
@@ -139,23 +140,23 @@ renderConnection = RunService.RenderStepped:Connect(function()
     local target = getFirstSlime()
     
     if target then
-        -- Convert 3D target position to 2D screen coordinates
         local screenPoint, onScreen = Camera:WorldToViewportPoint(target.Position)
         
-        -- Only move mouse if the slime is visibly rendered on your monitor
+        -- The slime must be physically visible on your monitor
         if onScreen then
             local mouseLocation = UserInputService:GetMouseLocation()
             
             local deltaX = screenPoint.X - mouseLocation.X
             local deltaY = screenPoint.Y - mouseLocation.Y
             
-            -- Deadzone check: If the mouse is already within 3 pixels of the center, don't move it.
-            -- This stops the cursor from aggressively vibrating once it hits the target.
             local distance = math.sqrt((deltaX ^ 2) + (deltaY ^ 2))
             
             if distance > 3 and mousemoverel then
-                -- Dividing by 2 keeps it lightning fast but prevents engine freakout
-                mousemoverel(deltaX / 2, deltaY / 2)
+                -- FIX: math.round forces whole numbers so the executor doesn't silently reject the input
+                local moveX = math.round(deltaX / 2)
+                local moveY = math.round(deltaY / 2)
+                
+                mousemoverel(moveX, moveY)
             end
         end
     end
