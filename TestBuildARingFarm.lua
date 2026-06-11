@@ -47,28 +47,20 @@ end
 -- ─── String Currency Parser ──────────────────────────────────────────────────
 
 local function parseMoneyString(str)
-    if not str then return math.huge end
-    str = tostring(str):gsub("[%$,%s]", "") -- Remove $, commas, and spaces
-    local numStr, suf = str:match("^([%d%.]+)([%a]*)$")
+    if type(str) ~= "string" and type(str) ~= "number" then return math.huge end
+    local text = tostring(str):lower():gsub(",", "")
+    -- Extract just the digits (with optional decimal) and the trailing letter suffix
+    local numStr, suffix = text:match("(%d+%.?%d*)([a-z]*)")
+    if not numStr then return math.huge end
     
-    if not numStr then
-        numStr = str:match("([%d%.]+)")
-        suf = str:match("[%d%.]+([%a]+)")
-    end
+    local n = tonumber(numStr)
+    if not n then return math.huge end
     
-    if numStr then
-        local n = tonumber(numStr) or math.huge
-        if suf and suf ~= "" then
-            suf = suf:lower()
-            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15, qd=1e18, qn=1e21}
-            n = n * (mults[suf] or 1)
-        end
-        return n
-    end
-    return math.huge
+    local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15, qd=1e18, qn=1e21}
+    return n * (mults[suffix] or 1)
 end
 
--- ─── Dynamic Cost Finders & Caching ──────────────────────────────────────────
+-- ─── Dynamic Cost Finders ────────────────────────────────────────────────────
 
 local function getGearCost(gearName)
     local pg = player:FindFirstChild("PlayerGui")
@@ -83,27 +75,6 @@ local function getGearCost(gearName)
         local costLbl = frame[gearName]:FindFirstChild("Cost")
         if costLbl and costLbl.Text ~= "" then
             return parseMoneyString(costLbl.Text)
-        end
-    end
-    return math.huge
-end
-
-local function scrapeSeedCostFromWorkspace(seedName)
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name == seedName and obj:FindFirstChild("Handle") then
-            local gui = obj.Handle:FindFirstChild("SeedGui")
-            if gui and gui:FindFirstChild("Frame") then
-                local infoFrame = gui.Frame:FindFirstChild("InfoFrame")
-                if infoFrame then
-                    local costLbl = infoFrame:FindFirstChild("Cost")
-                    if costLbl and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                        local parsed = parseMoneyString(costLbl.Text)
-                        if parsed ~= math.huge then
-                            return parsed
-                        end
-                    end
-                end
-            end
         end
     end
     return math.huge
@@ -188,7 +159,7 @@ for _, def in ipairs(CONFIG_SEEDS) do
         name = def.name,
         rarity = def.rarity,
         income = 1,
-        cost = nil -- Will cache dynamically
+        cost = nil -- Cached dynamically below
     }
     table.insert(Seeds, seedObj)
     SeedByName[def.name] = seedObj
@@ -212,8 +183,6 @@ local autoBuyEnabled   = false
 local autoGearEnabled  = false
 local autoFertEnabled  = false
 local autoSellEnabled  = false
-local isBuying = false
-local buyLock  = false
 local autoBuyList = {}
 local gearBuyList = {}
 local gearStock   = {}
@@ -565,7 +534,7 @@ local function makePanel(title, w, h)
     return p,scroll,layout,xBtn,allBtn,noneBtn,positionNextTo
 end
 
--- ─── Seed Panel ──────────────────────────────────────────────────────────────
+-- ─── Seed Panel & Cost Cache Scraper ─────────────────────────────────────────
 
 local seedPanel,seedScroll,seedLayout,seedClose,seedAll,seedNone,seedPos = makePanel("Seeds",300,480)
 local seedPanelOpen=false
@@ -631,21 +600,24 @@ for _,rarity in ipairs(RARITY_ORDER) do
     end)
 end
 
--- Update missing UI costs dynamically in the background by checking our cache
+-- NEW Deep-Search Scraper: Updates UI and saves cost universally in background
 task.spawn(function()
     while true do
         task.wait(1.5)
-        for name, data in pairs(seedToggles) do
-            -- If cost is not yet cached, try scanning the workspace for it.
-            if not SeedByName[name].cost then
-                local cost = scrapeSeedCostFromWorkspace(name)
-                if cost ~= math.huge then
-                    SeedByName[name].cost = cost
-                    data.label.Text = "Cost " .. fmt(cost)
+        for _, obj in ipairs(workspace:GetChildren()) do
+            local seedData = SeedByName[obj.Name]
+            if seedData then
+                -- Perform a recursive search for any descendant named "Cost"
+                local costLbl = obj:FindFirstChild("Cost", true)
+                if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                    local cost = parseMoneyString(costLbl.Text)
+                    if cost ~= math.huge then
+                        seedData.cost = cost
+                        if seedToggles[obj.Name] and seedToggles[obj.Name].label then
+                            seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
+                        end
+                    end
                 end
-            elseif data.label.Text:find("?") then
-                -- Fallback if cache exists but UI hasn't updated
-                data.label.Text = "Cost " .. fmt(SeedByName[name].cost)
             end
         end
     end
@@ -775,11 +747,7 @@ task.spawn(function()
     while true do
         task.wait(0.3)
         if autoRollEnabled then
-            if isBuying then
-                setStatus("Buying/Waiting for Spin...", C.accent, C.accent)
-            else
-                setStatus("Rolling", C.green, C.green)
-            end
+            setStatus("Rolling", C.green, C.green)
         else
             setStatus("Idle", C.muted, C.muted)
         end
@@ -929,13 +897,31 @@ local function showToast(seedName)
     end)
 end
 
--- ─── Auto Buy Seeds (Smart Spin Detection) ───────────────────────────────────
+-- ─── Auto Buy Seeds (New Spin Detection Logic) ───────────────────────────────
+
+-- Tracker for how long models have physically existed in Workspace
+local modelBirthTimes = {}
+workspace.ChildAdded:Connect(function(child)
+    if SeedByName[child.Name] then
+        modelBirthTimes[child] = tick()
+    end
+end)
+workspace.ChildRemoved:Connect(function(child)
+    modelBirthTimes[child] = nil
+end)
+
+-- Tag anything already existing on execute
+for _, child in ipairs(workspace:GetChildren()) do
+    if SeedByName[child.Name] then
+        modelBirthTimes[child] = tick()
+    end
+end
 
 local pendingSeeds = {}
 
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
-    table.clear(pendingSeeds)
+    -- Keep memory of what was rolled, linked to its slot
     for slotIndex, seedName in pairs(rolledSeeds) do
         if type(seedName) == "string" then
             pendingSeeds[tonumber(slotIndex) or slotIndex] = seedName
@@ -945,75 +931,37 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(0.3)
-        if not autoBuyEnabled or buyLock then continue end
+        task.wait(0.5)
+        if not autoBuyEnabled then continue end
 
-        local hasPending = false
-        for _, _ in pairs(pendingSeeds) do hasPending = true break end
+        local simCash = getPlayerCash()
 
-        if hasPending then
-            buyLock = true
-            isBuying = true
+        for slot, seedName in pairs(pendingSeeds) do
+            -- If user doesn't want it, delete from pending queue to save memory
+            if not autoBuyList[seedName] then
+                pendingSeeds[slot] = nil
+                continue
+            end
             
-            -- Wait until the spinning stops. We look for ONE of the rolled seeds in the Workspace.
-            -- If it survives for 0.6 seconds without being deleted, the spin is officially over.
-            local stabilityAchieved = false
-            local timeout = tick() + 8 -- Max 8 seconds before giving up and trying anyway
-            
-            while tick() < timeout do
-                local candidate = nil
-                for _, sName in pairs(pendingSeeds) do
-                    for _, obj in ipairs(workspace:GetChildren()) do
-                        if obj.Name == sName and obj:FindFirstChild("Handle") then
-                            candidate = obj
-                            break
-                        end
-                    end
-                    if candidate then break end
-                end
+            local cost = SeedByName[seedName].cost
+            if cost and cost ~= math.huge and simCash >= cost then
                 
-                if candidate then
-                    task.wait(0.6)
-                    -- If the game deleted it during the wait, it was just a fake spin model.
-                    if candidate.Parent == workspace then
-                        stabilityAchieved = true
+                -- Check if a model of this seed has been stable in Workspace for > 1.2 seconds
+                local isStable = false
+                for obj, birthTime in pairs(modelBirthTimes) do
+                    if obj.Name == seedName and obj.Parent == workspace and (tick() - birthTime) > 1.2 then
+                        isStable = true
                         break
                     end
-                else
-                    task.wait(0.2)
+                end
+                
+                if isStable then
+                    pcall(function() BuySeed:FireServer(slot) end)
+                    pendingSeeds[slot] = nil -- Successfully bought, remove from queue
+                    simCash = simCash - cost
+                    showToast(seedName)
                 end
             end
-
-            -- Time to Buy
-            local simCash = getPlayerCash()
-            local queue = {}
-            
-            for slot, seedName in pairs(pendingSeeds) do
-                if autoBuyList[seedName] then
-                    -- Pull from cache or immediately scrape the finalized workspace model
-                    local cost = SeedByName[seedName].cost or scrapeSeedCostFromWorkspace(seedName) 
-                    
-                    if cost ~= math.huge and simCash >= cost then
-                        table.insert(queue, {slot=slot, name=seedName, cost=cost})
-                        simCash = simCash - cost
-                    end
-                end
-            end
-
-            if #queue > 0 then
-                pcall(function()
-                    for _, entry in ipairs(queue) do
-                        BuySeed:FireServer(entry.slot)
-                        showToast(entry.name)
-                        task.wait(0.8)
-                    end
-                end)
-                task.wait(0.5)
-            end
-            
-            table.clear(pendingSeeds)
-            isBuying = false
-            buyLock = false
         end
     end
 end)
@@ -1231,23 +1179,17 @@ task.spawn(function()
     end
 end)
 
--- ─── Auto Roll Loop (Ruthless / Non-Stopping) ────────────────────────────────
+-- ─── Auto Roll Loop (Completely Unblocked & Ruthless) ────────────────────────
 
 local ROLL_INTERVAL = 1
 local lastRoll = 0
 
 RunService.Heartbeat:Connect(function()
-    if not autoRollEnabled or isBuying then return end
+    if not autoRollEnabled then return end
     
     local now = tick()
     if now - lastRoll >= ROLL_INTERVAL then
-        -- Ensure we aren't currently holding un-bought seeds
-        local hasPending = false
-        for _, _ in pairs(pendingSeeds) do hasPending = true break end
-        
-        if not hasPending then
-            lastRoll = now
-            RollSeeds:FireServer()
-        end
+        lastRoll = now
+        RollSeeds:FireServer()
     end
 end)
