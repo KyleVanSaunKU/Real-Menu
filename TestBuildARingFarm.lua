@@ -771,109 +771,115 @@ local function showToast(seedName)
     end)
 end
 
--- ─── The NEW Instant Workspace Matcher (Auto Buy & Auto Roll) ────────────────
+-- ─── The Reliable Auto Buy Pipeline ──────────────────────────────────────────
 
 local pendingBuys = {}
-local processedModels = {} -- Stores object references we've already hit
 
--- Clean up memory when models naturally disappear
-workspace.ChildRemoved:Connect(function(child)
-    processedModels[child] = nil
-end)
-
+-- Listen to the server to map the Slot ID (1-6) to the Seed Name
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
-    
-    -- Sync EXACT mapping from server to queue
-    for k, v in pairs(rolledSeeds) do
-        if type(v) == "string" then
-            pendingBuys[k] = v
+    for slotIndex, seedName in pairs(rolledSeeds) do
+        if type(seedName) == "string" then
+            pendingBuys[tonumber(slotIndex) or slotIndex] = seedName
         end
     end
 end)
 
 task.spawn(function()
     while true do
-        task.wait(0.05) -- Lightning fast polling (< 0.1s)
+        task.wait(0.2)
         
-        local simCash = getPlayerCash()
-        
-        -- Master workspace scan. Runs constantly.
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if processedModels[obj] then continue end -- Already bought/ignored this physical model
+        -- If we have seeds in the queue...
+        if next(pendingBuys) ~= nil then
             
-            local seedData = SeedByName[obj.Name]
-            if not seedData then continue end
-            
-            -- THE ULTIMATE CHECK: Wait until the visual GUI actually populates with cost text
-            local costLbl = obj:FindFirstChild("Cost", true)
-            if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+            if autoBuyEnabled then
+                -- The exact 2.5s spin timer you suggested
+                task.wait(2.5) 
                 
-                local cost = parseMoneyString(costLbl.Text)
-                if cost == math.huge then continue end -- Parsing failed, wait for next frame
-                
-                -- Dynamic UI Update Cache
-                seedData.cost = cost
-                if seedToggles[obj.Name] and seedToggles[obj.Name].label then
-                    seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
-                end
-                
-                -- Match this exact physical model to a server slot in our queue
-                local matchedSlot = nil
-                for slot, pendingName in pairs(pendingBuys) do
-                    if pendingName == obj.Name then
-                        matchedSlot = slot
-                        break
-                    end
-                end
-                
-                if matchedSlot then
-                    if autoBuyEnabled and autoBuyList[obj.Name] then
-                        if simCash >= cost then
-                            -- INSTANT BUY. No yields. No packets dropped.
-                            task.spawn(function()
-                                pcall(function() BuySeed:FireServer(matchedSlot) end)
-                            end)
+                local simCash = getPlayerCash()
+
+                for slot, seedName in pairs(pendingBuys) do
+                    if autoBuyList[seedName] then
+                        local cost = SeedByName[seedName].cost
+                        
+                        -- Scrape cost if we haven't saved it yet
+                        if not cost or cost == math.huge then
+                            cost = scrapeSeedCostFromWorkspace(seedName)
+                            if cost ~= math.huge then
+                                SeedByName[seedName].cost = cost
+                                saveSettings()
+                                if seedToggles[seedName] and seedToggles[seedName].label then
+                                    seedToggles[seedName].label.Text = "Cost " .. fmt(cost)
+                                end
+                            end
+                        end
+
+                        -- If we can afford it, buy it safely
+                        if cost ~= math.huge and simCash >= cost then
+                            BuySeed:FireServer(slot)
                             simCash = simCash - cost
-                            showToast(obj.Name)
+                            showToast(seedName)
                             
-                            -- Safely hide it locally to mimic snappiness
-                            obj.Parent = nil
+                            -- CRITICAL FIX: 0.4s yield so the server doesn't drop the packet!
+                            task.wait(0.4) 
                         end
                     end
-                    
-                    -- Tag it so we never process this physical model again
-                    processedModels[obj] = true
-                    
-                    -- Remove it from the pending server queue
-                    pendingBuys[matchedSlot] = nil
+                end
+                
+                -- Clear queue so Auto Roll can fire again
+                table.clear(pendingBuys)
+                
+            else
+                -- If Auto Buy is OFF, we still need to clear the queue so Auto Roll doesn't get jammed
+                task.wait(3)
+                table.clear(pendingBuys)
+            end
+        end
+    end
+end)
+
+-- Background Cost Scraper (Updates UI quietly while you play)
+task.spawn(function()
+    while true do
+        task.wait(2)
+        for _, obj in ipairs(workspace:GetChildren()) do
+            local seedData = SeedByName[obj.Name]
+            if seedData and (not seedData.cost or seedData.cost == 0) then
+                local costLbl = obj:FindFirstChild("Cost", true)
+                if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                    local cost = parseMoneyString(costLbl.Text)
+                    if cost ~= math.huge then
+                        seedData.cost = cost
+                        saveSettings()
+                        if seedToggles[obj.Name] and seedToggles[obj.Name].label then
+                            seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
+                        end
+                    end
                 end
             end
         end
     end
 end)
 
--- Smart Auto Roll Loop
-local lastRollTime = tick()
-local ROLL_TIMEOUT = 4.0
+-- ─── Smart Auto Roll Loop ────────────────────────────────────────────────────
+
+local lastRollTime = 0
 
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled then return end
     
-    local now = tick()
-    local isQueueEmpty = (next(pendingBuys) == nil)
+    -- Do not fire a roll if we are currently waiting for a spin or processing buys
+    if next(pendingBuys) ~= nil then return end
     
-    -- Fire a roll if we finished buying/processing everything, OR if the server glitched and we jammed for 4 seconds
-    if isQueueEmpty or (now - lastRollTime > ROLL_TIMEOUT) then
-        if now - lastRollTime > 0.3 then -- Tiny server buffer
-            lastRollTime = now
-            table.clear(pendingBuys)
-            RollSeeds:FireServer()
-        end
+    local now = tick()
+    if now - lastRollTime > 0.5 then
+        lastRollTime = now
+        RollSeeds:FireServer()
     end
 end)
 
--- Dynamic UI Status
+-- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
+
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -962,7 +968,7 @@ local function getPlantedDirts()
         if obj.Name == "Dirt" and obj:IsA("BasePart") then
             local parentName = obj.Parent and obj.Parent.Name or ""
             if parentName:match("^Plot%d+$") then
-                table.insert(dirts, {part=obj, score=1}) -- Simplified for brevity, ranking handles the rest
+                table.insert(dirts, {part=obj, score=1}) 
             end
         end
     end
