@@ -15,12 +15,12 @@ local isBinding = false -- Tracks if the user is currently assigning a new key
 -- --- UI SETUP ---
 local guiParent = (gethui and gethui()) or CoreGui
 
-if guiParent:FindFirstChild("StableSlimeAimbot") then
-    guiParent.StableSlimeAimbot:Destroy()
+if guiParent:FindFirstChild("FastSlimeAimbot") then
+    guiParent.FastSlimeAimbot:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StableSlimeAimbot"
+ScreenGui.Name = "FastSlimeAimbot"
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
@@ -36,7 +36,7 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Camera Slime Aimbot"
+Title.Text = "Fast Camera Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
@@ -69,7 +69,6 @@ TargetHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 TargetHighlight.FillTransparency = 0.5
 
 -- --- TOGGLE LOGIC ---
--- Extracted to a function so both the button and the keybind can use it
 local function UpdateAimbotState(forceState)
     if forceState ~= nil then
         getgenv().AimbotEnabled = forceState
@@ -89,14 +88,12 @@ local function UpdateAimbotState(forceState)
     end
 end
 
--- Left Click: Toggle Aimbot
 ToggleButton.MouseButton1Click:Connect(function()
     if not isBinding then
         UpdateAimbotState()
     end
 end)
 
--- Right Click: Start Rebinding
 ToggleButton.MouseButton2Click:Connect(function()
     isBinding = true
     ToggleButton.Text = "...Press New Key..."
@@ -105,14 +102,12 @@ end)
 
 -- --- KEYBOARD INPUT LOGIC ---
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    -- If user is assigning a new key
     if isBinding then
         if input.UserInputType == Enum.UserInputType.Keyboard then
             getgenv().AimbotKeybind = input.KeyCode
             isBinding = false
-            UpdateAimbotState(getgenv().AimbotEnabled) -- Refresh UI
+            UpdateAimbotState(getgenv().AimbotEnabled)
         end
-    -- If user is NOT typing in chat (gameProcessed) and hits the keybind
     elseif not gameProcessed then
         if input.KeyCode == getgenv().AimbotKeybind then
             UpdateAimbotState()
@@ -120,20 +115,13 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- --- TARGETING LOGIC ---
-local function getClosestSlime()
+-- --- OPTIMIZED TARGETING LOGIC ---
+local function getFirstSlime()
     local Runtime = workspace:FindFirstChild("Runtime")
     if not Runtime then return nil end
 
     local SlimesFolder = Runtime:FindFirstChild("Slimes")
     if not SlimesFolder then return nil end
-
-    local closestSlime = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
-    local playerPos = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
-
-    if not playerPos then return nil end
 
     for _, obj in ipairs(SlimesFolder:GetChildren()) do
         if string.sub(obj.Name, 1, 6) == "Slime_" then
@@ -141,17 +129,14 @@ local function getClosestSlime()
                 or obj:FindFirstChild("PrimaryPart") 
                 or obj:FindFirstChildWhichIsA("BasePart")
             
+            -- Instantly return the first valid part found and kill the loop
             if targetPart then
-                local distance = (playerPos - targetPart.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestSlime = targetPart
-                end
+                return targetPart
             end
         end
     end
 
-    return closestSlime
+    return nil
 end
 
 -- --- CAMERA SNAP LOOP ---
@@ -159,7 +144,7 @@ local renderConnection
 renderConnection = RunService.RenderStepped:Connect(function()
     if not getgenv().AimbotEnabled then return end
 
-    local target = getClosestSlime()
+    local target = getFirstSlime()
     
     if target then
         Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
@@ -174,7 +159,6 @@ end)
 
 -- --- EXIT BUTTON LOGIC ---
 ExitButton.MouseButton1Click:Connect(function()
-    -- Safely kill the loop and cleanup the GUI
     if renderConnection then renderConnection:Disconnect() end
     getgenv().AimbotEnabled = false
     TargetHighlight:Destroy()
