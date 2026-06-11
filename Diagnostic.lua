@@ -1,22 +1,34 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RollEgg = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RollEgg")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- Stop the test at any time by executing: _G.TestHatch = false
-_G.TestHatch = true
+local player = Players.LocalPlayer
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local RollEgg = Remotes:WaitForChild("RollEgg")
 
-print("🥚 [Standalone Test] Testing Egg Slots 1, 2, and 3...")
+-- Check your actual balance
+local leaderstats = player:FindFirstChild("leaderstats")
+local cashObj = leaderstats and leaderstats:FindFirstChild("Cash")
+print("💰 Current Cash Value:", cashObj and cashObj.Value or "No Cash Found")
 
-task.spawn(function()
-    while _G.TestHatch do
-        task.wait(1.0)
-        
-        -- Loop through the 3 available display slots/pedestals in the shop
-        for slotIndex = 1, 3 do
-            pcall(function()
-                RollEgg:FireServer(slotIndex)
-                print("Fired RollEgg for Slot: " .. slotIndex)
-            end)
-            task.wait(0.2)
-        end
+-- Test different string variations that simulator devs commonly use
+local testNames = {"RareEgg", "Rare Egg", "rare_egg", "EpicEgg", "Epic Egg"}
+
+print("🥚 [Diagnostic] Testing string names on RollEgg...")
+
+for _, eggName in ipairs(testNames) do
+    pcall(function()
+        print("Firing RollEgg with argument:", eggName)
+        -- Try standard arguments: (Name, Amount)
+        RollEgg:FireServer(eggName, 1)
+    end)
+    task.wait(0.5)
+end
+
+print("─── Checking Workspace Pedestals ───")
+for _, obj in ipairs(workspace:GetChildren()) do
+    if obj.Name:lower():find("egg") then
+        print("Found workspace object containing 'egg':", obj.Name, obj:GetFullName())
     end
-end)
+end
+print("─── Test Finished ───")
