@@ -134,6 +134,8 @@ local autoBuyEnabled   = false
 local autoGearEnabled  = false
 local autoFertEnabled  = false
 local autoSellEnabled  = false
+local isBuying         = false
+local buyLock          = false
 local autoBuyList = {}
 local gearBuyList = {}
 local gearStock   = {}
@@ -160,15 +162,18 @@ local function saveSettings()
 end
 
 local function loadSettings()
+    -- Initialize defaults
     for _, defaultItem in ipairs(DEFAULT_SEEDS) do
         local item = {name = defaultItem.name, rarity = defaultItem.rarity, cost = 0, income = 1}
         table.insert(CONFIG_SEEDS, item)
         SeedByName[item.name] = item
     end
 
+    -- Load from file
     if isfile and readfile and isfile(FILE_NAME) then
         local success, savedData = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
         if success and type(savedData) == "table" then
+            
             if savedData.autoRoll then autoRollEnabled = true end
             if savedData.autoBuy  then autoBuyEnabled  = true end
             if savedData.autoGear then autoGearEnabled = true end
@@ -559,75 +564,6 @@ sellTrack.InputBegan:Connect(function(i)
     autoSellEnabled=not getSell();setSell(autoSellEnabled);saveSettings()
 end)
 
--- ─── Gear Stock Polling & Purchasing ─────────────────────────────────────────
-
-local function parseStock(lbl)
-    if not lbl then return 0 end
-    return tonumber(lbl.Text:match("Stock: (%d+)")) or 0
-end
-
-local function updateStockLabel(name, stock)
-    gearStock[name] = stock
-    if not gearStockLabels[name] then return end
-    local item
-    for _,g in ipairs(GearItems) do if g.name==name then item=g;break end end
-    if not item then return end
-    
-    local currentCost = getGearCost(name)
-    local stockStr = stock > 0 and ("In Stock: "..stock) or "Out of Stock"
-    gearStockLabels[name].Text = "Cost "..fmt(currentCost).."  ·  "..stockStr
-    gearStockLabels[name].TextColor3 = stock > 0 and C.green or C.red
-end
-
-local function buyGearItem(item, dynamicCost)
-    if gearLocks[item.name] then return end 
-    if getPlayerCash() < dynamicCost then return end
-    
-    gearLocks[item.name] = true
-    task.spawn(function()
-        local simCash = getPlayerCash()
-        for _ = 1, item.maxStock do
-            if simCash < dynamicCost then break end
-            simCash = simCash - dynamicCost
-            task.spawn(function() pcall(function() GearTransaction:InvokeServer(item.name) end) end)
-            task.wait(0.4)
-        end
-        gearLocks[item.name] = false
-    end)
-end
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-        
-        local pg = player:FindFirstChild("PlayerGui")
-        local scroll = pg and pg:FindFirstChild("MainUI")
-            and pg.MainUI:FindFirstChild("Menus")
-            and pg.MainUI.Menus:FindFirstChild("GearShopFrame")
-            and pg.MainUI.Menus.GearShopFrame:FindFirstChild("ScrollingFrame")
-            
-        if scroll then
-            for _, item in ipairs(GearItems) do
-                local itemFrame = scroll:FindFirstChild(item.name)
-                local stockLbl = itemFrame and itemFrame:FindFirstChild("GearImage") and itemFrame.GearImage:FindFirstChild("Rarity")
-                if stockLbl then updateStockLabel(item.name, parseStock(stockLbl)) end
-            end
-        end
-        
-        if autoGearEnabled then
-            local availableGears = {}
-            for _, item in ipairs(GearItems) do
-                if gearBuyList[item.name] and (gearStock[item.name] or 0) > 0 then
-                    local currentCost = getGearCost(item.name)
-                    if currentCost ~= math.huge then table.insert(availableGears, {item = item, cost = currentCost}) end
-                end
-            end
-            table.sort(availableGears, function(a, b) return a.cost < b.cost end)
-            for _, data in ipairs(availableGears) do buyGearItem(data.item, data.cost) end
-        end
-    end
-end)
-
 -- ─── Toast Notification ──────────────────────────────────────────────────────
 
 local toastFrame = Instance.new("Frame", gui)
@@ -665,116 +601,148 @@ local function showToast(seedName)
     end)
 end
 
--- ─── The NEW Brute Force Auto Buy System ─────────────────────────────────────
-
-local buyCooldowns = {}
+-- ─── Background Cost Scraper (UI Updater) ────────────────────────────────────
+-- Quietly updates seed costs in JSON without interfering with the buying sequence
 
 task.spawn(function()
     while true do
-        task.wait(0.1)
-        if not autoBuyEnabled then continue end
-        
-        local simCash = getPlayerCash()
-        
+        task.wait(2)
         for _, obj in ipairs(workspace:GetChildren()) do
-            -- Anti-spam: Don't process this specific seed model if we just shot it
-            if buyCooldowns[obj] and (tick() - buyCooldowns[obj] < 2.0) then continue end
-            
             local seedData = SeedByName[obj.Name]
-            if seedData and autoBuyList[obj.Name] then
-                
-                -- Wait until the UI actually populates with cost text (confirms physical spin is done)
+            if seedData and (not seedData.cost or seedData.cost == 0) then
                 local costLbl = obj:FindFirstChild("Cost", true)
                 if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                    
                     local cost = parseMoneyString(costLbl.Text)
-                    if cost == math.huge then continue end
-                    
-                    -- Update config dynamically in background
-                    if seedData.cost ~= cost then
+                    if cost ~= math.huge then
                         seedData.cost = cost
                         saveSettings()
                         if seedToggles[obj.Name] and seedToggles[obj.Name].label then
                             seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
                         end
                     end
-                    
-                    -- The Actual Buy Logic
-                    if simCash >= cost then
-                        buyCooldowns[obj] = tick() -- Trigger cooldown
-                        
-                        -- THE BRUTE FORCE: Fire slots 1 through 6 simultaneously
-                        task.spawn(function()
-                            for i = 1, 6 do
-                                pcall(function() BuySeed:FireServer(i) end)
-                                pcall(function() BuySeed:FireServer(tostring(i)) end) -- Covers strings just in case
-                            end
-                        end)
-                        
-                        simCash = simCash - cost
-                        showToast(obj.Name)
-                        
-                        -- Small yield between different seeds to not completely nuke the network
-                        task.wait(0.2) 
-                    end
                 end
             end
         end
     end
 end)
 
--- ─── Smart Auto Roll Loop ────────────────────────────────────────────────────
+-- ─── ORIGINAL AUTO BUY & AUTO ROLL MECHANICS ─────────────────────────────────
 
-local lastRollTime = tick()
+RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
+    if not autoBuyEnabled then return end
+    if buyLock then return end
+    if type(rolledSeeds) ~= "table" then return end
 
-RunService.Heartbeat:Connect(function()
-    if not autoRollEnabled then return end
-    
-    -- Check if there are any seeds currently sitting in the workspace that we WANT to buy.
-    local waitingToBuy = false
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if SeedByName[obj.Name] and autoBuyList[obj.Name] then
-            -- It exists and we want it. Can we afford it?
-            local costLbl = obj:FindFirstChild("Cost", true)
-            if costLbl and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                local cost = parseMoneyString(costLbl.Text)
-                if cost ~= math.huge and getPlayerCash() >= cost then
-                    waitingToBuy = true
-                    break
-                end
-            end
+    local queue = {}
+    -- EXACT original logic using ipairs for sequential slot arrays
+    for slotIndex, seedName in ipairs(rolledSeeds) do
+        if type(seedName) == "string" and autoBuyList[seedName] then
+            table.insert(queue, {slot = slotIndex, name = seedName})
         end
     end
     
-    -- If there's nothing we want to buy, go ahead and roll!
-    if not waitingToBuy and (tick() - lastRollTime > 0.5) then
-        lastRollTime = tick()
+    if #queue == 0 then return end
+
+    buyLock = true
+    isBuying = true
+    
+    task.spawn(function()
+        task.wait(0.2)
+        for _, entry in ipairs(queue) do
+            -- EXACT original buying loop
+            pcall(function() BuySeed:FireServer(entry.slot) end)
+            showToast(entry.name)
+            task.wait(0.8)
+        end
+        task.wait(0.5)
+        isBuying = false
+        buyLock = false
+    end)
+end)
+
+local ROLL_INTERVAL = 1
+local lastRoll = 0
+
+RunService.Heartbeat:Connect(function()
+    if not autoRollEnabled or isBuying then return end
+    local now = tick()
+    if now - lastRoll >= ROLL_INTERVAL then
+        lastRoll = now
         RollSeeds:FireServer()
     end
 end)
 
--- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
-
+-- Dynamic UI Status
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.3)
         if autoRollEnabled then
-            -- Check if any seeds are in cooldown state (meaning we just shot them)
-            local isProcessing = false
-            for obj, time in pairs(buyCooldowns) do
-                if obj.Parent and (tick() - time < 2.0) then
-                    isProcessing = true
-                    break
-                end
-            end
-            
-            if isProcessing then
-                setStatus("Buying/Waiting...", C.accent, C.accent)
+            if isBuying then
+                setStatus("Buying...", C.accent, C.accent)
             else
                 setStatus("Rolling", C.green, C.green)
             end
         else
             setStatus("Idle", C.muted, C.muted)
+        end
+    end
+end)
+
+-- ─── Gear Stock Polling & Purchasing ─────────────────────────────────────────
+
+local function parseStock(lbl)
+    if not lbl then return 0 end
+    return tonumber(lbl.Text:match("Stock: (%d+)")) or 0
+end
+
+local function updateStockLabel(name, stock)
+    gearStock[name] = stock
+    if not gearStockLabels[name] then return end
+    local item
+    for _,g in ipairs(GearItems) do if g.name==name then item=g;break end end
+    if not item then return end
+    
+    local currentCost = getGearCost(name)
+    local stockStr = stock > 0 and ("In Stock: "..stock) or "Out of Stock"
+    gearStockLabels[name].Text = "Cost "..fmt(currentCost).."  ·  "..stockStr
+    gearStockLabels[name].TextColor3 = stock > 0 and C.green or C.red
+end
+
+local function buyGearItem(item)
+    for _ = 1, item.maxStock do
+        local ok, res = pcall(function() return GearTransaction:InvokeServer(item.name) end)
+        if not ok or not res then break end
+        task.wait(0.4)
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+        
+        local pg = player:FindFirstChild("PlayerGui")
+        local scroll = pg and pg:FindFirstChild("MainUI")
+            and pg.MainUI:FindFirstChild("Menus")
+            and pg.MainUI.Menus:FindFirstChild("GearShopFrame")
+            and pg.MainUI.Menus.GearShopFrame:FindFirstChild("ScrollingFrame")
+            
+        if scroll then
+            for _, item in ipairs(GearItems) do
+                local itemFrame = scroll:FindFirstChild(item.name)
+                local stockLbl = itemFrame and itemFrame:FindFirstChild("GearImage") and itemFrame.GearImage:FindFirstChild("Rarity")
+                if stockLbl then updateStockLabel(item.name, parseStock(stockLbl)) end
+            end
+        end
+        
+        if autoGearEnabled then
+            for _, item in ipairs(GearItems) do
+                if gearBuyList[item.name] and (gearStock[item.name] or 0) > 0 then
+                    task.spawn(function()
+                        task.wait(0.3)
+                        buyGearItem(item)
+                    end)
+                end
+            end
         end
     end
 end)
