@@ -37,50 +37,101 @@ end
 for k,v in pairs(RARITY_COLOR) do RARITY_COLOR[k]=rc(v) end
 
 local function fmt(n)
-    if not n then return "?" end
+    if not n or n == math.huge then return "?" end
     local s = {"","K","M","B","T","Q"}
     local i = 1
     while n >= 1000 and i < #s do n=n/1000; i=i+1 end
     return "$".. (n>=100 and string.format("%.0f",n) or n>=10 and string.format("%.1f",n) or string.format("%.2f",n)) .. s[i]
 end
 
--- ─── Configuration (No Costs/Incomes Needed) ─────────────────────────────────
--- Just list the names and rarities here. The script handles the rest!
+-- ─── String Currency Parser ──────────────────────────────────────────────────
+
+local function parseMoneyString(str)
+    if not str then return math.huge end
+    str = tostring(str):gsub("[%$,%s]", "") -- Remove $, commas, and spaces
+    local numStr, suf = str:match("^([%d%.]+)([%a]*)$")
+    
+    if not numStr then
+        numStr = str:match("([%d%.]+)")
+        suf = str:match("[%d%.]+([%a]+)")
+    end
+    
+    if numStr then
+        local n = tonumber(numStr) or math.huge
+        if suf and suf ~= "" then
+            suf = suf:lower()
+            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15, qd=1e18, qn=1e21}
+            n = n * (mults[suf] or 1)
+        end
+        return n
+    end
+    return math.huge
+end
+
+-- ─── Dynamic Cost Finders ────────────────────────────────────────────────────
+
+local function getGearCost(gearName)
+    local pg = player:FindFirstChild("PlayerGui")
+    if not pg then return math.huge end
+    
+    local frame = pg:FindFirstChild("MainUI")
+        and pg.MainUI:FindFirstChild("Menus")
+        and pg.MainUI.Menus:FindFirstChild("GearShopFrame")
+        and pg.MainUI.Menus.GearShopFrame:FindFirstChild("ScrollingFrame")
+        
+    if frame and frame:FindFirstChild(gearName) then
+        local costLbl = frame[gearName]:FindFirstChild("Cost")
+        if costLbl and costLbl.Text ~= "" then
+            return parseMoneyString(costLbl.Text)
+        end
+    end
+    return math.huge
+end
+
+local function getSeedCost(seedName)
+    local seedModel = workspace:FindFirstChild(seedName)
+    if seedModel and seedModel:FindFirstChild("Handle") then
+        local gui = seedModel.Handle:FindFirstChild("SeedGui")
+        if gui and gui:FindFirstChild("Frame") and gui.Frame:FindFirstChild("InfoFrame") then
+            local costLbl = gui.Frame.InfoFrame:FindFirstChild("Cost")
+            if costLbl and costLbl.Text ~= "" then
+                return parseMoneyString(costLbl.Text)
+            end
+        end
+    end
+    return math.huge
+end
+
+-- ─── Configuration ───────────────────────────────────────────────────────────
 
 local CONFIG_SEEDS = {
     -- COMMON
     {name="Carrot", rarity="Common"}, {name="Beetroot", rarity="Common"},
     {name="Pumpkin", rarity="Common"}, {name="Cinnamon", rarity="Common"},
-    
     -- UNCOMMON
     {name="Wheat", rarity="Uncommon"}, {name="Melon", rarity="Uncommon"},
     {name="Onion", rarity="Uncommon"}, {name="Cantaloupe", rarity="Uncommon"},
     {name="Watermelon", rarity="Uncommon"}, {name="Promise Lily", rarity="Uncommon"},
     {name="Twinflame Tulip", rarity="Uncommon"},
-    
     -- RARE
     {name="Blueberry", rarity="Rare"}, {name="Cabbage", rarity="Rare"},
     {name="Grape", rarity="Rare"}, {name="Peach", rarity="Rare"},
     {name="Bamboo", rarity="Rare"},
-    
     -- EPIC
     {name="Corn", rarity="Epic"}, {name="Plum", rarity="Epic"},
     {name="Cauliflower", rarity="Epic"}, {name="Nectarine", rarity="Epic"},
     {name="Sunflower", rarity="Epic"}, {name="Citrus", rarity="Epic"},
     {name="Honeysuckle", rarity="Epic"}, {name="Martian Melon", rarity="Epic"},
     {name="Admin Sunflower", rarity="Epic"},
-    
     -- LEGENDARY
     {name="Spring Onion", rarity="Legendary"}, {name="Mango", rarity="Legendary"},
     {name="Mushroom", rarity="Legendary"}, {name="Banana", rarity="Legendary"},
     {name="Potato", rarity="Legendary"}, {name="Amulet Anemone", rarity="Legendary"},
-    
     -- SECRET
     {name="Strawberry", rarity="Secret"}, {name="Glowshroom", rarity="Secret"},
     {name="Beanstalk", rarity="Secret"}, {name="Tomato", rarity="Secret"},
     {name="Monsoon Crown", rarity="Secret"}, {name="Starfruit", rarity="Secret"},
     {name="Mooncap", rarity="Secret"},
-    
     -- PRISMATIC
     {name="Apple", rarity="Prismatic"}, {name="Cherry Blossom", rarity="Prismatic"},
     {name="Blood Orange", rarity="Prismatic"}, {name="Garlic", rarity="Prismatic"},
@@ -89,14 +140,12 @@ local CONFIG_SEEDS = {
     {name="Rush Root", rarity="Prismatic"}, {name="Galaxy Hibiscus", rarity="Prismatic"},
     {name="Duoheart Daisy", rarity="Prismatic"}, {name="Crimson Higanbana", rarity="Prismatic"},
     {name="Glasswing", rarity="Prismatic"},
-    
     -- DIVINE
     {name="Golden Apple", rarity="Divine"}, {name="Cocoa", rarity="Divine"},
     {name="Crystalberry", rarity="Divine"}, {name="Amber Wisp", rarity="Divine"},
     {name="Admin Bloom", rarity="Divine"}, {name="Diamond Blossom", rarity="Divine"},
     {name="Dreadcap", rarity="Divine"}, {name="Compost Hydra", rarity="Divine"},
     {name="Horned Melon", rarity="Divine"}, {name="Pomegranate", rarity="Divine"},
-    
     -- EXOTIC
     {name="Moonflower", rarity="Exotic"}, {name="Passionfruit", rarity="Exotic"},
     {name="Darkmatter Bramble", rarity="Exotic"}, {name="Uranium Reed", rarity="Exotic"},
@@ -105,7 +154,6 @@ local CONFIG_SEEDS = {
     {name="Void Fruit", rarity="Exotic"}, {name="Kiwi", rarity="Exotic"},
     {name="Dragonfruit", rarity="Exotic"}, {name="Truckers Delight", rarity="Exotic"},
     {name="Heartvine Bloom", rarity="Exotic"},
-    
     -- TRANSCENDED
     {name="Durian", rarity="Transcended"}, {name="Ghost Pepper", rarity="Transcended"},
     {name="Papaya", rarity="Transcended"}, {name="Ember Fruit", rarity="Transcended"},
@@ -123,53 +171,16 @@ local CONFIG_GEARS = {
     "Strong Fertilizer", "Wet Spray", "Acid Spray", "Normal Pet Treat", "Normal Fertilizer"
 }
 
--- ─── Dynamic Module Scanner (Finds Costs & Incomes Automatically) ────────────
-
-local ExtractedData = { Seeds = {}, Gear = {} }
-
--- Deeply scans ReplicatedStorage for any ModuleScript containing item balacing data
-pcall(function()
-    for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
-        if desc:IsA("ModuleScript") then
-            local ok, data = pcall(require, desc)
-            if ok and type(data) == "table" then
-                for k, v in pairs(data) do
-                    if type(v) == "table" then
-                        -- Checks various standard naming conventions devs use
-                        local name = type(v.Name) == "string" and v.Name or type(v.name) == "string" and v.name or (type(k) == "string" and k or nil)
-                        
-                        if name then
-                            local cost = v.Cost or v.cost or v.Price or v.price
-                            if cost and type(cost) == "number" then
-                                local income = v.Income or v.income or v.Earnings or v.earnings
-                                local maxStock = v.MaxStock or v.maxStock or v.Stock or v.stock or 1
-                                
-                                if income then
-                                    ExtractedData.Seeds[name] = {cost = cost, income = income}
-                                else
-                                    ExtractedData.Gear[name] = {cost = cost, maxStock = maxStock}
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
 -- ─── Build Final Tables ──────────────────────────────────────────────────────
 
 local Seeds = {}
 local SeedByName = {}
 
 for _, def in ipairs(CONFIG_SEEDS) do
-    local dyn = ExtractedData.Seeds[def.name] or ExtractedData.Gear[def.name] or {}
     local seedObj = {
         name = def.name,
         rarity = def.rarity,
-        cost = dyn.cost, -- Will be nil if totally unfound, UI displays "?"
-        income = dyn.income or 1
+        income = 1
     }
     table.insert(Seeds, seedObj)
     SeedByName[def.name] = seedObj
@@ -177,11 +188,9 @@ end
 
 local GearItems = {}
 for _, name in ipairs(CONFIG_GEARS) do
-    local dyn = ExtractedData.Gear[name] or ExtractedData.Seeds[name] or {}
     table.insert(GearItems, {
         name = name,
-        cost = dyn.cost,
-        maxStock = dyn.maxStock or 1
+        maxStock = 1
     })
 end
 
@@ -189,6 +198,18 @@ end
 
 local SETTINGS_FILE = "buildaringfarm_settings.json"
 local HttpService = game:GetService("HttpService")
+
+local autoRollEnabled  = false
+local autoBuyEnabled   = false
+local autoGearEnabled  = false
+local autoFertEnabled  = false
+local autoSellEnabled  = false
+local isBuying = false
+local buyLock  = false
+local autoBuyList = {}
+local gearBuyList = {}
+local gearStock   = {}
+local gearLocks   = {} 
 
 local function saveSettings()
     local data = {
@@ -225,20 +246,6 @@ local function loadSettings()
     end
 end
 
--- ─── State ───────────────────────────────────────────────────────────────────
-
-local autoRollEnabled  = false
-local autoBuyEnabled   = false
-local autoGearEnabled  = false
-local autoFertEnabled  = false
-local autoSellEnabled  = false
-local isBuying = false
-local buyLock  = false
-local autoBuyList = {}
-local gearBuyList = {}
-local gearStock   = {}
-local gearLocks   = {} 
-
 loadSettings()
 
 -- ─── Remotes ─────────────────────────────────────────────────────────────────
@@ -258,26 +265,7 @@ local function getPlayerCash()
     
     local val = cashObj.Value
     if type(val) == "number" then return val end
-    
-    local str = tostring(val):gsub("[, ]", "")
-    local numStr, suf = str:match("^([%d%.]+)([%a]*)$")
-    
-    if not numStr then
-        numStr = str:match("([%d%.]+)")
-        suf = str:match("[%d%.]+([%a]+)")
-    end
-    
-    if numStr then
-        local n = tonumber(numStr) or 0
-        if suf and suf ~= "" then
-            suf = suf:lower()
-            local mults = {k=1e3, m=1e6, b=1e9, t=1e12, q=1e15, qd=1e18, qn=1e21}
-            n = n * (mults[suf] or 1)
-        end
-        return n
-    end
-    
-    return 0
+    return parseMoneyString(val)
 end
 
 -- ─── GUI ─────────────────────────────────────────────────────────────────────
@@ -444,7 +432,7 @@ end
 
 local rollTrack,setRoll,getRoll             = addRow("Auto Roll")
 local buyTrack,setBuy,getBuy,buyCfgBtn      = addRow("Auto Buy","Seeds","Seeds")
-local gearTrack,setGear,getGear,gearCfgBtn = addRow("Auto Gear",true,"Items")
+local gearTrack,setGear,getGear,gearCfgBtn  = addRow("Auto Gear",true,"Items")
 local fertTrack,setFert,getFert             = addRow("Auto Fert")
 local sellTrack,setSell,getSell             = addRow("Auto Sell") 
 
@@ -621,7 +609,9 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
-        local infoL=mkLabel(row, "Cost "..fmt(seed.cost), C.muted,9,Enum.Font.Gotham)
+        -- Initial dynamic cost check
+        local initialCost = getSeedCost(seed.name)
+        local infoL=mkLabel(row, "Cost "..fmt(initialCost), C.muted,9,Enum.Font.Gotham)
         infoL.Size=UDim2.new(1,-50,0,14);infoL.Position=UDim2.new(0,10,0,27)
         infoL.TextTruncate=Enum.TextTruncate.AtEnd
 
@@ -635,7 +625,7 @@ for _,rarity in ipairs(RARITY_ORDER) do
                 local s=not getT();setT(s);autoBuyList[seed.name]=s or nil;saveSettings()
             end
         end)
-        seedToggles[seed.name]={set=setT,get=getT}
+        seedToggles[seed.name]={set=setT,get=getT, label=infoL}
     end
 
     rTrack.InputBegan:Connect(function(i)
@@ -649,6 +639,21 @@ for _,rarity in ipairs(RARITY_ORDER) do
         end
     end)
 end
+
+-- Periodically update missing seed costs in UI
+task.spawn(function()
+    while true do
+        task.wait(3)
+        for name, data in pairs(seedToggles) do
+            if data.label.Text:find("?") then
+                local cost = getSeedCost(name)
+                if cost ~= math.huge then
+                    data.label.Text = "Cost " .. fmt(cost)
+                end
+            end
+        end
+    end
+end)
 
 seedAll.MouseButton1Click:Connect(function()
     for _,s in ipairs(Seeds) do autoBuyList[s.name]=true;if seedToggles[s.name] then seedToggles[s.name].set(true) end end
@@ -688,9 +693,10 @@ for _,item in ipairs(GearItems) do
     local nL=mkLabel(row,item.name,C.white,12,Enum.Font.GothamBold)
     nL.Size=UDim2.new(1,-50,0,22);nL.Position=UDim2.new(0,10,0,5)
 
+    local initialCost = getGearCost(item.name)
     local stockLbl=mkLabel(row,"",C.muted,9,Enum.Font.Gotham)
     stockLbl.Size=UDim2.new(1,-50,0,14);stockLbl.Position=UDim2.new(0,10,0,27)
-    stockLbl.Text="Cost "..fmt(item.cost).."  ·  Max "..item.maxStock.."  ·  Checking..."
+    stockLbl.Text="Cost "..fmt(initialCost).."  ·  Max "..item.maxStock.."  ·  Checking..."
     gearStockLabels[item.name]=stockLbl
 
     local ttrack,setT,getT=mkToggle(row)
@@ -797,22 +803,23 @@ local function updateStockLabel(name, stock)
     local item
     for _,g in ipairs(GearItems) do if g.name==name then item=g;break end end
     if not item then return end
+    
+    local currentCost = getGearCost(name)
     local stockStr = stock > 0 and ("In Stock: "..stock) or "Out of Stock"
-    gearStockLabels[name].Text = "Cost "..fmt(item.cost).."  ·  "..stockStr
+    gearStockLabels[name].Text = "Cost "..fmt(currentCost).."  ·  "..stockStr
     gearStockLabels[name].TextColor3 = stock > 0 and C.green or C.red
 end
 
-local function buyGearItem(item)
+local function buyGearItem(item, dynamicCost)
     if gearLocks[item.name] then return end 
-    local cost = item.cost or math.huge -- SAFE FALLBACK: math.huge ensures it never buys if price is unknown
-    if getPlayerCash() < cost then return end
+    if getPlayerCash() < dynamicCost then return end
     
     gearLocks[item.name] = true
     task.spawn(function()
         local simCash = getPlayerCash()
         for _ = 1, item.maxStock do
-            if simCash < cost then break end
-            simCash = simCash - cost
+            if simCash < dynamicCost then break end
+            simCash = simCash - dynamicCost
             
             task.spawn(function()
                 pcall(function() GearTransaction:InvokeServer(item.name) end)
@@ -841,17 +848,45 @@ local function watchGearShop()
         updateStockLabel(item.name, parseStock(stockLbl))
 
         stockLbl:GetPropertyChangedSignal("Text"):Connect(function()
-            local newStock = parseStock(stockLbl)
-            updateStockLabel(item.name, newStock)
-
-            if autoGearEnabled and gearBuyList[item.name] and newStock > 0 then
-                buyGearItem(item)
-            end
+            updateStockLabel(item.name, parseStock(stockLbl))
         end)
     end
 end
 
 task.spawn(watchGearShop)
+
+-- Auto Gear Loop with Priority Logic (Lowest $ to Highest $)
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if not autoGearEnabled then continue end
+        
+        local availableGears = {}
+        
+        for _, item in ipairs(GearItems) do
+            if not gearBuyList[item.name] then continue end
+            if (gearStock[item.name] or 0) > 0 then
+                local currentCost = getGearCost(item.name)
+                if currentCost ~= math.huge then
+                    table.insert(availableGears, {
+                        item = item,
+                        cost = currentCost
+                    })
+                end
+            end
+        end
+        
+        -- Sort lowest to highest $
+        table.sort(availableGears, function(a, b)
+            return a.cost < b.cost
+        end)
+        
+        -- Attempt to purchase in sorted order
+        for _, data in ipairs(availableGears) do
+            buyGearItem(data.item, data.cost)
+        end
+    end
+end)
 
 -- ─── Toast Notification ──────────────────────────────────────────────────────
 
@@ -939,11 +974,11 @@ task.spawn(function()
         
         for slot, seedName in pairs(pendingSeeds) do
             if autoBuyList[seedName] then
-                local seedData = SeedByName[seedName]
-                local cost = seedData and seedData.cost or math.huge -- SAFE FALLBACK
+                -- Dynamically verify cost via workspace before pulling the trigger
+                local cost = getSeedCost(seedName) 
                 
-                -- If we can't afford it, it just skips it silently. No pausing occurs.
-                if simCash >= cost then
+                -- If we can't afford it, it just skips silently.
+                if cost ~= math.huge and simCash >= cost then
                     table.insert(queue, {slot=slot, name=seedName, cost=cost})
                     simCash = simCash - cost
                 end
@@ -975,21 +1010,6 @@ task.spawn(function()
         task.wait(5)
         if autoSellEnabled then
             pcall(function() SellCrates:FireServer() end)
-        end
-    end
-end)
-
--- ─── Auto Gear Loop ──────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if not autoGearEnabled then continue end
-        for _, item in ipairs(GearItems) do
-            if not gearBuyList[item.name] then continue end
-            if (gearStock[item.name] or 0) > 0 then
-                buyGearItem(item)
-            end
         end
     end
 end)
