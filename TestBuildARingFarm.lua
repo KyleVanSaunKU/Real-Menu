@@ -59,84 +59,67 @@ local function parseMoneyString(str)
     return n * (mults[suffix] or 1)
 end
 
-local HttpService = game:GetService("HttpService")
-local FILE_NAME = "buildaring_settings.json"
+-- ─── Configuration ───────────────────────────────────────────────────────────
 
-local CONFIG_SEEDS = {}
-local SeedByName = {}
-
--- Master blueprint fallback list
-local DEFAULT_SEEDS = {
-    -- Common
-    {name="Beetroot", rarity="Common"}, {name="Carrot", rarity="Common"}, {name="Pumpkin", rarity="Common"},
-    -- Uncommon
-    {name="Cantaloupe", rarity="Uncommon"}, {name="Melon", rarity="Uncommon"}, {name="Onion", rarity="Uncommon"}, {name="Watermelon", rarity="Uncommon"}, {name="Wheat", rarity="Uncommon"},
-    -- Rare
-    {name="Bamboo", rarity="Rare"}, {name="Blueberry", rarity="Rare"}, {name="Cabbage", rarity="Rare"}, {name="Grape", rarity="Rare"}, {name="Peach", rarity="Rare"},
-    -- Epic
-    {name="Cauliflower", rarity="Epic"}, {name="Citrus", rarity="Epic"}, {name="Corn", rarity="Epic"}, {name="Honeysuckle", rarity="Epic"}, {name="Martian Melon", rarity="Epic"}, {name="Nectarine", rarity="Epic"}, {name="Plum", rarity="Epic"}, {name="Sunflower", rarity="Epic"}, {name="Twinflame Tulip", rarity="Epic"},
-    -- Legendary
-    {name="Amulet Anemone", rarity="Legendary"}, {name="Banana", rarity="Legendary"}, {name="Mango", rarity="Legendary"}, {name="Mushroom", rarity="Legendary"}, {name="Potato", rarity="Legendary"}, {name="Spring Onion", rarity="Legendary"},
-    -- Secret
-    {name="Admin Crownflower", rarity="Secret"}, {name="Beanstalk", rarity="Secret"}, {name="Glasswing", rarity="Secret"}, {name="Monsoon Crown", rarity="Secret"}, {name="Starfruit", rarity="Secret"}, {name="Strawberry", rarity="Secret"}, {name="Tomato", rarity="Secret"},
-    -- Prismatic
-    {name="Apple", rarity="Prismatic"}, {name="Blood Orange", rarity="Prismatic"}, {name="Cherry Blossom", rarity="Prismatic"}, {name="Cinnamon", rarity="Prismatic"}, {name="Duoheart Daisy", rarity="Prismatic"}, {name="Galaxy Hibiscus", rarity="Prismatic"}, {name="Garlic", rarity="Prismatic"}, {name="Hex Sprout", rarity="Prismatic"}, {name="Iron Fern", rarity="Prismatic"}, {name="Pineapple", rarity="Prismatic"}, {name="Rush Root", rarity="Prismatic"},
-    -- Divine
-    {name="Admin Bloom", rarity="Divine"}, {name="Cocoa", rarity="Divine"}, {name="Compost Hydra", rarity="Divine"}, {name="Crystalberry", rarity="Divine"}, {name="Diamond Blossom", rarity="Divine"}, {name="Dreadcap", rarity="Divine"}, {name="Golden Apple", rarity="Divine"}, {name="Horned Melon", rarity="Divine"}, {name="Pomegranate", rarity="Divine"},
-    -- Exotic
-    {name="Crimson Higanbana", rarity="Exotic"}, {name="Dragonfruit", rarity="Exotic"}, {name="Elder Dragonroot", rarity="Exotic"}, {name="Heartvine", rarity="Exotic"}, {name="Kiwi", rarity="Exotic"}, {name="Moonflower", rarity="Exotic"}, {name="Passionfruit", rarity="Exotic"}, {name="Pepper", rarity="Exotic"}, {name="Striped Starfruit", rarity="Exotic"}, {name="Truckers Delight", rarity="Exotic"}, {name="Void Fruit", rarity="Exotic"},
-    -- Transcended
-    {name="Durian", rarity="Transcended"}, {name="Ember Fruit", rarity="Transcended"}, {name="Garden Devourer", rarity="Transcended"}, {name="Garden Golem", rarity="Transcended"}, {name="Ghost Pepper", rarity="Transcended"}, {name="Heart of Corruption", rarity="Transcended"}, {name="Papaya", rarity="Transcended"}, {name="Queens Blossom", rarity="Transcended"}
+local CONFIG_SEEDS = {
+    -- COMMON
+    {name="Carrot", rarity="Common"}, {name="Beetroot", rarity="Common"},
+    {name="Pumpkin", rarity="Common"}, {name="Cinnamon", rarity="Common"},
+    -- UNCOMMON
+    {name="Wheat", rarity="Uncommon"}, {name="Melon", rarity="Uncommon"},
+    {name="Onion", rarity="Uncommon"}, {name="Cantaloupe", rarity="Uncommon"},
+    {name="Watermelon", rarity="Uncommon"}, {name="Promise Lily", rarity="Uncommon"},
+    {name="Twinflame Tulip", rarity="Uncommon"},
+    -- RARE
+    {name="Blueberry", rarity="Rare"}, {name="Cabbage", rarity="Rare"},
+    {name="Grape", rarity="Rare"}, {name="Peach", rarity="Rare"},
+    {name="Bamboo", rarity="Rare"},
+    -- EPIC
+    {name="Corn", rarity="Epic"}, {name="Plum", rarity="Epic"},
+    {name="Cauliflower", rarity="Epic"}, {name="Nectarine", rarity="Epic"},
+    {name="Sunflower", rarity="Epic"}, {name="Citrus", rarity="Epic"},
+    {name="Honeysuckle", rarity="Epic"}, {name="Martian Melon", rarity="Epic"},
+    {name="Admin Sunflower", rarity="Epic"},
+    -- LEGENDARY
+    {name="Spring Onion", rarity="Legendary"}, {name="Mango", rarity="Legendary"},
+    {name="Mushroom", rarity="Legendary"}, {name="Banana", rarity="Legendary"},
+    {name="Potato", rarity="Legendary"}, {name="Amulet Anemone", rarity="Legendary"},
+    -- SECRET
+    {name="Strawberry", rarity="Secret"}, {name="Glowshroom", rarity="Secret"},
+    {name="Beanstalk", rarity="Secret"}, {name="Tomato", rarity="Secret"},
+    {name="Monsoon Crown", rarity="Secret"}, {name="Starfruit", rarity="Secret"},
+    {name="Mooncap", rarity="Secret"},
+    -- PRISMATIC
+    {name="Apple", rarity="Prismatic"}, {name="Cherry Blossom", rarity="Prismatic"},
+    {name="Blood Orange", rarity="Prismatic"}, {name="Garlic", rarity="Prismatic"},
+    {name="Iron Fern", rarity="Prismatic"}, {name="Frostbell", rarity="Prismatic"},
+    {name="Hex Sprout", rarity="Prismatic"}, {name="Pineapple", rarity="Prismatic"},
+    {name="Rush Root", rarity="Prismatic"}, {name="Galaxy Hibiscus", rarity="Prismatic"},
+    {name="Duoheart Daisy", rarity="Prismatic"}, {name="Crimson Higanbana", rarity="Prismatic"},
+    {name="Glasswing", rarity="Prismatic"},
+    -- DIVINE
+    {name="Golden Apple", rarity="Divine"}, {name="Cocoa", rarity="Divine"},
+    {name="Crystalberry", rarity="Divine"}, {name="Amber Wisp", rarity="Divine"},
+    {name="Admin Bloom", rarity="Divine"}, {name="Diamond Blossom", rarity="Divine"},
+    {name="Dreadcap", rarity="Divine"}, {name="Compost Hydra", rarity="Divine"},
+    {name="Horned Melon", rarity="Divine"}, {name="Pomegranate", rarity="Divine"},
+    -- EXOTIC
+    {name="Moonflower", rarity="Exotic"}, {name="Passionfruit", rarity="Exotic"},
+    {name="Darkmatter Bramble", rarity="Exotic"}, {name="Uranium Reed", rarity="Exotic"},
+    {name="Muckthorn", rarity="Exotic"}, {name="Crowned Pear", rarity="Exotic"},
+    {name="Striped Starfruit", rarity="Exotic"}, {name="Pepper", rarity="Exotic"},
+    {name="Void Fruit", rarity="Exotic"}, {name="Kiwi", rarity="Exotic"},
+    {name="Dragonfruit", rarity="Exotic"}, {name="Truckers Delight", rarity="Exotic"},
+    {name="Heartvine Bloom", rarity="Exotic"},
+    -- TRANSCENDED
+    {name="Durian", rarity="Transcended"}, {name="Ghost Pepper", rarity="Transcended"},
+    {name="Papaya", rarity="Transcended"}, {name="Ember Fruit", rarity="Transcended"},
+    {name="Admin Rose", rarity="Transcended"}, {name="Soulbound Orchid", rarity="Transcended"},
+    {name="Muck Monarch", rarity="Transcended"}, {name="Heart of Corruption", rarity="Transcended"},
+    {name="Garden Golem", rarity="Transcended"}, {name="Golden Quillflower", rarity="Transcended"},
+    {name="Aurora Lotus", rarity="Transcended"}, {name="Queens Blossom", rarity="Transcended"},
+    {name="Witherfang", rarity="Transcended"}, {name="Garden Devourer", rarity="Transcended"},
 }
-
--- Encodes configuration runtime data and writes to JSON
-local function saveSettings()
-    if not writefile then return end
-    local saveTable = {}
-    for _, seed in ipairs(CONFIG_SEEDS) do
-        saveTable[seed.name] = {
-            rarity = seed.rarity,
-            cost = seed.cost or 0
-        }
-    end
-    pcall(function()
-        writefile(FILE_NAME, HttpService:JSONEncode(saveTable))
-    end)
-end
-
--- Loads settings from file and safely merges them with defaults
-local function loadSettings()
-    -- Step A: Fill arrays from defaults to guarantee stable menu order
-    for _, defaultItem in ipairs(DEFAULT_SEEDS) do
-        local item = {name = defaultItem.name, rarity = defaultItem.rarity, cost = 0}
-        table.insert(CONFIG_SEEDS, item)
-        SeedByName[item.name] = item
-    end
-
-    -- Step B: Overlay values from JSON if the file is present
-    if isfile and readfile and isfile(FILE_NAME) then
-        local success, savedData = pcall(function()
-            return HttpService:JSONDecode(readfile(FILE_NAME))
-        end)
-        
-        if success and type(savedData) == "table" then
-            for seedName, savedInfo in pairs(savedData) do
-                if SeedByName[seedName] then
-                    if savedInfo.cost then SeedByName[seedName].cost = savedInfo.cost end
-                    if savedInfo.rarity then SeedByName[seedName].rarity = savedInfo.rarity end
-                else
-                    -- Safe-guard: If game pushes an unlisted seed into the JSON file, catch it
-                    local newItem = {name = seedName, rarity = savedInfo.rarity or "Common", cost = savedInfo.cost or 0}
-                    table.insert(CONFIG_SEEDS, newItem)
-                    SeedByName[seedName] = newItem
-                end
-            end
-        end
-    end
-    saveSettings() -- Keep file in sync on immediate first run
-end
-
-loadSettings()
 
 local CONFIG_GEARS = {
     "Fire Spray", "Bubblegum Spray", "Cosmic Spray", "Prismatic Fertilizer",
@@ -468,14 +451,7 @@ local function makePanel(title, w, h)
     hdr.BorderSizePixel=0
     hdr.ZIndex=2
     mkCorner(hdr,10)
-    local hpatch=Instance.new("Frame",hdr)
-    hpatch.Size=UDim2.new(1,0,0.5,0);hpatch.Position=UDim2.new(0,0,0.5,0)
-    hpatch.BackgroundColor3=C.surface;hpatch.BorderSizePixel=0;hpatch.ZIndex=2
-
-    local abar=Instance.new("Frame",hdr)
-    abar.Size=UDim2.new(0,3,0,18);abar.Position=UDim2.new(0,12,0.5,-9)
-    abar.BackgroundColor3=C.accent;abar.BorderSizePixel=0;abar.ZIndex=3;mkCorner(abar,2)
-
+    
     local tlbl=Instance.new("TextLabel",hdr)
     tlbl.Size=UDim2.new(1,-60,1,0);tlbl.Position=UDim2.new(0,22,0,0)
     tlbl.BackgroundTransparency=1;tlbl.Text=title
@@ -485,8 +461,7 @@ local function makePanel(title, w, h)
     local xBtn=Instance.new("TextButton",hdr)
     xBtn.Size=UDim2.new(0,24,0,24);xBtn.Position=UDim2.new(1,-30,0.5,-12)
     xBtn.BackgroundColor3=Color3.fromRGB(55,25,25)
-    xBtn.BorderSizePixel=0
-    xBtn.Text="X";xBtn.TextColor3=C.red
+    xBtn.BorderSizePixel=0;xBtn.Text="X";xBtn.TextColor3=C.red
     xBtn.Font=Enum.Font.GothamBold;xBtn.TextSize=12
     xBtn.ZIndex=4;xBtn.AutoButtonColor=false
     mkCorner(xBtn,5)
@@ -494,39 +469,31 @@ local function makePanel(title, w, h)
     draggable(hdr,p)
 
     local allBtn=mkBtn(p,"All",C.surface,C.sub,10)
-    allBtn.Size=UDim2.new(0,40,0,20);allBtn.Position=UDim2.new(0,12,0,46)
-    allBtn.ZIndex=3
+    allBtn.Size=UDim2.new(0,40,0,20);allBtn.Position=UDim2.new(0,12,0,46);allBtn.ZIndex=3
     mkCorner(allBtn,5);mkStroke(allBtn,C.border,1,0.5)
 
     local noneBtn=mkBtn(p,"None",C.surface,C.sub,10)
-    noneBtn.Size=UDim2.new(0,44,0,20);noneBtn.Position=UDim2.new(0,56,0,46)
-    noneBtn.ZIndex=3
+    noneBtn.Size=UDim2.new(0,44,0,20);noneBtn.Position=UDim2.new(0,56,0,46);noneBtn.ZIndex=3
     mkCorner(noneBtn,5);mkStroke(noneBtn,C.border,1,0.5)
 
     local scroll=Instance.new("ScrollingFrame",p)
     scroll.Size=UDim2.new(1,-8,1,-72);scroll.Position=UDim2.new(0,4,0,68)
     scroll.BackgroundTransparency=1;scroll.BorderSizePixel=0
     scroll.ScrollBarThickness=2;scroll.ScrollBarImageColor3=C.accent
-    scroll.CanvasSize=UDim2.new(0,0,0,0)
-    scroll.ZIndex=2
-    
-    -- THE FIX: Native Automatic Scrolling
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.CanvasSize=UDim2.new(0,0,0,0);scroll.ZIndex=2
 
     local layout=Instance.new("UIListLayout",scroll)
     layout.Padding=UDim.new(0,2);layout.SortOrder=Enum.SortOrder.LayoutOrder
     local pad=Instance.new("UIPadding",scroll)
     pad.PaddingLeft=UDim.new(0,6);pad.PaddingRight=UDim.new(0,6);pad.PaddingTop=UDim.new(0,4)
 
-    local function positionNextTo()
-        p.Position=UDim2.new(
-            win.Position.X.Scale,
-            win.Position.X.Offset+win.AbsoluteSize.X+8,
-            win.Position.Y.Scale,
-            win.Position.Y.Offset
-        )
-    end
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+8)
+    end)
 
+    local function positionNextTo()
+        p.Position=UDim2.new(win.Position.X.Scale, win.Position.X.Offset+win.AbsoluteSize.X+8, win.Position.Y.Scale, win.Position.Y.Offset)
+    end
     return p,scroll,layout,xBtn,allBtn,noneBtn,positionNextTo
 end
 
@@ -563,13 +530,7 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
-        -- Check the saved JSON data for a cost, otherwise default to "?"
-        local initialCostText = "Cost ?"
-        if seed.cost and seed.cost > 0 then
-            initialCostText = "Cost " .. fmt(seed.cost)
-        end
-
-        local infoL=mkLabel(row, initialCostText, C.muted,9,Enum.Font.Gotham)
+        local infoL=mkLabel(row, "Cost ?", C.muted,9,Enum.Font.Gotham)
         infoL.Size=UDim2.new(1,-50,0,14);infoL.Position=UDim2.new(0,10,0,27);infoL.TextTruncate=Enum.TextTruncate.AtEnd
 
         local ttrack,setT,getT=mkToggle(row)
@@ -835,42 +796,27 @@ task.spawn(function()
         
         local simCash = getPlayerCash()
         
-        -- Master workspace scan loop
+        -- Master workspace scan. Runs constantly.
         for _, obj in ipairs(workspace:GetChildren()) do
-            if processedModels[obj] then continue end 
+            if processedModels[obj] then continue end -- Already bought/ignored this physical model
             
             local seedData = SeedByName[obj.Name]
             if not seedData then continue end
             
+            -- THE ULTIMATE CHECK: Wait until the visual GUI actually populates with cost text
             local costLbl = obj:FindFirstChild("Cost", true)
             if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
                 
                 local cost = parseMoneyString(costLbl.Text)
-                if cost == math.huge then continue end 
+                if cost == math.huge then continue end -- Parsing failed, wait for next frame
                 
-                -- INTERCEPT AND CHECK FOR MODIFICATIONS
-                local needsSave = false
-                if seedData.cost ~= cost then
-                    seedData.cost = cost
-                    needsSave = true
+                -- Dynamic UI Update Cache
+                seedData.cost = cost
+                if seedToggles[obj.Name] and seedToggles[obj.Name].label then
+                    seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
                 end
                 
-                -- Dynamic Rarity Verification (if game maps custom metadata colors or tags onto the models)
-                -- Example: if obj:FindFirstChild("RarityTag") and seedData.rarity ~= obj.RarityTag.Value then
-                --     seedData.rarity = obj.RarityTag.Value
-                --     needsSave = true
-                -- end
-                
-                if needsSave then
-                    saveSettings() -- Instant write updates to JSON file
-                    
-                    -- Update running visual display dynamically
-                    if seedToggles[obj.Name] and seedToggles[obj.Name].label then
-                        seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
-                    end
-                end
-                
-                -- Queue and processing matching logic
+                -- Match this exact physical model to a server slot in our queue
                 local matchedSlot = nil
                 for slot, pendingName in pairs(pendingBuys) do
                     if pendingName == obj.Name then
@@ -882,15 +828,22 @@ task.spawn(function()
                 if matchedSlot then
                     if autoBuyEnabled and autoBuyList[obj.Name] then
                         if simCash >= cost then
+                            -- INSTANT BUY. No yields. No packets dropped.
                             task.spawn(function()
                                 pcall(function() BuySeed:FireServer(matchedSlot) end)
                             end)
                             simCash = simCash - cost
                             showToast(obj.Name)
+                            
+                            -- Safely hide it locally to mimic snappiness
                             obj.Parent = nil
                         end
                     end
+                    
+                    -- Tag it so we never process this physical model again
                     processedModels[obj] = true
+                    
+                    -- Remove it from the pending server queue
                     pendingBuys[matchedSlot] = nil
                 end
             end
