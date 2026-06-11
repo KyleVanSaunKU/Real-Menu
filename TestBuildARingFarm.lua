@@ -49,7 +49,6 @@ end
 local function parseMoneyString(str)
     if type(str) ~= "string" and type(str) ~= "number" then return math.huge end
     local text = tostring(str):lower():gsub(",", "")
-    -- Extract just the digits (with optional decimal) and the trailing letter suffix
     local numStr, suffix = text:match("(%d+%.?%d*)([a-z]*)")
     if not numStr then return math.huge end
     
@@ -75,6 +74,19 @@ local function getGearCost(gearName)
         local costLbl = frame[gearName]:FindFirstChild("Cost")
         if costLbl and costLbl.Text ~= "" then
             return parseMoneyString(costLbl.Text)
+        end
+    end
+    return math.huge
+end
+
+local function scrapeSeedCostFromWorkspace(seedName)
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name == seedName then
+            local costLbl = obj:FindFirstChild("Cost", true)
+            if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                local cost = parseMoneyString(costLbl.Text)
+                if cost ~= math.huge then return cost end
+            end
         end
     end
     return math.huge
@@ -187,6 +199,7 @@ local autoBuyList = {}
 local gearBuyList = {}
 local gearStock   = {}
 local gearLocks   = {} 
+local isSpinning  = false -- MASTER STATE LOCK
 
 local function saveSettings()
     local data = {
@@ -600,14 +613,13 @@ for _,rarity in ipairs(RARITY_ORDER) do
     end)
 end
 
--- NEW Deep-Search Scraper: Updates UI and saves cost universally in background
+-- Deep-Search Scraper: Updates UI and saves cost universally in background
 task.spawn(function()
     while true do
         task.wait(1.5)
         for _, obj in ipairs(workspace:GetChildren()) do
             local seedData = SeedByName[obj.Name]
             if seedData then
-                -- Perform a recursive search for any descendant named "Cost"
                 local costLbl = obj:FindFirstChild("Cost", true)
                 if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
                     local cost = parseMoneyString(costLbl.Text)
@@ -746,7 +758,9 @@ end)
 task.spawn(function()
     while true do
         task.wait(0.3)
-        if autoRollEnabled then
+        if isSpinning then
+            setStatus("Spinning/Buying...", C.accent, C.accent)
+        elseif autoRollEnabled then
             setStatus("Rolling", C.green, C.green)
         else
             setStatus("Idle", C.muted, C.muted)
@@ -897,72 +911,61 @@ local function showToast(seedName)
     end)
 end
 
--- ─── Auto Buy Seeds (New Spin Detection Logic) ───────────────────────────────
-
--- Tracker for how long models have physically existed in Workspace
-local modelBirthTimes = {}
-workspace.ChildAdded:Connect(function(child)
-    if SeedByName[child.Name] then
-        modelBirthTimes[child] = tick()
-    end
-end)
-workspace.ChildRemoved:Connect(function(child)
-    modelBirthTimes[child] = nil
-end)
-
--- Tag anything already existing on execute
-for _, child in ipairs(workspace:GetChildren()) do
-    if SeedByName[child.Name] then
-        modelBirthTimes[child] = tick()
-    end
-end
-
-local pendingSeeds = {}
+-- ─── Auto Roll & Auto Buy (The Unified Pipeline) ─────────────────────────────
 
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
-    -- Keep memory of what was rolled, linked to its slot
+    
+    -- Lock the state machine! Auto Roll will not fire while this is true.
+    isSpinning = true 
+    
+    -- Cache the batch of seeds to a temporary table
+    local currentBatch = {}
     for slotIndex, seedName in pairs(rolledSeeds) do
         if type(seedName) == "string" then
-            pendingSeeds[tonumber(slotIndex) or slotIndex] = seedName
+            currentBatch[tonumber(slotIndex) or slotIndex] = seedName
         end
     end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if not autoBuyEnabled then continue end
-
+    
+    -- Wait for the physical spin animation to end
+    task.wait(2.6)
+    
+    -- Now that the models are resting in workspace, run the buy array
+    if autoBuyEnabled then
         local simCash = getPlayerCash()
-
-        for slot, seedName in pairs(pendingSeeds) do
-            -- If user doesn't want it, delete from pending queue to save memory
-            if not autoBuyList[seedName] then
-                pendingSeeds[slot] = nil
-                continue
-            end
-            
-            local cost = SeedByName[seedName].cost
-            if cost and cost ~= math.huge and simCash >= cost then
-                
-                -- Check if a model of this seed has been stable in Workspace for > 1.2 seconds
-                local isStable = false
-                for obj, birthTime in pairs(modelBirthTimes) do
-                    if obj.Name == seedName and obj.Parent == workspace and (tick() - birthTime) > 1.2 then
-                        isStable = true
-                        break
-                    end
+        for slot, seedName in pairs(currentBatch) do
+            if autoBuyList[seedName] then
+                -- Get cost (from background cache, or fallback to direct scrape)
+                local cost = SeedByName[seedName].cost
+                if not cost or cost == math.huge then
+                    cost = scrapeSeedCostFromWorkspace(seedName)
+                    SeedByName[seedName].cost = cost -- save it for next time
                 end
                 
-                if isStable then
+                if cost ~= math.huge and simCash >= cost then
                     pcall(function() BuySeed:FireServer(slot) end)
-                    pendingSeeds[slot] = nil -- Successfully bought, remove from queue
                     simCash = simCash - cost
                     showToast(seedName)
+                    task.wait(0.1) -- Rapid-fire yield to not drop packets on multi-buys
                 end
             end
         end
+    end
+    
+    -- Unlock the state machine! Auto Roll is free to fire again.
+    isSpinning = false
+end)
+
+local lastRoll = 0
+
+RunService.Heartbeat:Connect(function()
+    if not autoRollEnabled then return end
+    if isSpinning then return end -- Enforces the lock
+    
+    local now = tick()
+    if now - lastRoll >= 0.5 then -- Half-second buffer after unlock
+        lastRoll = now
+        RollSeeds:FireServer()
     end
 end)
 
@@ -1176,20 +1179,5 @@ task.spawn(function()
     while true do
         task.wait(5)
         if autoFertEnabled then pcall(runAutoFert) end
-    end
-end)
-
--- ─── Auto Roll Loop (Completely Unblocked & Ruthless) ────────────────────────
-
-local ROLL_INTERVAL = 1
-local lastRoll = 0
-
-RunService.Heartbeat:Connect(function()
-    if not autoRollEnabled then return end
-    
-    local now = tick()
-    if now - lastRoll >= ROLL_INTERVAL then
-        lastRoll = now
-        RollSeeds:FireServer()
     end
 end)
