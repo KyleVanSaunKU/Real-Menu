@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager") -- Added VIM
 local workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -33,7 +34,7 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundTransparency = 1
-Title.Text = "Mouse Slime Aimbot"
+Title.Text = "VIM Slime Aimbot"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
 Title.TextSize = 16
@@ -119,14 +120,12 @@ RunService.RenderStepped:Connect(function()
             -- 3. Get current mouse location
             local mouseLocation = UserInputService:GetMouseLocation()
             
-            -- 4. Calculate how far the mouse needs to move (Delta X and Delta Y)
-            local moveX = (screenPoint.X - mouseLocation.X) * Smoothing
-            local moveY = (screenPoint.Y - mouseLocation.Y) * Smoothing
+            -- 4. Calculate the new absolute position with smoothing
+            local newX = mouseLocation.X + (screenPoint.X - mouseLocation.X) * Smoothing
+            local newY = mouseLocation.Y + (screenPoint.Y - mouseLocation.Y) * Smoothing
             
-            -- 5. Move the mouse using executor UNC functions
-            if mousemoverel then
-                mousemoverel(moveX, moveY)
-            end
+            -- 5. Force the mouse to move using Roblox's VirtualInputManager
+            VirtualInputManager:SendMouseMoveEvent(newX, newY, workspace)
         end
         
         -- Update visual highlight
