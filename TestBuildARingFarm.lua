@@ -87,19 +87,6 @@ local function getGearCost(gearName)
     return math.huge
 end
 
-local function scrapeSeedCostFromWorkspace(seedName)
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name == seedName then
-            local costLbl = obj:FindFirstChild("Cost", true)
-            if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                local cost = parseMoneyString(costLbl.Text)
-                if cost ~= math.huge then return cost end
-            end
-        end
-    end
-    return math.huge
-end
-
 -- ─── Configuration & Settings Persistence ────────────────────────────────────
 
 local FILE_NAME = "buildaring_settings.json"
@@ -204,7 +191,6 @@ local function loadSettings()
                         if savedInfo.cost then SeedByName[seedName].cost = savedInfo.cost end
                         if savedInfo.rarity then SeedByName[seedName].rarity = savedInfo.rarity end
                     else
-                        -- Catch new unlisted seeds
                         local newItem = {name = seedName, rarity = savedInfo.rarity or "Common", cost = savedInfo.cost or 0, income = 1}
                         table.insert(CONFIG_SEEDS, newItem)
                         SeedByName[seedName] = newItem
@@ -398,7 +384,7 @@ local function makePanel(title, w, h)
     local scroll=Instance.new("ScrollingFrame",p)
     scroll.Size=UDim2.new(1,-8,1,-72);scroll.Position=UDim2.new(0,4,0,68);scroll.BackgroundTransparency=1;scroll.BorderSizePixel=0
     scroll.ScrollBarThickness=2;scroll.ScrollBarImageColor3=C.accent;scroll.CanvasSize=UDim2.new(0,0,0,0);scroll.ZIndex=2
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Native Scrolling Fix
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     local layout=Instance.new("UIListLayout",scroll)
     layout.Padding=UDim.new(0,2);layout.SortOrder=Enum.SortOrder.LayoutOrder
@@ -443,7 +429,6 @@ for _,rarity in ipairs(RARITY_ORDER) do
         local nameL=mkLabel(row,seed.name,RARITY_COLOR[rarity],12,Enum.Font.GothamBold)
         nameL.Size=UDim2.new(1,-50,0,22);nameL.Position=UDim2.new(0,10,0,5)
 
-        -- Load visual prices instantly from JSON Cache
         local initialCostText = "Cost ?"
         if seed.cost and seed.cost > 0 then
             initialCostText = "Cost " .. fmt(seed.cost)
@@ -549,7 +534,7 @@ end
 gearClose2.MouseButton1Click:Connect(closeGear)
 gearCfgBtn.MouseButton1Click:Connect(function() if gearPanelOpen then closeGear() else openGear() end end)
 
--- ─── Load Setting Values To UI Toggles ───────────────────────────────────────
+-- ─── Apply loaded settings to UI ─────────────────────────────────────────────
 
 if autoRollEnabled then setRoll(true) end
 if autoBuyEnabled  then setBuy(true)  end
@@ -683,121 +668,151 @@ local function showToast(seedName)
     end)
 end
 
--- ─── The Reliable Auto Buy Pipeline ──────────────────────────────────────────
+-- ─── The Auto Buy "Shotgun" System ───────────────────────────────────────────
 
 local pendingBuys = {}
+local buyCooldowns = {}
 
--- Listen to the server to map the Slot ID (1-6) to the Seed Name
+-- Cleans up memory automatically when seeds vanish
+workspace.ChildRemoved:Connect(function(child)
+    buyCooldowns[child] = nil
+end)
+
+-- Listens for incoming rolls just to map slots, but doesn't STRICTLY rely on it.
 RollSeeds.OnClientEvent:Connect(function(rolledSeeds)
     if type(rolledSeeds) ~= "table" then return end
     for slotIndex, seedName in pairs(rolledSeeds) do
         if type(seedName) == "string" then
-            pendingBuys[tonumber(slotIndex) or slotIndex] = seedName
+            pendingBuys[seedName] = tonumber(slotIndex) or slotIndex
         end
     end
 end)
 
-task.spawn(function()
-    while true do
-        task.wait(0.2)
+-- THE SHOTGUN: Brute forces every possible way to buy a seed. 
+-- Bypasses bad remote arguments by physically clicking the UI.
+local function ForceBuySeed(obj, slot)
+    -- 1. Try Native UI Clicking (Flawless if supported by executor)
+    if obj and getconnections then
+        local seedGui = obj:FindFirstChild("Handle") and obj.Handle:FindFirstChild("SeedGui")
+        if seedGui then
+            for _, v in ipairs(seedGui:GetDescendants()) do
+                if v:IsA("GuiButton") then
+                    pcall(function()
+                        for _, conn in ipairs(getconnections(v.MouseButton1Click)) do conn:Fire() end
+                        for _, conn in ipairs(getconnections(v.Activated)) do conn:Fire() end
+                    end)
+                end
+            end
+        end
+    end
+    
+    -- 2. Try Physical Detectors
+    if obj and obj:FindFirstChild("Handle") then
+        local cd = obj.Handle:FindFirstChildWhichIsA("ClickDetector")
+        if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
         
-        -- If we have seeds in the queue...
-        if next(pendingBuys) ~= nil then
-            
-            if autoBuyEnabled then
-                -- The exact 2.5s spin timer you suggested
-                task.wait(2.5) 
-                
-                local simCash = getPlayerCash()
-
-                for slot, seedName in pairs(pendingBuys) do
-                    if autoBuyList[seedName] then
-                        local cost = SeedByName[seedName].cost
-                        
-                        -- Scrape cost if we haven't saved it yet
-                        if not cost or cost == 0 or cost == math.huge then
-                            cost = scrapeSeedCostFromWorkspace(seedName)
-                            if cost ~= math.huge then
-                                SeedByName[seedName].cost = cost
-                                saveSettings()
-                                if seedToggles[seedName] and seedToggles[seedName].label then
-                                    seedToggles[seedName].label.Text = "Cost " .. fmt(cost)
-                                end
-                            end
-                        end
-
-                        -- If we can afford it, buy it safely
-                        if cost ~= math.huge and simCash >= cost then
-                            BuySeed:FireServer(slot)
-                            simCash = simCash - cost
-                            showToast(seedName)
-                            
-                            -- CRITICAL FIX: 0.4s yield so the server doesn't drop the packet!
-                            task.wait(0.4) 
-                        end
-                    end
-                end
-                
-                -- Clear queue so Auto Roll can fire again
-                table.clear(pendingBuys)
-                
-            else
-                -- If Auto Buy is OFF, we still need to clear the queue so Auto Roll doesn't get jammed
-                task.wait(3)
-                table.clear(pendingBuys)
-            end
-        end
+        local pp = obj.Handle:FindFirstChildWhichIsA("ProximityPrompt")
+        if pp and fireproximityprompt then pcall(function() fireproximityprompt(pp) end) end
     end
-end)
+    
+    -- 3. Brute Force Remotes (Fallback)
+    if slot then task.spawn(function() pcall(function() BuySeed:FireServer(slot) end) end) end
+    if obj then task.spawn(function() pcall(function() BuySeed:FireServer(obj) end) end) end
+end
 
--- Background Cost Scraper (Updates UI quietly while you play if new seeds spawn)
+-- The Master Workspace Scanner
 task.spawn(function()
     while true do
-        task.wait(2)
+        task.wait(0.1)
+        if not autoBuyEnabled then continue end
+        
+        local simCash = getPlayerCash()
+        
         for _, obj in ipairs(workspace:GetChildren()) do
+            -- Anti-Spam: Wait 0.8 seconds before trying to shoot the same seed again
+            if buyCooldowns[obj] and (tick() - buyCooldowns[obj] < 0.8) then continue end
+            
             local seedData = SeedByName[obj.Name]
-            if seedData and (not seedData.cost or seedData.cost == 0) then
-                local costLbl = obj:FindFirstChild("Cost", true)
-                if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
-                    local cost = parseMoneyString(costLbl.Text)
-                    if cost ~= math.huge then
-                        seedData.cost = cost
-                        saveSettings()
-                        if seedToggles[obj.Name] and seedToggles[obj.Name].label then
-                            seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
-                        end
+            if not seedData then continue end
+            
+            -- Wait until the UI actually populates with cost text (confirms physical spin is done)
+            local costLbl = obj:FindFirstChild("Cost", true)
+            if costLbl and costLbl:IsA("TextLabel") and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                local cost = parseMoneyString(costLbl.Text)
+                if cost == math.huge then continue end
+                
+                -- Update config dynamically in background
+                if seedData.cost ~= cost then
+                    seedData.cost = cost
+                    saveSettings()
+                    if seedToggles[obj.Name] and seedToggles[obj.Name].label then
+                        seedToggles[obj.Name].label.Text = "Cost " .. fmt(cost)
                     end
+                end
+                
+                -- The Actual Buy Logic
+                if autoBuyList[obj.Name] and simCash >= cost then
+                    buyCooldowns[obj] = tick() -- Trigger cooldown
+                    
+                    local matchedSlot = pendingBuys[obj.Name]
+                    ForceBuySeed(obj, matchedSlot)
+                    showToast(obj.Name)
+                    
+                    -- Remove from queue since we initiated a buy
+                    if matchedSlot then pendingBuys[obj.Name] = nil end
                 end
             end
         end
     end
 end)
 
--- ─── Smart Auto Roll Loop ────────────────────────────────────────────────────
-
-local lastRollTime = 0
+-- Smart Auto Roll Loop
+local lastRollTime = tick()
 
 RunService.Heartbeat:Connect(function()
     if not autoRollEnabled then return end
     
-    -- Do not fire a roll if we are currently waiting for a spin or processing buys
-    if next(pendingBuys) ~= nil then return end
+    -- Check if there are any seeds currently sitting in the workspace that we WANT to buy.
+    local waitingToBuy = false
+    for _, obj in ipairs(workspace:GetChildren()) do
+        local seedData = SeedByName[obj.Name]
+        if seedData and autoBuyList[obj.Name] then
+            -- It exists and we want it. Can we afford it?
+            local costLbl = obj:FindFirstChild("Cost", true)
+            if costLbl and costLbl.Text ~= "" and not costLbl.Text:find("Label") then
+                local cost = parseMoneyString(costLbl.Text)
+                if cost ~= math.huge and getPlayerCash() >= cost then
+                    waitingToBuy = true
+                    break
+                end
+            end
+        end
+    end
     
-    local now = tick()
-    if now - lastRollTime > 0.5 then
-        lastRollTime = now
+    -- If there's nothing we want to buy, go ahead and roll!
+    if not waitingToBuy and (tick() - lastRollTime > 0.4) then
+        lastRollTime = tick()
+        table.clear(pendingBuys)
         RollSeeds:FireServer()
     end
 end)
 
--- ─── Dynamic UI Status Loop ──────────────────────────────────────────────────
-
+-- Dynamic UI Status
 task.spawn(function()
     while true do
         task.wait(0.2)
         if autoRollEnabled then
-            if next(pendingBuys) ~= nil then
-                setStatus("Spinning/Buying...", C.accent, C.accent)
+            -- Check if any seeds are in cooldown state (meaning we just shot them)
+            local isProcessing = false
+            for obj, time in pairs(buyCooldowns) do
+                if obj.Parent and (tick() - time < 0.8) then
+                    isProcessing = true
+                    break
+                end
+            end
+            
+            if isProcessing then
+                setStatus("Buying/Waiting...", C.accent, C.accent)
             else
                 setStatus("Rolling", C.green, C.green)
             end
