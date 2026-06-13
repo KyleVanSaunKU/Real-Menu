@@ -23,46 +23,46 @@ local JunkyardCategories = {
     },
     {
         Name = "Junkyard Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247),
-        Items = {"HorseshoeUpgrader", "PaintbrushUpgrader", "GuillotineUpgrader"}
+        Items = {"HorseshoeUpgrader", "PaintbrushUpgrader", "GuillotineUpgrader", "SkateboardUpgrader"}
     },
     {
         Name = "Junkyard Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
-        Items = {"BreadUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader"}
+        Items = {"BreadUpgrader", "HotTubFurnace", "SnailUpgrader", "BurgerUpgrader", "AnchorUpgrader"}
     },
     {
         Name = "Junkyard Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94),
-        Items = {"FidgetSpinnerUpgrader", "ToiletDropper", "ToiletPaperUpgrader", "TeddyBearUpgrader"}
+        Items = {"FidgetSpinnerUpgrader", "ToiletDropper", "ToiletPaperUpgrader", "TeddyBearUpgrader", "PaperclipUpgrader"}
     },
     {
         Name = "Junkyard Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255),
-        Items = {"TungUpgrader", "ElectricFanUpgrader", "CasetteUpgrader", "DominoUpgrader", "IceCreamUpgrader"}
+        Items = {"TungUpgrader", "ElectricFanUpgrader", "CasetteUpgrader", "DominoUpgrader", "IceCreamUpgrader", "HairdryerUpgrader"}
     }
 }
 
 local ItemCategories = {
     {
         Name = "Mythical", Priority = 1, Color = Color3.fromRGB(239, 68, 68),
-        Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace"}
+        Items = {"LaserSwordUpgrader", "HotAirBalloonUpgrader", "JesterDropper", "PhoenixFurnace", "GramophoneDropper", "GhosdeeriUpgrader", "JadeDropper", "WaterfallUpgrader", "MalevolentFurnace", "HoneycombUpgrader", "WarPlaneUpgrader", "LionUpgrader", "TornadoFurnace"}
     },
     {
         Name = "Legendary", Priority = 2, Color = Color3.fromRGB(234, 179, 8),
-        Items = {"ExcaliburUpgrader", "DinoUpgrader", "RubyDropper", "SatelliteUpgrader", "ScissorUpgrader", "AmethystDropper", "ButterflyFurnace", "RobosharkUpgrader", "ClioneUpgrader", "KrakenFurnace", "TopazDropper", "TomeFurnace", "VolcanicFurnace"}
+        Items = {"ExcaliburUpgrader", "DinoUpgrader", "RubyDropper", "SatelliteUpgrader", "ScissorUpgrader", "AmethystDropper", "ButterflyFurnace", "RobosharkUpgrader", "ClioneUpgrader", "KrakenFurnace", "TopazDropper", "TomeFurnace", "VolcanicFurnace", "LeekUpgrader", "MarketPliersUpgrader", "SugiliteDropper"}
     },
     {
         Name = "Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247),
-        Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace"}
+        Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace", "DogUpgrader"}
     },
     {
         Name = "Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
-        Items = {"GoalieFurnace", "SandcastleUpgrader", "CactusFurnace", "ChessUpgrader", "HeadphonesUpgrader", "CakeUpgrader", "IglooUpgrader", "SapphireDropper", "CheeseDropper", "MushroomUpgrader", "DonutUpgrader", "RubberDuckyUpgrader"}
+        Items = {"GoalieFurnace", "SandcastleUpgrader", "CactusFurnace", "ChessUpgrader", "HeadphonesUpgrader", "CakeUpgrader", "IglooUpgrader", "SapphireDropper", "CheeseDropper", "MushroomUpgrader", "DonutUpgrader", "RubberDuckyUpgrader", "PingPongUpgrader", "VacuumUpgrader", "StrawberryUpgrader"}
     },
     {
         Name = "Uncommon", Priority = 5, Color = Color3.fromRGB(34, 197, 94),
-        Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper"}
+        Items = {"HippoUpgrader", "MagnifyingUpgrader", "UltraUpgrader", "CheesestickUpgrader", "ScienceFurnace", "SrirachaUpgrader", "TinDropper", "FireworkUpgrader", "LemonUpgrader", "GoldDropper", "YoyoUpgrader", "TombstoneUpgrader"}
     },
     {
         Name = "Common", Priority = 6, Color = Color3.fromRGB(255, 255, 255),
-        Items = {"BasicDropper", "BasicFurnace", "BasicUpgrader", "AdvancedUpgrader", "FishboneUpgrader", "CopperDropper", "NetworkFurnace", "PuzzleUpgrader", "SoccerUpgrader", "TrafficConeUpgrader"}
+        Items = {"BasicDropper", "BasicFurnace", "BasicUpgrader", "AdvancedUpgrader", "FishboneUpgrader", "CopperDropper", "NetworkFurnace", "PuzzleUpgrader", "SoccerUpgrader", "TrafficConeUpgrader", "PizzaUpgrader", "JBUpgrader", "CandleUpgrader"}
     }
 }
 
