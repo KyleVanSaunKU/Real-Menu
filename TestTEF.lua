@@ -50,7 +50,7 @@ local ItemCategories = {
     },
     {
         Name = "Epic", Priority = 3, Color = Color3.fromRGB(168, 85, 247),
-        Items = {"CatUpgrader", "EmeraldFurnace", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace", "DogUpgrader"}
+        Items = {"CatUpgrader", "EmeraldDropper", "LightningFurnace", "WateringCanUpgrader", "WillowDropper", "CameraUpgrader", "OuroborosUpgrader", "SnowmanUpgrader", "LunarFurnace", "BambooUpgrader", "PumpkinUpgrader", "UFOUpgrader", "PotOfGoldFurnace", "DogUpgrader"}
     },
     {
         Name = "Rare", Priority = 4, Color = Color3.fromRGB(56, 189, 248),
