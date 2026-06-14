@@ -5,8 +5,10 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
+local ConfigName = "TEF_Exploits_Config.json"
 
 -- ==========================================
 -- ITEM CATEGORIES, PRIORITIES & COLORS
@@ -90,6 +92,57 @@ for _, category in ipairs(ItemCategories) do
         IsBeltItem[item] = true
     end
 end
+
+-- ==========================================
+-- JSON SAVE & LOAD LOGIC
+-- ==========================================
+
+local function SaveConfig()
+    if writefile then
+        local success, encoded = pcall(function()
+            return HttpService:JSONEncode(State)
+        end)
+        if success then
+            pcall(function() writefile(ConfigName, encoded) end)
+        end
+    end
+end
+
+local function LoadConfig()
+    if readfile and isfile and isfile(ConfigName) then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(readfile(ConfigName))
+        end)
+        if success and type(decoded) == "table" then
+            if decoded.Master ~= nil then State.Master = decoded.Master end
+            if decoded.Noclip ~= nil then State.Noclip = decoded.Noclip end
+            if decoded.AutoCollect ~= nil then State.AutoCollect = decoded.AutoCollect end
+
+            if decoded.Categories then
+                for k, v in pairs(decoded.Categories) do
+                    if State.Categories[k] then
+                        for subK, subV in pairs(v) do
+                            State.Categories[k][subK] = subV
+                        end
+                    end
+                end
+            end
+
+            if decoded.Items then
+                for k, v in pairs(decoded.Items) do
+                    if State.Items[k] then
+                        for subK, subV in pairs(v) do
+                            State.Items[k][subK] = subV
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Load previously saved settings before generating UI
+LoadConfig()
 
 -- ==========================================
 -- UI CONSTRUCTION
@@ -432,9 +485,23 @@ updateMaster(State.Master)
 updateNoclip(State.Noclip)
 updateCollect(State.AutoCollect)
 
-MasterBtn.MouseButton1Click:Connect(function() State.Master = not State.Master updateMaster(State.Master) end)
-NoclipBtn.MouseButton1Click:Connect(function() State.Noclip = not State.Noclip updateNoclip(State.Noclip) end)
-CollectBtn.MouseButton1Click:Connect(function() State.AutoCollect = not State.AutoCollect updateCollect(State.AutoCollect) end)
+MasterBtn.MouseButton1Click:Connect(function() 
+    State.Master = not State.Master 
+    updateMaster(State.Master) 
+    SaveConfig()
+end)
+
+NoclipBtn.MouseButton1Click:Connect(function() 
+    State.Noclip = not State.Noclip 
+    updateNoclip(State.Noclip) 
+    SaveConfig()
+end)
+
+CollectBtn.MouseButton1Click:Connect(function() 
+    State.AutoCollect = not State.AutoCollect 
+    updateCollect(State.AutoCollect) 
+    SaveConfig()
+end)
 
 local function populateJunkyardCategoryUI(categoriesList, headerText)
     currentLayoutOrder += 1
@@ -443,7 +510,7 @@ local function populateJunkyardCategoryUI(categoriesList, headerText)
     for _, category in ipairs(categoriesList) do
         currentLayoutOrder += 1
         local _, CatMain, CatGold, updateCat = createDualToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
-        updateCat(false, false)
+        updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
 
         CatMain.MouseButton1Click:Connect(function()
             State.Categories[category.Name].Normal = not State.Categories[category.Name].Normal
@@ -452,6 +519,7 @@ local function populateJunkyardCategoryUI(categoriesList, headerText)
                 if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold) end
             end
             updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
+            SaveConfig()
         end)
         
         CatGold.MouseButton1Click:Connect(function()
@@ -461,21 +529,24 @@ local function populateJunkyardCategoryUI(categoriesList, headerText)
                 if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold) end
             end
             updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold)
+            SaveConfig()
         end)
 
         for _, itemName in ipairs(category.Items) do
             currentLayoutOrder += 1
             local _, ItemMain, ItemGold, updateItem = createDualToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
             VisualUpdaters[itemName] = updateItem
-            updateItem(false, false)
+            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
 
             ItemMain.MouseButton1Click:Connect(function()
                 State.Items[itemName].Normal = not State.Items[itemName].Normal
                 updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+                SaveConfig()
             end)
             ItemGold.MouseButton1Click:Connect(function()
                 State.Items[itemName].Gold = not State.Items[itemName].Gold
                 updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold)
+                SaveConfig()
             end)
         end
     end
@@ -488,7 +559,7 @@ local function populateBeltCategoryUI(categoriesList, headerText)
     for _, category in ipairs(categoriesList) do
         currentLayoutOrder += 1
         local _, CatNorm, CatGold, CatJunk, updateCat = createTripleToggleUI(ScrollFrame, string.upper(category.Name) .. " (ALL)", category.Color, currentLayoutOrder)
-        updateCat(false, false, false)
+        updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
 
         CatNorm.MouseButton1Click:Connect(function()
             State.Categories[category.Name].Normal = not State.Categories[category.Name].Normal
@@ -497,6 +568,7 @@ local function populateBeltCategoryUI(categoriesList, headerText)
                 if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
             end
             updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+            SaveConfig()
         end)
         
         CatGold.MouseButton1Click:Connect(function()
@@ -506,6 +578,7 @@ local function populateBeltCategoryUI(categoriesList, headerText)
                 if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
             end
             updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+            SaveConfig()
         end)
 
         CatJunk.MouseButton1Click:Connect(function()
@@ -515,25 +588,29 @@ local function populateBeltCategoryUI(categoriesList, headerText)
                 if VisualUpdaters[item] then VisualUpdaters[item](State.Items[item].Normal, State.Items[item].Gold, State.Items[item].Junk) end
             end
             updateCat(State.Categories[category.Name].Normal, State.Categories[category.Name].Gold, State.Categories[category.Name].Junk)
+            SaveConfig()
         end)
 
         for _, itemName in ipairs(category.Items) do
             currentLayoutOrder += 1
             local _, ItemNorm, ItemGold, ItemJunk, updateItem = createTripleToggleUI(ScrollFrame, itemName, nil, currentLayoutOrder)
             VisualUpdaters[itemName] = updateItem
-            updateItem(false, false, false)
+            updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
 
             ItemNorm.MouseButton1Click:Connect(function()
                 State.Items[itemName].Normal = not State.Items[itemName].Normal
                 updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+                SaveConfig()
             end)
             ItemGold.MouseButton1Click:Connect(function()
                 State.Items[itemName].Gold = not State.Items[itemName].Gold
                 updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+                SaveConfig()
             end)
             ItemJunk.MouseButton1Click:Connect(function()
                 State.Items[itemName].Junk = not State.Items[itemName].Junk
                 updateItem(State.Items[itemName].Normal, State.Items[itemName].Gold, State.Items[itemName].Junk)
+                SaveConfig()
             end)
         end
     end
