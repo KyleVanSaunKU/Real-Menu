@@ -10,24 +10,17 @@ if playerGui:FindFirstChild("BookTrackerUI") then
     playerGui.BookTrackerUI:Destroy()
 end
 
--- Wait for the game to actually load the map before scanning
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-task.wait(2) -- Extra buffer for streaming or slow-loading maps
-
 -- 1. Create the ScreenGui and Main Frame
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BookTrackerUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Invisible button that forces the mouse to unlock in First-Person
 local mouseUnlocker = Instance.new("TextButton")
 mouseUnlocker.Size = UDim2.new(0, 0, 0, 0)
 mouseUnlocker.BackgroundTransparency = 1
 mouseUnlocker.Text = ""
-mouseUnlocker.Modal = true -- THIS is what frees the mouse
+mouseUnlocker.Modal = true
 mouseUnlocker.Parent = screenGui
 
 local mainFrame = Instance.new("Frame")
@@ -67,111 +60,157 @@ padding.Parent = scrollFrame
 
 local seriesData = {}
 
--- 2. Find books in Workspace using GetDescendants (Catches everything)
-for _, child in ipairs(Workspace:GetDescendants()) do
-    if child.Name == "Book" then
-        local titleAttr = child:GetAttribute("title")
-        if titleAttr then
-            local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
-            
-            if not seriesData[seriesName] then
-                local h = math.random()
-                local seriesColor = Color3.fromHSV(h, 0.8, 1)
-
-                seriesData[seriesName] = {
-                    books = {},
-                    color = seriesColor,
-                    state = false
-                }
-            end
-            table.insert(seriesData[seriesName].books, child)
-        end
+-- 2. Helper Function: Apply visuals to a single book
+local function applyVisualsToBook(book, color, state)
+    local highlight = book:FindFirstChild("TrackerHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "TrackerHighlight"
+        highlight.FillColor = color
+        highlight.OutlineColor = Color3.new(1, 1, 1)
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = book
     end
+    highlight.Enabled = state
+
+    local dotGui = book:FindFirstChild("TrackerDot")
+    if not dotGui then
+        dotGui = Instance.new("BillboardGui")
+        dotGui.Name = "TrackerDot"
+        dotGui.AlwaysOnTop = true
+        dotGui.Size = UDim2.new(0, 15, 0, 15)
+        dotGui.StudsOffset = Vector3.new(0, 2, 0) 
+
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.new(1, 0, 1, 0)
+        dot.BackgroundColor3 = color
+        dot.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = dot
+        
+        dot.Parent = dotGui
+        dotGui.Parent = book
+    end
+    dotGui.Enabled = state
 end
 
--- 3. Function to handle Highlights and Dots
-local function updateVisuals(seriesName)
+-- 3. Helper Function: Toggle a whole series
+local function toggleSeries(seriesName)
     local data = seriesData[seriesName]
-    local state = data.state
-    local color = data.color
+    data.state = not data.state
+    
+    -- Update Button UI visually
+    if data.button then
+        if data.state then
+            data.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+            data.button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            data.button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            data.button.TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
+    end
 
+    -- Update Books in the game
     for _, book in ipairs(data.books) do
-        local highlight = book:FindFirstChild("TrackerHighlight")
-        if not highlight then
-            highlight = Instance.new("Highlight")
-            highlight.Name = "TrackerHighlight"
-            highlight.FillColor = color
-            highlight.OutlineColor = Color3.new(1, 1, 1)
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Parent = book
-        end
-        highlight.Enabled = state
-
-        local dotGui = book:FindFirstChild("TrackerDot")
-        if not dotGui then
-            dotGui = Instance.new("BillboardGui")
-            dotGui.Name = "TrackerDot"
-            dotGui.AlwaysOnTop = true
-            dotGui.Size = UDim2.new(0, 15, 0, 15)
-            dotGui.StudsOffset = Vector3.new(0, 2, 0) 
-
-            local dot = Instance.new("Frame")
-            dot.Size = UDim2.new(1, 0, 1, 0)
-            dot.BackgroundColor3 = color
-            dot.BorderSizePixel = 0
-            
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(1, 0)
-            corner.Parent = dot
-            
-            dot.Parent = dotGui
-            dotGui.Parent = book
-        end
-        dotGui.Enabled = state
+        applyVisualsToBook(book, data.color, data.state)
     end
 end
 
--- 4. Populate the UI
-for sName, data in pairs(seriesData) do
+-- 4. Helper Function: Create a new UI button for a series
+local function createToggleButton(seriesName, color)
     local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Name = sName
+    toggleBtn.Name = seriesName
     toggleBtn.Size = UDim2.new(1, 0, 0, 35)
     toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    toggleBtn.Text = sName
+    toggleBtn.Text = seriesName
     toggleBtn.Font = Enum.Font.GothamSemibold
     toggleBtn.TextSize = 14
     toggleBtn.Parent = scrollFrame
 
     local indicator = Instance.new("Frame")
     indicator.Size = UDim2.new(0, 10, 1, 0)
-    indicator.BackgroundColor3 = data.color
+    indicator.BackgroundColor3 = color
     indicator.BorderSizePixel = 0
     indicator.Parent = toggleBtn
 
     toggleBtn.MouseButton1Click:Connect(function()
-        data.state = not data.state
-        if data.state then
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-            toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        else
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
-        updateVisuals(sName)
+        toggleSeries(seriesName)
     end)
+
+    return toggleBtn
 end
+
+-- 5. Core Dynamic Functions (Constantly Watching)
+local function addBook(book)
+    if book.Name == "Book" then
+        local titleAttr = book:GetAttribute("title")
+        if titleAttr then
+            local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
+            
+            -- If this series doesn't exist yet, build the data and the UI button
+            if not seriesData[seriesName] then
+                local h = math.random()
+                local newColor = Color3.fromHSV(h, 0.8, 1)
+                seriesData[seriesName] = {
+                    books = {},
+                    color = newColor,
+                    state = false,
+                    button = createToggleButton(seriesName, newColor)
+                }
+            end
+            
+            table.insert(seriesData[seriesName].books, book)
+            
+            -- If series is currently highlighted, immediately highlight this newly loaded book
+            if seriesData[seriesName].state then
+                applyVisualsToBook(book, seriesData[seriesName].color, true)
+            end
+        end
+    end
+end
+
+local function removeBook(book)
+    if book.Name == "Book" then
+        for sName, data in pairs(seriesData) do
+            local index = table.find(data.books, book)
+            if index then
+                table.remove(data.books, index)
+                -- If no more books exist in this series, clean up and delete the UI button
+                if #data.books == 0 then
+                    if data.button then
+                        data.button:Destroy()
+                    end
+                    seriesData[sName] = nil
+                end
+                break
+            end
+        end
+    end
+end
+
+-- 6. Execution Setup
+-- Scan anything that managed to load instantly before the script ran
+for _, child in ipairs(Workspace:GetDescendants()) do
+    addBook(child)
+end
+
+-- Listen for anything added or removed in the future (This replaces the buffer)
+Workspace.DescendantAdded:Connect(addBook)
+Workspace.DescendantRemoving:Connect(removeBook)
 
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- 5. Toggle Menu & First-Person Mouse Control
+-- 7. Toggle Menu & First-Person Mouse Control
 local isMenuOpen = true
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.M then
         isMenuOpen = not isMenuOpen
         mainFrame.Visible = isMenuOpen
-        mouseUnlocker.Modal = isMenuOpen -- Unlocks/Locks the mouse
+        mouseUnlocker.Modal = isMenuOpen
     end
 end)
