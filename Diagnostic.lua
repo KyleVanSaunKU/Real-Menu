@@ -1,65 +1,42 @@
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 local bookEvent = ReplicatedStorage:WaitForChild("BookNetworkEvent")
 
-local function teleportAndStare(targetSeries)
-    local allBooks = CollectionService:GetTagged("Book")
-    local pickedUpCount = 0
-    local maxCarry = 6 -- Server limit from the local script
+local function pickupClosestBook()
+    local character = player.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    
+    if not rootPart then 
+        warn("Character not found.")
+        return 
+    end
 
-    local character = player.Character or player.CharacterAdded:Wait()
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
+    local closestBook = nil
+    local shortestDistance = 10 -- The max distance the server allows
 
-    -- Save where you are standing so we can put you back later
-    local originalCFrame = rootPart.CFrame
-
-    for _, book in ipairs(allBooks) do
-        if pickedUpCount >= maxCarry then
-            print("Inventory full! Reached max capacity.")
-            break
-        end
-
-        local titleAttr = book:GetAttribute("title") or book:GetAttribute("Title")
-        local isPlaced = book:GetAttribute("PlacedSlotId") ~= nil
-        
-        if titleAttr and not isPlaced then
-            local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
-            
-            if seriesName == targetSeries then
-                print("Locking onto: " .. titleAttr)
-                
-                -- 1. Calculate a spot exactly 3 studs away from the book
-                local standPosition = book.Position + Vector3.new(0, 0, 3)
-                
-                -- 2. Teleport AND force the character's torso to face the book perfectly
-                rootPart.CFrame = CFrame.lookAt(standPosition, book.Position)
-                
-                -- 3. Force your actual camera to look directly at it too
-                workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, book.Position)
-                
-                -- 4. Give the server 0.25 seconds to register your new position and rotation
-                task.wait(0.25)
-                
-                -- 5. Fire the pickup remote
-                bookEvent:FireServer(book, "pickup")
-                pickedUpCount += 1
-                
-                -- Cooldown between books
-                task.wait(0.2) 
+    -- Find the nearest legitimate book that isn't already on a shelf
+    for _, book in ipairs(CollectionService:GetTagged("Book")) do
+        if book:GetAttribute("PlacedSlotId") == nil then
+            local dist = (rootPart.Position - book.Position).Magnitude
+            if dist < shortestDistance then
+                shortestDistance = dist
+                closestBook = book
             end
         end
     end
-    
-    -- Put you back where you started
-    task.wait(0.1)
-    rootPart.CFrame = originalCFrame
-    
-    print("Successfully picked up " .. pickedUpCount .. " books from: " .. targetSeries)
+
+    if closestBook then
+        local titleAttr = closestBook:GetAttribute("title") or closestBook:GetAttribute("Title")
+        print("Sending pickup request for:", titleAttr)
+        
+        -- Fire the remote
+        bookEvent:FireServer(closestBook, "pickup")
+    else
+        warn("No loose books found within 10 studs!")
+    end
 end
 
--- Example Usage:
-teleportAndStare("Money Heist")
+pickupClosestBook()
