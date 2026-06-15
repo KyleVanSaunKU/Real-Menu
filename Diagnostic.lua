@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local bookEvent = ReplicatedStorage:WaitForChild("BookNetworkEvent")
@@ -39,4 +40,13 @@ local function pickupClosestBook()
     end
 end
 
-pickupClosestBook()
+-- Listen for keyboard inputs
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    -- Ignore the input if the player is typing in chat or clicking a menu
+    if gameProcessedEvent then return end
+    
+    -- Check if the key pressed was 'R'
+    if input.KeyCode == Enum.KeyCode.R then
+        pickupClosestBook()
+    end
+end)
