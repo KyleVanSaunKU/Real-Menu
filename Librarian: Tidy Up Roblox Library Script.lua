@@ -64,18 +64,20 @@ padding.Parent = scrollFrame
 local seriesData = {}
 local shelvesByCategory = {}
 
--- 2. Visual Helper Functions
+-- 2. Visual Helper Functions (Using SelectionBox to bypass the 31 Limit)
 local function applyVisualsToBook(book, color, state)
-    local highlight = book:FindFirstChild("TrackerHighlight")
-    if not highlight then
-        highlight = Instance.new("Highlight")
-        highlight.Name = "TrackerHighlight"
-        highlight.FillColor = color
-        highlight.OutlineColor = Color3.new(1, 1, 1)
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = book
+    local selection = book:FindFirstChild("TrackerSelection")
+    if not selection then
+        selection = Instance.new("SelectionBox")
+        selection.Name = "TrackerSelection"
+        selection.Color3 = color -- Outline Color
+        selection.SurfaceColor3 = color -- Fill Color
+        selection.SurfaceTransparency = 0.6
+        selection.LineThickness = 0.05
+        selection.Adornee = book
+        selection.Parent = book
     end
-    highlight.Enabled = state
+    selection.Visible = state
 
     local dotGui = book:FindFirstChild("TrackerDot")
     if not dotGui then
@@ -101,37 +103,33 @@ local function applyVisualsToBook(book, color, state)
 end
 
 local function applyVisualsToShelf(shelf, color, state)
-    local highlight = shelf:FindFirstChild("TrackerShelfHighlight")
-    if not highlight then
-        highlight = Instance.new("Highlight")
-        highlight.Name = "TrackerShelfHighlight"
-        highlight.FillColor = color
-        highlight.OutlineColor = color
-        -- Higher transparency makes it much less obnoxious and easier to see through
-        highlight.FillTransparency = 0.85 
-        highlight.OutlineTransparency = 0.2
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = shelf
+    local selection = shelf:FindFirstChild("TrackerShelfSelection")
+    if not selection then
+        selection = Instance.new("SelectionBox")
+        selection.Name = "TrackerShelfSelection"
+        selection.Color3 = color
+        selection.SurfaceColor3 = color
+        selection.SurfaceTransparency = 0.85 -- Kept highly transparent so it's not obnoxious
+        selection.LineThickness = 0.03
+        selection.Adornee = shelf
+        selection.Parent = shelf
     end
     
     -- Update the color in case a different series in the same category is toggled
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.Enabled = state
+    selection.Color3 = color
+    selection.SurfaceColor3 = color
+    selection.Visible = state
 end
 
--- Safely updates all shelves to prevent them turning off if multiple tracked series share a category
 local function updateAllShelves()
     local activeCategories = {}
     
-    -- Check which categories currently need to be highlighted
     for sName, data in pairs(seriesData) do
         if data.state and data.category then
             activeCategories[data.category] = data.color
         end
     end
 
-    -- Apply visuals to shelves
     for category, shelves in pairs(shelvesByCategory) do
         local isActive = activeCategories[category] ~= nil
         local displayColor = activeCategories[category] or Color3.new(1, 1, 1)
@@ -146,7 +144,6 @@ local function toggleSeries(seriesName)
     local data = seriesData[seriesName]
     data.state = not data.state
     
-    -- Update Button UI
     if data.button then
         if data.state then
             data.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
@@ -157,12 +154,10 @@ local function toggleSeries(seriesName)
         end
     end
 
-    -- Update Book Visuals
     for _, book in ipairs(data.books) do
         applyVisualsToBook(book, data.color, data.state)
     end
     
-    -- Update Shelf Visuals
     updateAllShelves()
 end
 
@@ -192,14 +187,14 @@ end
 
 -- 3. Core Logic for Scanning Objects
 local function handleNewObject(child)
-    -- IF IT IS A BOOK
     if string.match(child.Name, "^Book%s*$") then
         local titleAttr = child:GetAttribute("title") or child:GetAttribute("Title")
         local catAttr = child:GetAttribute("Category") or child:GetAttribute("category")
         
         if titleAttr then
             titleAttr = tostring(titleAttr) 
-            local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
+            -- Upgraded matching to catch: "EP1", "Ep 1", "EP  1", "ep1"
+            local seriesName = string.gsub(titleAttr, "%s*[Ee][Pp]%s*%d+$", "")
             
             if not seriesData[seriesName] then
                 local h = math.random()
@@ -208,7 +203,7 @@ local function handleNewObject(child)
                     books = {},
                     color = newColor,
                     state = false,
-                    category = catAttr and tostring(catAttr) or nil, -- Store the category!
+                    category = catAttr and tostring(catAttr) or nil,
                     button = createToggleButton(seriesName, newColor)
                 }
             end
@@ -220,21 +215,17 @@ local function handleNewObject(child)
             end
         end
         
-    -- IF IT IS A SHELF
     elseif string.match(child.Name, "^Shelf%s*$") then
         local catAttr = child:GetAttribute("Category") or child:GetAttribute("category")
         
         if catAttr then
             catAttr = tostring(catAttr)
             
-            -- Initialize the category table if it doesn't exist
             if not shelvesByCategory[catAttr] then
                 shelvesByCategory[catAttr] = {}
             end
             
             table.insert(shelvesByCategory[catAttr], child)
-            
-            -- If a newly loaded shelf belongs to an actively tracked series, highlight it immediately
             updateAllShelves()
         end
     end
