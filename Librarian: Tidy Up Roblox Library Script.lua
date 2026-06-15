@@ -5,7 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-print("--- BOOK TRACKER SCRIPT STARTED ---")
+print("--- BOOK & SHELF TRACKER SCRIPT STARTED ---")
 
 -- Clean up previous UI for testing
 if playerGui:FindFirstChild("BookTrackerUI") then
@@ -60,9 +60,11 @@ padding.PaddingLeft = UDim.new(0, 5)
 padding.PaddingRight = UDim.new(0, 5)
 padding.Parent = scrollFrame
 
+-- Data Storage
 local seriesData = {}
+local shelvesByCategory = {}
 
--- Helper Visuals
+-- 2. Visual Helper Functions
 local function applyVisualsToBook(book, color, state)
     local highlight = book:FindFirstChild("TrackerHighlight")
     if not highlight then
@@ -98,10 +100,53 @@ local function applyVisualsToBook(book, color, state)
     dotGui.Enabled = state
 end
 
+local function applyVisualsToShelf(shelf, color, state)
+    local highlight = shelf:FindFirstChild("TrackerShelfHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "TrackerShelfHighlight"
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        -- Higher transparency makes it much less obnoxious and easier to see through
+        highlight.FillTransparency = 0.85 
+        highlight.OutlineTransparency = 0.2
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = shelf
+    end
+    
+    -- Update the color in case a different series in the same category is toggled
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.Enabled = state
+end
+
+-- Safely updates all shelves to prevent them turning off if multiple tracked series share a category
+local function updateAllShelves()
+    local activeCategories = {}
+    
+    -- Check which categories currently need to be highlighted
+    for sName, data in pairs(seriesData) do
+        if data.state and data.category then
+            activeCategories[data.category] = data.color
+        end
+    end
+
+    -- Apply visuals to shelves
+    for category, shelves in pairs(shelvesByCategory) do
+        local isActive = activeCategories[category] ~= nil
+        local displayColor = activeCategories[category] or Color3.new(1, 1, 1)
+        
+        for _, shelf in ipairs(shelves) do
+            applyVisualsToShelf(shelf, displayColor, isActive)
+        end
+    end
+end
+
 local function toggleSeries(seriesName)
     local data = seriesData[seriesName]
     data.state = not data.state
     
+    -- Update Button UI
     if data.button then
         if data.state then
             data.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
@@ -112,9 +157,13 @@ local function toggleSeries(seriesName)
         end
     end
 
+    -- Update Book Visuals
     for _, book in ipairs(data.books) do
         applyVisualsToBook(book, data.color, data.state)
     end
+    
+    -- Update Shelf Visuals
+    updateAllShelves()
 end
 
 local function createToggleButton(seriesName, color)
@@ -141,20 +190,16 @@ local function createToggleButton(seriesName, color)
     return toggleBtn
 end
 
--- Core Logic with Debugging
-local function addBook(book)
-    -- Using string.match to catch trailing spaces just in case it's named "Book " instead of "Book"
-    if string.match(book.Name, "^Book%s*$") then
-        print("Found a Book object! Location:", book:GetFullName())
-        
-        -- Check for both lowercase and uppercase title just in case
-        local titleAttr = book:GetAttribute("title") or book:GetAttribute("Title")
+-- 3. Core Logic for Scanning Objects
+local function handleNewObject(child)
+    -- IF IT IS A BOOK
+    if string.match(child.Name, "^Book%s*$") then
+        local titleAttr = child:GetAttribute("title") or child:GetAttribute("Title")
+        local catAttr = child:GetAttribute("Category") or child:GetAttribute("category")
         
         if titleAttr then
-            -- Force it to be a string in case the attribute was accidentally created as a Number or Object
             titleAttr = tostring(titleAttr) 
             local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
-            print(" -> Successfully read title:", titleAttr, "| Registered as series:", seriesName)
             
             if not seriesData[seriesName] then
                 local h = math.random()
@@ -163,30 +208,46 @@ local function addBook(book)
                     books = {},
                     color = newColor,
                     state = false,
+                    category = catAttr and tostring(catAttr) or nil, -- Store the category!
                     button = createToggleButton(seriesName, newColor)
                 }
             end
             
-            table.insert(seriesData[seriesName].books, book)
+            table.insert(seriesData[seriesName].books, child)
             
             if seriesData[seriesName].state then
-                applyVisualsToBook(book, seriesData[seriesName].color, true)
+                applyVisualsToBook(child, seriesData[seriesName].color, true)
             end
-        else
-            warn(" -> WARNING: Found a Book object, but it does NOT have a 'title' attribute! Location:", book:GetFullName())
+        end
+        
+    -- IF IT IS A SHELF
+    elseif string.match(child.Name, "^Shelf%s*$") then
+        local catAttr = child:GetAttribute("Category") or child:GetAttribute("category")
+        
+        if catAttr then
+            catAttr = tostring(catAttr)
+            
+            -- Initialize the category table if it doesn't exist
+            if not shelvesByCategory[catAttr] then
+                shelvesByCategory[catAttr] = {}
+            end
+            
+            table.insert(shelvesByCategory[catAttr], child)
+            
+            -- If a newly loaded shelf belongs to an actively tracked series, highlight it immediately
+            updateAllShelves()
         end
     end
 end
 
--- Scan existing objects
+-- 4. Execution
 print("Scanning Workspace...")
 for _, child in ipairs(Workspace:GetDescendants()) do
-    addBook(child)
+    handleNewObject(child)
 end
 print("Scan Complete.")
 
--- Listen for new objects
-Workspace.DescendantAdded:Connect(addBook)
+Workspace.DescendantAdded:Connect(handleNewObject)
 
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
