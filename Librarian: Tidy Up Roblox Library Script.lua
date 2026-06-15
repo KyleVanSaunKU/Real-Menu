@@ -5,7 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-print("--- BOOK & SHELF TRACKER SCRIPT STARTED ---")
+print("--- X-RAY BOOK & SHELF TRACKER SCRIPT STARTED ---")
 
 -- Clean up previous UI for testing
 if playerGui:FindFirstChild("BookTrackerUI") then
@@ -64,21 +64,44 @@ padding.Parent = scrollFrame
 local seriesData = {}
 local shelvesByCategory = {}
 
--- 2. Visual Helper Functions (Using SelectionBox to bypass the 31 Limit)
-local function applyVisualsToBook(book, color, state)
-    local selection = book:FindFirstChild("TrackerSelection")
-    if not selection then
-        selection = Instance.new("SelectionBox")
-        selection.Name = "TrackerSelection"
-        selection.Color3 = color -- Outline Color
-        selection.SurfaceColor3 = color -- Fill Color
-        selection.SurfaceTransparency = 0.6
-        selection.LineThickness = 0.05
-        selection.Adornee = book
-        selection.Parent = book
-    end
-    selection.Visible = state
+-- 2. Visual Helper Functions (Using BoxHandleAdornment for X-Ray)
 
+-- This function bulletproofs the highlight by finding every physical part 
+-- inside an object (whether it's a single MeshPart or a complex Model)
+local function applyXRayBox(parentObj, namePrefix, color, transparency, state)
+    local partsToHighlight = {}
+    
+    if parentObj:IsA("BasePart") then
+        table.insert(partsToHighlight, parentObj)
+    end
+    for _, desc in ipairs(parentObj:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            table.insert(partsToHighlight, desc)
+        end
+    end
+
+    for _, part in ipairs(partsToHighlight) do
+        local adornment = part:FindFirstChild(namePrefix)
+        if not adornment then
+            adornment = Instance.new("BoxHandleAdornment")
+            adornment.Name = namePrefix
+            adornment.AlwaysOnTop = true -- THIS renders it through walls
+            adornment.ZIndex = 5
+            adornment.Adornee = part
+            adornment.Size = part.Size + Vector3.new(0.05, 0.05, 0.05) -- Barely larger than the part to prevent glitching
+            adornment.Parent = part
+        end
+        adornment.Color3 = color
+        adornment.Transparency = transparency
+        adornment.Visible = state
+    end
+end
+
+local function applyVisualsToBook(book, color, state)
+    -- Book Box (Transparency 0.2 is very bright and solid)
+    applyXRayBox(book, "TrackerBookAdornment", color, 0.2, state)
+
+    -- Scalable Dot
     local dotGui = book:FindFirstChild("TrackerDot")
     if not dotGui then
         dotGui = Instance.new("BillboardGui")
@@ -103,22 +126,8 @@ local function applyVisualsToBook(book, color, state)
 end
 
 local function applyVisualsToShelf(shelf, color, state)
-    local selection = shelf:FindFirstChild("TrackerShelfSelection")
-    if not selection then
-        selection = Instance.new("SelectionBox")
-        selection.Name = "TrackerShelfSelection"
-        selection.Color3 = color
-        selection.SurfaceColor3 = color
-        selection.SurfaceTransparency = 0.85 -- Kept highly transparent so it's not obnoxious
-        selection.LineThickness = 0.03
-        selection.Adornee = shelf
-        selection.Parent = shelf
-    end
-    
-    -- Update the color in case a different series in the same category is toggled
-    selection.Color3 = color
-    selection.SurfaceColor3 = color
-    selection.Visible = state
+    -- Shelf Box (Transparency 0.8 keeps it subtle so it isn't obnoxious)
+    applyXRayBox(shelf, "TrackerShelfAdornment", color, 0.8, state)
 end
 
 local function updateAllShelves()
@@ -193,7 +202,6 @@ local function handleNewObject(child)
         
         if titleAttr then
             titleAttr = tostring(titleAttr) 
-            -- Upgraded matching to catch: "EP1", "Ep 1", "EP  1", "ep1"
             local seriesName = string.gsub(titleAttr, "%s*[Ee][Pp]%s*%d+$", "")
             
             if not seriesData[seriesName] then
