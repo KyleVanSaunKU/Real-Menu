@@ -5,12 +5,14 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+print("--- BOOK TRACKER SCRIPT STARTED ---")
+
 -- Clean up previous UI for testing
 if playerGui:FindFirstChild("BookTrackerUI") then
     playerGui.BookTrackerUI:Destroy()
 end
 
--- 1. Create the ScreenGui and Main Frame
+-- 1. Create the UI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BookTrackerUI"
 screenGui.ResetOnSpawn = false
@@ -60,7 +62,7 @@ padding.Parent = scrollFrame
 
 local seriesData = {}
 
--- 2. Helper Function: Apply visuals to a single book
+-- Helper Visuals
 local function applyVisualsToBook(book, color, state)
     local highlight = book:FindFirstChild("TrackerHighlight")
     if not highlight then
@@ -96,12 +98,10 @@ local function applyVisualsToBook(book, color, state)
     dotGui.Enabled = state
 end
 
--- 3. Helper Function: Toggle a whole series
 local function toggleSeries(seriesName)
     local data = seriesData[seriesName]
     data.state = not data.state
     
-    -- Update Button UI visually
     if data.button then
         if data.state then
             data.button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
@@ -112,13 +112,11 @@ local function toggleSeries(seriesName)
         end
     end
 
-    -- Update Books in the game
     for _, book in ipairs(data.books) do
         applyVisualsToBook(book, data.color, data.state)
     end
 end
 
--- 4. Helper Function: Create a new UI button for a series
 local function createToggleButton(seriesName, color)
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = seriesName
@@ -143,14 +141,21 @@ local function createToggleButton(seriesName, color)
     return toggleBtn
 end
 
--- 5. Core Dynamic Functions (Constantly Watching)
+-- Core Logic with Debugging
 local function addBook(book)
-    if book.Name == "Book" then
-        local titleAttr = book:GetAttribute("title")
+    -- Using string.match to catch trailing spaces just in case it's named "Book " instead of "Book"
+    if string.match(book.Name, "^Book%s*$") then
+        print("Found a Book object! Location:", book:GetFullName())
+        
+        -- Check for both lowercase and uppercase title just in case
+        local titleAttr = book:GetAttribute("title") or book:GetAttribute("Title")
+        
         if titleAttr then
+            -- Force it to be a string in case the attribute was accidentally created as a Number or Object
+            titleAttr = tostring(titleAttr) 
             local seriesName = string.gsub(titleAttr, "%s*EP%d+$", "")
+            print(" -> Successfully read title:", titleAttr, "| Registered as series:", seriesName)
             
-            -- If this series doesn't exist yet, build the data and the UI button
             if not seriesData[seriesName] then
                 local h = math.random()
                 local newColor = Color3.fromHSV(h, 0.8, 1)
@@ -164,53 +169,34 @@ local function addBook(book)
             
             table.insert(seriesData[seriesName].books, book)
             
-            -- If series is currently highlighted, immediately highlight this newly loaded book
             if seriesData[seriesName].state then
                 applyVisualsToBook(book, seriesData[seriesName].color, true)
             end
+        else
+            warn(" -> WARNING: Found a Book object, but it does NOT have a 'title' attribute! Location:", book:GetFullName())
         end
     end
 end
 
-local function removeBook(book)
-    if book.Name == "Book" then
-        for sName, data in pairs(seriesData) do
-            local index = table.find(data.books, book)
-            if index then
-                table.remove(data.books, index)
-                -- If no more books exist in this series, clean up and delete the UI button
-                if #data.books == 0 then
-                    if data.button then
-                        data.button:Destroy()
-                    end
-                    seriesData[sName] = nil
-                end
-                break
-            end
-        end
-    end
-end
-
--- 6. Execution Setup
--- Scan anything that managed to load instantly before the script ran
+-- Scan existing objects
+print("Scanning Workspace...")
 for _, child in ipairs(Workspace:GetDescendants()) do
     addBook(child)
 end
+print("Scan Complete.")
 
--- Listen for anything added or removed in the future (This replaces the buffer)
+-- Listen for new objects
 Workspace.DescendantAdded:Connect(addBook)
-Workspace.DescendantRemoving:Connect(removeBook)
 
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- 7. Toggle Menu & First-Person Mouse Control
 local isMenuOpen = true
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.M then
         isMenuOpen = not isMenuOpen
         mainFrame.Visible = isMenuOpen
-        mouseUnlocker.Modal = isMenuOpen
+        mouseUnlocker.Modal = isMenuOpen 
     end
 end)
