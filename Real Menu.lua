@@ -622,14 +622,17 @@ local success, err = pcall(function()
         end
     end)
 
-    -- === AIMBOT (AUTO-LOCK/CAMERA-LOCK to Closest Player's Head) ===
+    -- === GLOBAL AIM TARGET VARIABLE ===
+    local aimTargetPart = "Head"
+
+    -- === AIMBOT (AUTO-LOCK/CAMERA-LOCK to Closest Player) ===
     local btnAutoLock = GH.createBtn("AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 5)
     local lock_on = false
     local lockConnection = nil
 
-    -- Function to iterate through all active players to find the closest Head part to the LocalPlayer
-    local function getNearestPlayerHead()
-        local closestHead = nil
+    -- Function to iterate through all active players to find the closest target to the LocalPlayer
+    local function getNearestPlayerTarget()
+        local closestTarget = nil
         local shortestDistance = math.huge
         local localChar = GH.player.Character
         local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
@@ -638,21 +641,22 @@ local success, err = pcall(function()
 
         for _, p in pairs(GH.Players:GetPlayers()) do
             if p ~= GH.player and p.Character then
-                local head = p.Character:FindFirstChild("Head")
+                -- Try to find the selected part, safely fall back to HumanoidRootPart if missing
+                local target = p.Character:FindFirstChild(aimTargetPart) or p.Character:FindFirstChild("HumanoidRootPart")
                 local root = p.Character:FindFirstChild("HumanoidRootPart")
                 local hum = p.Character:FindFirstChild("Humanoid")
 
                 -- Ensure the target is alive and has the required parts
-                if head and root and hum and hum.Health > 0 then
+                if target and root and hum and hum.Health > 0 then
                     local distance = (localRoot.Position - root.Position).Magnitude
                     if distance < shortestDistance then
                         shortestDistance = distance
-                        closestHead = head
+                        closestTarget = target
                     end
                 end
             end
         end
-        return closestHead
+        return closestTarget
     end
 
     GH.RegisterButton(btnAutoLock, function()
@@ -663,12 +667,12 @@ local success, err = pcall(function()
         if lock_on then
             if not lockConnection then
                 lockConnection = GH.RunService.RenderStepped:Connect(function()
-                    local targetHead = getNearestPlayerHead()
+                    local aimTarget = getNearestPlayerTarget()
                     local currentCamera = workspace.CurrentCamera
                     
-                    if targetHead and currentCamera then
-                        -- Forces the camera to look directly at the target's head
-                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, targetHead.Position)
+                    if aimTarget and currentCamera then
+                        -- Forces the camera to look directly at the target
+                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, aimTarget.Position)
                     end
                 end)
             end
@@ -686,9 +690,9 @@ local success, err = pcall(function()
     local npc_lock_on = false
     local npcLockConnection = nil
 
-    -- Function to scan the workspace and find the closest NPC's head
-    local function getNearestNPCHead()
-        local closestHead = nil
+    -- Function to scan the workspace and find the closest NPC's target part
+    local function getNearestNPCTarget()
+        local closestTarget = nil
         local shortestDistance = math.huge
         local localChar = GH.player.Character
         local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
@@ -698,21 +702,21 @@ local success, err = pcall(function()
         for _, v in pairs(workspace:GetDescendants()) do
             -- Look for Models that are NOT players
             if v:IsA("Model") and not GH.Players:GetPlayerFromCharacter(v) then
-                local head = v:FindFirstChild("Head")
+                local target = v:FindFirstChild(aimTargetPart) or v:FindFirstChild("HumanoidRootPart")
                 local root = v:FindFirstChild("HumanoidRootPart")
                 local hum = v:FindFirstChild("Humanoid")
 
                 -- Ensure the NPC is alive and has the necessary parts
-                if head and root and hum and hum.Health > 0 then
+                if target and root and hum and hum.Health > 0 then
                     local distance = (localRoot.Position - root.Position).Magnitude
                     if distance < shortestDistance then
                         shortestDistance = distance
-                        closestHead = head
+                        closestTarget = target
                     end
                 end
             end
         end
-        return closestHead
+        return closestTarget
     end
 
     GH.RegisterButton(btnNpcAimbot, function()
@@ -724,11 +728,11 @@ local success, err = pcall(function()
             if not npcLockConnection then
                 -- Bound to RenderStepped to smoothly lock the camera every frame
                 npcLockConnection = GH.RunService.RenderStepped:Connect(function()
-                    local targetHead = getNearestNPCHead()
+                    local aimTarget = getNearestNPCTarget()
                     local currentCamera = workspace.CurrentCamera
                     
-                    if targetHead and currentCamera then
-                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, targetHead.Position)
+                    if aimTarget and currentCamera then
+                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, aimTarget.Position)
                     end
                 end)
             end
@@ -740,9 +744,25 @@ local success, err = pcall(function()
         end
     end)
 
+    -- === AIM PART TOGGLE ===
+    -- Switches the target part for both Player and NPC aimbots
+    local btnAimPart = GH.createBtn("AIM PART: HEAD", Color3.fromRGB(80, 100, 140), 7)
+    
+    GH.RegisterButton(btnAimPart, function()
+        if aimTargetPart == "Head" then
+            aimTargetPart = "HumanoidRootPart"
+            btnAimPart.Text = "AIM PART: TORSO"
+            btnAimPart.BackgroundColor3 = Color3.fromRGB(140, 100, 80)
+        else
+            aimTargetPart = "Head"
+            btnAimPart.Text = "AIM PART: HEAD"
+            btnAimPart.BackgroundColor3 = Color3.fromRGB(80, 100, 140)
+        end
+    end)
+
     -- === PLAYER ESP ===
     -- Draws outlines around players and a dot over their head if they are far away
-    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 7)
+    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 8)
     local esp_on = false
     local minDotDistance = 40
 
@@ -815,7 +835,7 @@ local success, err = pcall(function()
 
     -- === SCAN BODY ===
     -- Deletes unneeded character accessories visually to clean up avatar
-    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(200, 60, 60), 8)
+    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(200, 60, 60), 9)
     GH.RegisterButton(btnScan, function()
         if not GH.player.Character then return end; local cnt = 0
         for _, v in pairs(GH.player.Character:GetDescendants()) do 
@@ -827,7 +847,7 @@ local success, err = pcall(function()
 
     -- === NPC ESP ===
     -- Works identical to Player ESP but scans workspace for non-player Humanoids
-    local btnNpc = GH.createBtn("NPC: OFF", Color3.fromRGB(200, 60, 60), 9); local npc_on = false
+    local btnNpc = GH.createBtn("NPC: OFF", Color3.fromRGB(200, 60, 60), 10); local npc_on = false
     GH.RegisterButton(btnNpc, function() npc_on = not npc_on; btnNpc.Text = npc_on and "NPC: ON" or "NPC: OFF"; btnNpc.BackgroundColor3 = npc_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
         for _, v in pairs(workspace:GetDescendants()) do if v:IsA("Model") and (v:FindFirstChild("Humanoid") or v:FindFirstChild("HumanoidRootPart")) and not GH.Players:GetPlayerFromCharacter(v) then local h = v:FindFirstChild("GhostNPC"); if npc_on and not h then local nh = Instance.new("Highlight", v); nh.Name = "GhostNPC"; nh.FillColor = Color3.fromRGB(255, 215, 0); nh.OutlineColor = Color3.fromRGB(255, 215, 0); nh.FillTransparency = 0.5; nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop elseif not npc_on and h then h:Destroy() end end end 
     end)
@@ -835,7 +855,7 @@ local success, err = pcall(function()
 
     -- === LIGHT ===
     -- Attaches a bright pointlight to your character for dark areas
-    local btnLight = GH.createBtn("LIGHT: OFF", Color3.fromRGB(200, 60, 60), 10); local light_on = false
+    local btnLight = GH.createBtn("LIGHT: OFF", Color3.fromRGB(200, 60, 60), 11); local light_on = false
     GH.RegisterButton(btnLight, function() light_on = not light_on; local char = GH.player.Character
         if light_on then btnLight.Text = "LIGHT: ON"; btnLight.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if char and char:FindFirstChild("HumanoidRootPart") then for _, v in pairs(char.HumanoidRootPart:GetChildren()) do if v.Name == "GhostHubLight" then v:Destroy() end end; local l = Instance.new("PointLight", char.HumanoidRootPart); l.Name = "GhostHubLight"; l.Range = 60; l.Brightness = 2; l.Color = Color3.new(1, 1, 1) end 
         else btnLight.Text = "LIGHT: OFF"; btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if char then for _, v in pairs(char:GetDescendants()) do if v.Name == "GhostHubLight" then v:Destroy() end end end end 
@@ -843,7 +863,7 @@ local success, err = pcall(function()
 
     -- === FPS BOOST ===
     -- Removes shadows, fog, and complex materials to boost frame rate
-    local btnFps = GH.createBtn("FPS BOOST: OFF", Color3.fromRGB(200, 60, 60), 11)
+    local btnFps = GH.createBtn("FPS BOOST: OFF", Color3.fromRGB(200, 60, 60), 12)
     local fps_on, fps_cache, lighting_cache = false, {}, {}
     GH.RegisterButton(btnFps, function() fps_on = not fps_on; btnFps.Text = fps_on and "FPS BOOST: ON" or "FPS BOOST: OFF"; btnFps.BackgroundColor3 = fps_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
         if fps_on then lighting_cache = {GS = game.Lighting.GlobalShadows, FE = game.Lighting.FogEnd}; game.Lighting.GlobalShadows = false; game.Lighting.FogEnd = 9e9; for _, v in pairs(workspace:GetDescendants()) do if v:IsA("BasePart") and not v:IsA("Terrain") then if not fps_cache[v] then fps_cache[v] = {M = v.Material, R = v.Reflectance, C = v.CastShadow} end; v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0; v.CastShadow = false end end
@@ -852,7 +872,7 @@ local success, err = pcall(function()
 
     -- === UNLOCK JUMP ===
     -- Forces jumping and overrides anti-jump constraints (Will lock jump if disabled after menu launch)
-    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 12); local jump_unlock_on, jumpLoop = false, nil
+    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 13); local jump_unlock_on, jumpLoop = false, nil
     GH.RegisterButton(btnJump, function()
         jump_unlock_on = not jump_unlock_on
         if jump_unlock_on then btnJump.Text = "UNLOCK JUMP: ON"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if jumpLoop then jumpLoop:Disconnect() end; jumpLoop = GH.RunService.Stepped:Connect(function() if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then if GH.player.Character.Humanoid.JumpPower < 50 then GH.player.Character.Humanoid.JumpPower = 50 end; if GH.player.Character.Humanoid.JumpHeight < 7.2 then GH.player.Character.Humanoid.JumpHeight = 7.2 end; GH.player.Character.Humanoid.UseJumpPower = true; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end end)
@@ -861,15 +881,15 @@ local success, err = pcall(function()
 
     -- === SET / LOAD WAYPOINT ===
     -- Records current position for teleporting back to later
-    local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(200, 60, 60), 13); local SavedCFrame = nil
+    local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(200, 60, 60), 14); local SavedCFrame = nil
     GH.RegisterButton(btnSetCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then SavedCFrame = GH.player.Character.HumanoidRootPart.CFrame; btnSetCP.Text = "SAVED!"; btnSetCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.5); btnSetCP.Text = "SET POINT"; btnSetCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end end)
 
-    local btnLoadCP = GH.createBtn("LOAD POINT", Color3.fromRGB(200, 60, 60), 14)
+    local btnLoadCP = GH.createBtn("LOAD POINT", Color3.fromRGB(200, 60, 60), 15)
     GH.RegisterButton(btnLoadCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") and SavedCFrame then GH.player.Character.HumanoidRootPart.CFrame = SavedCFrame; btnLoadCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.2); btnLoadCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) else btnLoadCP.Text = "NO POINT!"; task.wait(0.5); btnLoadCP.Text = "LOAD POINT" end end)
 
     -- === POCKET INVENTORY ===
     -- Creates a custom UI window to manually manage Backpack tools (useful if the game disables inventory)
-    local btnPocket = GH.createBtn("POCKET INV: OFF", Color3.fromRGB(200, 60, 60), 15)
+    local btnPocket = GH.createBtn("POCKET INV: OFF", Color3.fromRGB(200, 60, 60), 16)
     local invFrame, iScroll = nil, nil
     local invConnections = {}
 
@@ -941,7 +961,7 @@ local success, err = pcall(function()
 
     -- === ROBLOX INV ===
     -- Turns the core Roblox inventory GUI bar on/off
-    local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 16)
+    local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 17)
     GH.RegisterButton(btnRobloxInv, function()
         if btnRobloxInv.Text == "ROBLOX INV: OFF" then pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end); btnRobloxInv.Text = "ROBLOX INV: ON"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(0, 180, 100)        
         else pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end); btnRobloxInv.Text = "ROBLOX INV: OFF"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end    
