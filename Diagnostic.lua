@@ -1,91 +1,106 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 
--- Configuration
+-- Speed Configuration (Set insanely low since you can bypass animation states)
 local STAB_RANGE = 15
 local SHOOT_RANGE = 250
-local SHOOT_COOLDOWN = 0.5
-local RELOAD_WAIT = 1.5
-local LOOP_DELAY = 0.1
+local SHOOT_COOLDOWN = 0.05 
+local STAB_COOLDOWN = 0.05
+local RELOAD_COOLDOWN = 0.1 
 
--- Calculates the shortest distance to a valid enemy head
+-- Timers to prevent completely crashing your game/server
+local lastShoot = 0
+local lastStab = 0
+local lastReload = 0
+
+-- Scans both Players and Workspace for the nearest head
 local function getClosestTarget()
     local closestHead = nil
-    local shortestDistance = math.huge
-    local character = LocalPlayer.Character
+    local shortestDist = math.huge
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, nil end
+    local rootPos = char.HumanoidRootPart.Position
 
-    -- Prevent execution if your character isn't fully loaded
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        return nil, nil
-    end
-
-    local rootPos = character.HumanoidRootPart.Position
-
-    -- Iterate through all players to find the closest valid target
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local enemyHumanoid = player.Character:FindFirstChild("Humanoid")
-            local enemyHead = player.Character:FindFirstChild("Head")
-
-            -- Ensure the target is alive and has a Head part
-            if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHead then
-                local distance = (enemyHead.Position - rootPos).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestHead = enemyHead
-                end
+    local function checkTarget(model)
+        if model == char then return end
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local head = model:FindFirstChild("Head")
+        
+        -- Target must be alive and have a head part
+        if hum and hum.Health > 0 and head then
+            local dist = (head.Position - rootPos).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                closestHead = head
             end
         end
     end
 
-    return closestHead, shortestDistance
+    -- 1. Check actual Players
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then checkTarget(p.Character) end
+    end
+
+    -- 2. Check Workspace for NPCs/Bots
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+            checkTarget(obj)
+        end
+    end
+
+    return closestHead, shortestDist
 end
 
--- Main Automation Loop
-task.spawn(function()
-    while task.wait(LOOP_DELAY) do
-        local character = LocalPlayer.Character
-        if not character then continue end
+-- Replaced the while loop with Heartbeat for maximum smooth execution
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
 
-        -- Only run the logic if the Musket is currently equipped
-        local musket = character:FindFirstChild("Musket")
-        if not musket then continue end 
+    local musket = char:FindFirstChild("Musket")
+    if not musket then return end 
 
-        local remote = musket:FindFirstChild("RemoteEvent")
-        local ammo = musket:FindFirstChild("Ammo")
-        if not remote then continue end
+    local remote = musket:FindFirstChild("RemoteEvent")
+    local ammo = musket:FindFirstChild("Ammo")
+    if not remote then return end
 
-        -- 1. Auto Reload Logic
-        if ammo and ammo.Value <= 0 then
-            remote:FireServer(nil, "Reload")
-            task.wait(RELOAD_WAIT) -- Wait for the server to register the reload
-            continue
+    local now = os.clock()
+    local targetHead, distance = getClosestTarget()
+
+    -- PRIORITY 1: Melee
+    -- The decompiled script allows stabbing even if ammo is 0
+    if targetHead and distance <= STAB_RANGE then
+        if now - lastStab > STAB_COOLDOWN then
+            remote:FireServer(nil, "Stab")
+            lastStab = now
         end
 
-        -- 2. Target Acquisition
-        local targetHead, distance = getClosestTarget()
-        if not targetHead then continue end
-
-        -- 3. Action Execution (Stab vs. Shoot)
-        if distance <= STAB_RANGE then
-            -- Engage in melee if within stabbing distance
-            remote:FireServer(nil, "Stab")
-            task.wait(0.25)
-            
-        elseif distance <= SHOOT_RANGE then
-            -- Shoot if ammo is available
-            if ammo and ammo.Value > 0 then
+    -- PRIORITY 2: Shoot
+    elseif targetHead and distance <= SHOOT_RANGE then
+        if ammo and ammo.Value >= 1 then
+            if now - lastShoot > SHOOT_COOLDOWN then
                 local origin = Camera.CFrame.Position
-                
-                -- Calculate the exact vector intersection to the target's head
                 local direction = (targetHead.Position - origin).Unit * SHOOT_RANGE
-
-                -- Spoof the raycast arguments to the server
-                remote:FireServer(Ray.new(origin, direction), "Shoot")
                 
-                -- Cooldown to prevent the server from flagging remote spam
-                task.wait(SHOOT_COOLDOWN) 
+                remote:FireServer(Ray.new(origin, direction), "Shoot")
+                lastShoot = now
+            end
+        -- If looking at a target but empty, spam reload
+        elseif ammo and ammo.Value <= 0 then
+            if now - lastReload > RELOAD_COOLDOWN then
+                remote:FireServer(nil, "Reload")
+                lastReload = now
+            end
+        end
+        
+    -- PRIORITY 3: Idle Reload
+    else
+        -- Automatically top off ammo when no targets are nearby
+        if ammo and ammo.Value <= 0 then
+            if now - lastReload > RELOAD_COOLDOWN then
+                remote:FireServer(nil, "Reload")
+                lastReload = now
             end
         end
     end
