@@ -377,6 +377,66 @@ local success, err = pcall(function()
     -- CHEAT FUNCTIONS
     -- ==========================================
 
+    -- === NPC AIMBOT ===
+    -- Auto-locks the camera to the closest non-player Humanoid (NPC)
+    local btnNpcAimbot = GH.createBtn("NPC AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 16)
+    local npc_lock_on = false
+    local npcLockConnection = nil
+
+    -- Function to scan the workspace and find the closest NPC's head
+    local function getNearestNPCHead()
+        local closestHead = nil
+        local shortestDistance = math.huge
+        local localChar = GH.player.Character
+        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+
+        if not localRoot then return nil end
+
+        for _, v in pairs(workspace:GetDescendants()) do
+            -- Look for Models that are NOT players
+            if v:IsA("Model") and not GH.Players:GetPlayerFromCharacter(v) then
+                local head = v:FindFirstChild("Head")
+                local root = v:FindFirstChild("HumanoidRootPart")
+                local hum = v:FindFirstChild("Humanoid")
+
+                -- Ensure the NPC is alive and has the necessary parts
+                if head and root and hum and hum.Health > 0 then
+                    local distance = (localRoot.Position - root.Position).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestHead = head
+                    end
+                end
+            end
+        end
+        return closestHead
+    end
+
+    GH.RegisterButton(btnNpcAimbot, function()
+        npc_lock_on = not npc_lock_on
+        btnNpcAimbot.Text = npc_lock_on and "NPC AIMBOT: ON" or "NPC AIMBOT: OFF"
+        btnNpcAimbot.BackgroundColor3 = npc_lock_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
+
+        if npc_lock_on then
+            if not npcLockConnection then
+                -- Bound to RenderStepped to smoothly lock the camera every frame
+                npcLockConnection = GH.RunService.RenderStepped:Connect(function()
+                    local targetHead = getNearestNPCHead()
+                    local currentCamera = workspace.CurrentCamera
+                    
+                    if targetHead and currentCamera then
+                        currentCamera.CFrame = CFrame.lookAt(currentCamera.CFrame.Position, targetHead.Position)
+                    end
+                end)
+            end
+        else
+            if npcLockConnection then
+                npcLockConnection:Disconnect()
+                npcLockConnection = nil
+            end
+        end
+    end)
+
     -- === INVISIBILITY ===
     local btnInvis = Instance.new("TextButton", scroll)
     btnInvis.Name = ""; -- Obfuscated
@@ -933,6 +993,17 @@ local success, err = pcall(function()
                 if lockConnection then 
                     lockConnection:Disconnect() 
                     lockConnection = nil 
+                end
+            end)
+        end
+        if npc_lock_on then
+            npc_lock_on = false
+            pcall(function()
+                btnNpcAimbot.Text = "NPC AIMBOT: OFF"
+                btnNpcAimbot.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if npcLockConnection then 
+                    npcLockConnection:Disconnect() 
+                    npcLockConnection = nil 
                 end
             end)
         end
