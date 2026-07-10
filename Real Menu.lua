@@ -1082,6 +1082,91 @@ local success, err = pcall(function()
     platSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = true; setPlatScale(i) end end)
     GH.UserInputService.InputChanged:Connect(function(i) if dragPlat and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setPlatScale(i) end end)
     GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = false end end)
+
+    -- === HOVER HIGHLIGHT ===
+    -- Highlights objects your mouse hovers over. Clicking them locks the highlight permanently.
+    local btnHoverHighlight = GH.createBtn("HOVER HIGHLIGHT: OFF", Color3.fromRGB(200, 60, 60), 18) 
+    local hover_high_on = false
+    local hoverLoop = nil
+    local hoverClickConn = nil
+    local currentHoverPart = nil
+
+    -- Create the temporary highlight for the hover effect
+    local tempHighlight = Instance.new("Highlight")
+    tempHighlight.Name = "GhostTempHighlight"
+    tempHighlight.FillColor = Color3.fromRGB(0, 255, 255) -- Cyan for hover
+    tempHighlight.OutlineColor = Color3.new(1, 1, 1)
+    tempHighlight.FillTransparency = 0.5
+
+    GH.RegisterButton(btnHoverHighlight, function()
+        hover_high_on = not hover_high_on
+        if hover_high_on then
+            btnHoverHighlight.Text = "HOVER HIGHLIGHT: ON"
+            btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            local mouse = GH.player:GetMouse()
+
+            -- Loop to handle the hover effect
+            hoverLoop = GH.RunService.RenderStepped:Connect(function()
+                local target = mouse.Target
+                if target and target:IsA("BasePart") then
+                    if target ~= currentHoverPart then
+                        currentHoverPart = target
+                        tempHighlight.Parent = currentHoverPart
+                    end
+                else
+                    currentHoverPart = nil
+                    tempHighlight.Parent = nil
+                end
+            end)
+
+            -- Click listener to lock the highlight
+            hoverClickConn = GH.UserInputService.InputBegan:Connect(function(input, gpe)
+                -- Only trigger if not clicking UI and using Left Click
+                if not gpe and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    local target = mouse.Target
+                    if target and target:IsA("BasePart") then
+                        -- Toggle the permanent highlight on click
+                        local existing = target:FindFirstChild("GhostPermHighlight")
+                        if existing then
+                            existing:Destroy() -- Click again to remove it
+                        else
+                            local perm = Instance.new("Highlight")
+                            perm.Name = "GhostPermHighlight"
+                            perm.FillColor = Color3.fromRGB(0, 255, 0) -- Green for locked
+                            perm.OutlineColor = Color3.new(1, 1, 1)
+                            perm.FillTransparency = 0.5
+                            perm.Parent = target
+                        end
+                    end
+                end
+            end)
+        else
+            btnHoverHighlight.Text = "HOVER HIGHLIGHT: OFF"
+            btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            if hoverLoop then hoverLoop:Disconnect(); hoverLoop = nil end
+            if hoverClickConn then hoverClickConn:Disconnect(); hoverClickConn = nil end
+            tempHighlight.Parent = nil
+            currentHoverPart = nil
+        end
+    end)
+
+    -- === CLEAR HIGHLIGHTS ===
+    -- Wipes all locked highlights from the map
+    local btnClearHighlights = GH.createBtn("CLEAR HIGHLIGHTS", Color3.fromRGB(200, 60, 60), 19)
+    GH.RegisterButton(btnClearHighlights, function()
+        btnClearHighlights.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+        local count = 0
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("Highlight") and v.Name == "GhostPermHighlight" then
+                v:Destroy()
+                count = count + 1
+            end
+        end
+        btnClearHighlights.Text = "CLEARED: " .. count
+        task.wait(1)
+        btnClearHighlights.Text = "CLEAR HIGHLIGHTS"
+        btnClearHighlights.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    end)
     
     -- === ROBLOX INV ===
     -- Turns the core Roblox inventory GUI bar on/off
@@ -1094,7 +1179,19 @@ local success, err = pcall(function()
     -- ==========================================
     -- RESET & DEATH HANDLING
     -- ==========================================
-        
+
+    if hover_high_on then
+        hover_high_on = false
+        pcall(function()
+            btnHoverHighlight.Text = "HOVER HIGHLIGHT: OFF"
+            btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            if hoverLoop then hoverLoop:Disconnect(); hoverLoop = nil end
+            if hoverClickConn then hoverClickConn:Disconnect(); hoverClickConn = nil end
+            tempHighlight.Parent = nil
+            currentHoverPart = nil
+        end)
+    end
+    
     -- Safely disables active cheat loops when the player dies to prevent the game crashing
     local function resetToggles()
         if invis_on then
