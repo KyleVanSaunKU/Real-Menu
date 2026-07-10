@@ -959,6 +959,130 @@ local success, err = pcall(function()
         updateInvList()
     end)
 
+    -- === SPAWN PLATFORM ===
+    -- Spawns a secure platform under the player's feet
+    local btnPlatform = Instance.new("TextButton", scroll)
+    btnPlatform.Name = "" -- Obfuscated
+    btnPlatform.Size = UDim2.new(0.95, 0, 0, 30)
+    btnPlatform.BackgroundColor3 = Color3.fromRGB(80, 100, 140) -- Distinct blue color for utility
+    btnPlatform.Text = "PLATFORM" 
+    btnPlatform.TextColor3 = Color3.new(1, 1, 1)
+    btnPlatform.Font = Enum.Font.Arcade
+    btnPlatform.TextSize = 12
+    btnPlatform.LayoutOrder = 17 -- (Optional: bump the ROBLOX INV layout order to 18)
+    btnPlatform.ClipsDescendants = true
+    btnPlatform.AutoLocalize = false
+    btnPlatform.TextYAlignment = Enum.TextYAlignment.Center
+
+    local platPadding = Instance.new("UIPadding", btnPlatform)
+    platPadding.PaddingTop = UDim.new(0, 0)
+    Instance.new("UICorner", btnPlatform).CornerRadius = UDim.new(0, 6)
+
+    local arrowPlat = Instance.new("TextButton", btnPlatform)
+    arrowPlat.Name = "ArrowToggle" 
+    arrowPlat.Size = UDim2.new(0, 30, 0, 30)
+    arrowPlat.Position = UDim2.new(1, -30, 0, 0)
+    arrowPlat.BackgroundTransparency = 1
+    arrowPlat.Text = "V"
+    arrowPlat.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrowPlat.Font = Enum.Font.Arcade
+    arrowPlat.TextSize = 14
+    arrowPlat.AutoLocalize = false
+
+    local platSliderC = Instance.new("Frame", btnPlatform)
+    platSliderC.Name = "" 
+    platSliderC.Size = UDim2.new(1, 0, 0, 35)
+    platSliderC.Position = UDim2.new(0, 0, 0, 18)
+    platSliderC.BackgroundTransparency = 1
+    platSliderC.Visible = false
+
+    local platSliderBg = Instance.new("Frame", platSliderC)
+    platSliderBg.Size = UDim2.new(0.8, 0, 0, 4)
+    platSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
+    platSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    platSliderBg.BorderSizePixel = 0
+    Instance.new("UICorner", platSliderBg).CornerRadius = UDim.new(1, 0)
+
+    local platSliderFill = Instance.new("Frame", platSliderBg)
+    platSliderFill.Size = UDim2.new(15 / 1000, 0, 1, 0)
+    platSliderFill.BackgroundColor3 = Color3.new(1, 1, 1)
+    platSliderFill.BorderSizePixel = 0
+    Instance.new("UICorner", platSliderFill).CornerRadius = UDim.new(1, 0)
+
+    local platSliderTrig = Instance.new("TextButton", platSliderBg)
+    platSliderTrig.Size = UDim2.new(1, 0, 6, 0)
+    platSliderTrig.Position = UDim2.new(0, 0, -2.5, 0)
+    platSliderTrig.BackgroundTransparency = 1
+    platSliderTrig.Text = ""
+    platSliderTrig.ZIndex = 10
+
+    local platValText = Instance.new("TextLabel", platSliderC)
+    platValText.Size = UDim2.new(1, 0, 0, 15)
+    platValText.Position = UDim2.new(0, 0, 0.45, 0)
+    platValText.BackgroundTransparency = 1
+    platValText.Text = "SIZE: 15"
+    platValText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    platValText.Font = Enum.Font.Arcade
+    platValText.TextSize = 10
+    platValText.AutoLocalize = false
+
+    local plat_expanded, dragPlat, platSize, maxPlatSize = false, false, 15, 1000
+
+    -- Handle dropdown animation
+    arrowPlat.MouseButton1Click:Connect(function()
+        GH.playSound()
+        plat_expanded = not plat_expanded
+        if plat_expanded then
+            arrowPlat.Text = "^"; btnPlatform.TextYAlignment = Enum.TextYAlignment.Top; platPadding.PaddingTop = UDim.new(0, 6)
+            btnPlatform:TweenSize(UDim2.new(0.95, 0, 0, 60), "Out", "Quad", 0.3, true); platSliderC.Visible = true
+        else
+            arrowPlat.Text = "V"; btnPlatform.TextYAlignment = Enum.TextYAlignment.Center; platPadding.PaddingTop = UDim.new(0, 0)
+            btnPlatform:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true); platSliderC.Visible = false
+        end
+    end)
+
+    -- Handle the platform spawn execution
+    GH.RegisterButton(btnPlatform, function()
+        -- Flash green briefly for UI feedback
+        btnPlatform.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+        task.delay(0.2, function() btnPlatform.BackgroundColor3 = Color3.fromRGB(80, 100, 140) end)
+
+        local char = GH.player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            -- Optional: Delete the previous platform to prevent clutter. 
+            -- (Remove this loop if you want to be able to build staircases by jumping and spawning!)
+            for _, v in pairs(workspace:GetChildren()) do
+                if v.Name == "GhostHubPlatform" then v:Destroy() end
+            end
+
+            local p = Instance.new("Part")
+            p.Name = "GhostHubPlatform"
+            p.Size = Vector3.new(platSize, 1, platSize)
+            p.Anchored = true
+            p.CanCollide = true
+            p.Transparency = 0.3
+            p.BrickColor = BrickColor.new("Lily white")
+            p.Material = Enum.Material.Neon
+            
+            -- HRP is ~3 studs above ground. Offset 3.5 down so the player stands flush on it.
+            p.CFrame = char.HumanoidRootPart.CFrame * CFrame.new(0, -3.5, 0)
+            p.Parent = workspace
+        end
+    end)
+
+    -- Handle slider physics
+    local function setPlatScale(input)
+        local p = math.clamp((input.Position.X - platSliderBg.AbsolutePosition.X) / platSliderBg.AbsoluteSize.X, 0, 1)
+        platSliderFill.Size = UDim2.new(p, 0, 1, 0)
+        platSize = math.floor(p * maxPlatSize)
+        if platSize < 4 then platSize = 4 end -- Minimum size so you don't slip off
+        platValText.Text = "SIZE: " .. platSize
+    end
+
+    platSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = true; setPlatScale(i) end end)
+    GH.UserInputService.InputChanged:Connect(function(i) if dragPlat and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setPlatScale(i) end end)
+    GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = false end end)
+    
     -- === ROBLOX INV ===
     -- Turns the core Roblox inventory GUI bar on/off
     local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 17)
