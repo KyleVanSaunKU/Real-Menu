@@ -1084,7 +1084,7 @@ local success, err = pcall(function()
     GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = false end end)
 
     -- === HOVER HIGHLIGHT ===
-    -- Highlights objects your mouse hovers over. Clicking them locks the highlight permanently.
+    -- Highlights objects your mouse hovers over (including invisible boundaries). Clicking locks it.
     local btnHoverHighlight = GH.createBtn("HOVER HIGHLIGHT: OFF", Color3.fromRGB(200, 60, 60), 18) 
     local hover_high_on = false
     local hoverLoop = nil
@@ -1098,16 +1098,30 @@ local success, err = pcall(function()
     tempHighlight.OutlineColor = Color3.new(1, 1, 1)
     tempHighlight.FillTransparency = 0.5
 
+    -- Custom Raycast function to bypass the Transparency=1 limitation of mouse.Target
+    local function getHoverTarget()
+        local mouse = GH.player:GetMouse()
+        local ray = mouse.UnitRay
+        
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        -- Ignore your own character so you don't highlight yourself in first-person
+        params.FilterDescendantsInstances = {GH.player.Character}
+        
+        -- Cast a ray 2000 studs forward
+        local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
+        return result and result.Instance or nil
+    end
+
     GH.RegisterButton(btnHoverHighlight, function()
         hover_high_on = not hover_high_on
         if hover_high_on then
             btnHoverHighlight.Text = "HOVER HIGHLIGHT: ON"
             btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
-            local mouse = GH.player:GetMouse()
 
             -- Loop to handle the hover effect
             hoverLoop = GH.RunService.RenderStepped:Connect(function()
-                local target = mouse.Target
+                local target = getHoverTarget()
                 if target and target:IsA("BasePart") then
                     if target ~= currentHoverPart then
                         currentHoverPart = target
@@ -1121,14 +1135,13 @@ local success, err = pcall(function()
 
             -- Click listener to lock the highlight
             hoverClickConn = GH.UserInputService.InputBegan:Connect(function(input, gpe)
-                -- Only trigger if not clicking UI and using Left Click
                 if not gpe and input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local target = mouse.Target
+                    local target = getHoverTarget()
                     if target and target:IsA("BasePart") then
                         -- Toggle the permanent highlight on click
                         local existing = target:FindFirstChild("GhostPermHighlight")
                         if existing then
-                            existing:Destroy() -- Click again to remove it
+                            existing:Destroy()
                         else
                             local perm = Instance.new("Highlight")
                             perm.Name = "GhostPermHighlight"
