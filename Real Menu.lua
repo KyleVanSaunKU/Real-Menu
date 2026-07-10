@@ -1084,12 +1084,14 @@ local success, err = pcall(function()
     GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragPlat = false end end)
 
     -- === HOVER HIGHLIGHT ===
-    -- Highlights objects your mouse hovers over (including invisible boundaries). Clicking locks it.
+    -- Highlights objects your mouse hovers over. Bypasses CanQuery=false and invisible walls.
     local btnHoverHighlight = GH.createBtn("HOVER HIGHLIGHT: OFF", Color3.fromRGB(200, 60, 60), 18) 
     local hover_high_on = false
     local hoverLoop = nil
     local hoverClickConn = nil
+    local partAddedConn = nil
     local currentHoverPart = nil
+    local canQueryCache = {} -- Stores parts we modified so we can safely revert them later
 
     -- Create the temporary highlight for the hover effect
     local tempHighlight = Instance.new("Highlight")
@@ -1098,17 +1100,23 @@ local success, err = pcall(function()
     tempHighlight.OutlineColor = Color3.new(1, 1, 1)
     tempHighlight.FillTransparency = 0.5
 
-    -- Custom Raycast function to bypass the Transparency=1 limitation of mouse.Target
+    -- Helper function to force parts to be raycast-able
+    local function forceQueryable(part)
+        if part:IsA("BasePart") and part.CanQuery == false then
+            canQueryCache[part] = true
+            part.CanQuery = true
+        end
+    end
+
+    -- Custom Raycast function to bypass the Transparency=1 limitation
     local function getHoverTarget()
         local mouse = GH.player:GetMouse()
         local ray = mouse.UnitRay
         
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
-        -- Ignore your own character so you don't highlight yourself in first-person
         params.FilterDescendantsInstances = {GH.player.Character}
         
-        -- Cast a ray 2000 studs forward
         local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
         return result and result.Instance or nil
     end
@@ -1118,6 +1126,14 @@ local success, err = pcall(function()
         if hover_high_on then
             btnHoverHighlight.Text = "HOVER HIGHLIGHT: ON"
             btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+
+            -- 1. Scan existing parts and force them to be queryable
+            for _, v in pairs(workspace:GetDescendants()) do
+                forceQueryable(v)
+            end
+
+            -- 2. Listen for any new parts spawning in and force them too
+            partAddedConn = workspace.DescendantAdded:Connect(forceQueryable)
 
             -- Loop to handle the hover effect
             hoverLoop = GH.RunService.RenderStepped:Connect(function()
@@ -1138,7 +1154,6 @@ local success, err = pcall(function()
                 if not gpe and input.UserInputType == Enum.UserInputType.MouseButton1 then
                     local target = getHoverTarget()
                     if target and target:IsA("BasePart") then
-                        -- Toggle the permanent highlight on click
                         local existing = target:FindFirstChild("GhostPermHighlight")
                         if existing then
                             existing:Destroy()
@@ -1156,13 +1171,25 @@ local success, err = pcall(function()
         else
             btnHoverHighlight.Text = "HOVER HIGHLIGHT: OFF"
             btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            
+            -- Clean up connections
             if hoverLoop then hoverLoop:Disconnect(); hoverLoop = nil end
             if hoverClickConn then hoverClickConn:Disconnect(); hoverClickConn = nil end
+            if partAddedConn then partAddedConn:Disconnect(); partAddedConn = nil end
+            
             tempHighlight.Parent = nil
             currentHoverPart = nil
+            
+            -- Revert all the parts we modified back to their original state
+            for part, _ in pairs(canQueryCache) do
+                if part and part.Parent then
+                    part.CanQuery = false
+                end
+            end
+            table.clear(canQueryCache)
         end
     end)
-
+        
     -- === CLEAR HIGHLIGHTS ===
     -- Wipes all locked highlights from the map
     local btnClearHighlights = GH.createBtn("CLEAR HIGHLIGHTS", Color3.fromRGB(200, 60, 60), 19)
@@ -1200,8 +1227,15 @@ local success, err = pcall(function()
             btnHoverHighlight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
             if hoverLoop then hoverLoop:Disconnect(); hoverLoop = nil end
             if hoverClickConn then hoverClickConn:Disconnect(); hoverClickConn = nil end
+            if partAddedConn then partAddedConn:Disconnect(); partAddedConn = nil end
             tempHighlight.Parent = nil
             currentHoverPart = nil
+            
+            -- Revert cache on death
+            for part, _ in pairs(canQueryCache) do
+                if part and part.Parent then part.CanQuery = false end
+            end
+            table.clear(canQueryCache)
         end)
     end
     
