@@ -22,6 +22,7 @@ local success, err = pcall(function()
     local Debris = game:GetService("Debris") -- Used to clean up instances automatically
     local player = Players.LocalPlayer -- Get your local Player
     local camera = Workspace.CurrentCamera -- Get your Players camera
+    local Wait = task.wait
 
     -- Store references in the global GH table for easy access inside functions
     GH.Players = Players -- Players
@@ -33,6 +34,14 @@ local success, err = pcall(function()
     GH.ButtonLogics = {} -- Maps a UI button to its specific function
     GH.bindingBtn = nil -- Tracks which button is currently waiting for a keybind input
     GH.bindingOrigText = "" -- Stores the original text of a button while it is being bound again
+
+    -- ==========================================
+    -- FLING HELPER FUNCTIONS
+    -- ==========================================
+    local function getPlrHum(char) return char and char:FindFirstChildOfClass("Humanoid") end
+    local function getHead(char) return char and (char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso")) end
+    local function getRoot(char) return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")) end
+    local flingManager = { cFlingOldPos = nil, lFlingOldPos = nil }
 
     -- ==========================================
     -- KEYBIND LOGIC OVERHAUL
@@ -684,9 +693,181 @@ local success, err = pcall(function()
         end
     end)
 
+    -- === CLICK FLING ===
+    local btnClickFling = GH.createBtn("CLICK FLING: OFF", Color3.fromRGB(200, 60, 60), 6)
+    local click_fling_on = false
+
+    GH.RegisterButton(btnClickFling, function()
+        click_fling_on = not click_fling_on
+        btnClickFling.Text = click_fling_on and "CLICK FLING: ON" or "CLICK FLING: OFF"
+        btnClickFling.BackgroundColor3 = click_fling_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
+    end)
+
+    local Mouse = GH.player:GetMouse()
+    Mouse.Button1Down:Connect(function()
+        if not click_fling_on then return end
+        
+        local Target = Mouse.Target
+        if Target and Target.Parent and Target.Parent:IsA("Model") and GH.Players:GetPlayerFromCharacter(Target.Parent) then
+            local targetUser = GH.Players:GetPlayerFromCharacter(Target.Parent)
+            if targetUser == GH.player then return end
+            
+            local TargetPlayer = targetUser
+            local Character = GH.player.Character
+            local Humanoid = getPlrHum(Character)
+            local RootPart = Humanoid and Humanoid.RootPart
+            local TCharacter = TargetPlayer.Character
+            local THumanoid = getPlrHum(TCharacter)
+            local TRootPart = THumanoid and THumanoid.RootPart
+            local THead = getHead(TCharacter)
+            local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+            local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+            if Character and Humanoid and RootPart then
+                if not flingManager.cFlingOldPos or RootPart.Velocity.Magnitude < 50 then
+                    flingManager.cFlingOldPos = RootPart.CFrame
+                end
+                if THead then
+                    workspace.CurrentCamera.CameraSubject = THead
+                elseif Handle then
+                    workspace.CurrentCamera.CameraSubject = Handle
+                elseif THumanoid and TRootPart then
+                    workspace.CurrentCamera.CameraSubject = THumanoid
+                end
+                
+                if not TCharacter or not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
+
+                local function FPos(BasePart, Pos, Ang)
+                    RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+                    Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+                    RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+                    RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+                end
+
+                local function SFBasePart(BasePart)
+                    local TimeToWait = 2
+                    local Time = tick()
+                    local Angle = 0
+                    repeat
+                        if RootPart and THumanoid and TCharacter and TCharacter.Parent then
+                            if BasePart.Velocity.Magnitude < 50 then
+                                Angle = Angle + 100
+                                FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                            else
+                                FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(-90), 0, 0)) Wait()
+                                FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0)) Wait()
+                            end
+                        else
+                            break
+                        end
+                    until not BasePart or not BasePart.Parent or BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TargetPlayer.Character or TargetPlayer.Parent ~= GH.Players or TargetPlayer.Character ~= TCharacter or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
+                end
+
+                local targetPart = TRootPart or THead or Handle
+
+                local OrgDestroyHeight = workspace.FallenPartsDestroyHeight
+                workspace.FallenPartsDestroyHeight = 0 / 0
+                
+                local BV = Instance.new("BodyVelocity")
+                BV.Parent = RootPart
+                BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+                BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+                
+                Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+                
+                if TRootPart and THead then
+                    if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then SFBasePart(THead) else SFBasePart(TRootPart) end
+                elseif TRootPart and not THead then
+                    SFBasePart(TRootPart)
+                elseif not TRootPart and THead then
+                    SFBasePart(THead)
+                elseif not TRootPart and not THead and Accessory and Handle then
+                    SFBasePart(Handle)
+                end
+                
+                if BV then BV:Destroy() end
+                Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                workspace.CurrentCamera.CameraSubject = Humanoid
+                
+                repeat
+                    if RootPart and flingManager.cFlingOldPos then
+                        RootPart.CFrame = flingManager.cFlingOldPos * CFrame.new(0, 0.5, 0)
+                        Character:SetPrimaryPartCFrame(flingManager.cFlingOldPos * CFrame.new(0, 0.5, 0))
+                        Humanoid:ChangeState("GettingUp")
+                        for _, x in next, Character:GetChildren() do
+                            if x:IsA("BasePart") then
+                                x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
+                            end
+                        end
+                    end
+                    Wait()
+                until not RootPart or (RootPart.Position - flingManager.cFlingOldPos.p).Magnitude < 25
+                workspace.FallenPartsDestroyHeight = OrgDestroyHeight
+            end
+        end
+    end)
+
+    -- === WALK FLING ===
+    local btnWalkFling = GH.createBtn("WALK FLING: OFF", Color3.fromRGB(200, 60, 60), 7)
+    local walk_fling_on = false
+
+    local function startWalkFlingLoop()
+        task.spawn(function()
+            local movel = 0.1
+            while walk_fling_on do
+                GH.RunService.Heartbeat:Wait()
+                local character = GH.player.Character
+                local root = getRoot(character)
+                
+                if character and character.Parent and root and root.Parent then
+                    local vel = root.Velocity
+                    root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+
+                    GH.RunService.RenderStepped:Wait()
+                    if character and character.Parent and root and root.Parent then
+                        root.Velocity = vel
+                    end
+
+                    GH.RunService.Stepped:Wait()
+                    if character and character.Parent and root and root.Parent then
+                        root.Velocity = vel + Vector3.new(0, movel, 0)
+                        movel = movel * -1
+                    end
+                else
+                    GH.RunService.Heartbeat:Wait()
+                end
+            end
+        end)
+    end
+
+    GH.RegisterButton(btnWalkFling, function()
+        walk_fling_on = not walk_fling_on
+        if walk_fling_on then
+            btnWalkFling.Text = "WALK FLING: ON"
+            btnWalkFling.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            startWalkFlingLoop()
+        else
+            btnWalkFling.Text = "WALK FLING: OFF"
+            btnWalkFling.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        end
+    end)
+
     -- === NPC AIMBOT ===
     -- Auto-locks the camera to the closest non-player Humanoid (NPC)
-    local btnNpcAimbot = GH.createBtn("NPC AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 6)
+    local btnNpcAimbot = GH.createBtn("NPC AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 8)
     local npc_lock_on = false
     local npcLockConnection = nil
 
@@ -746,7 +927,7 @@ local success, err = pcall(function()
 
     -- === AIM PART TOGGLE ===
     -- Switches the target part for both Player and NPC aimbots
-    local btnAimPart = GH.createBtn("AIM PART: HEAD", Color3.fromRGB(80, 100, 140), 7)
+    local btnAimPart = GH.createBtn("AIM PART: HEAD", Color3.fromRGB(80, 100, 140), 9)
     
     GH.RegisterButton(btnAimPart, function()
         if aimTargetPart == "Head" then
@@ -762,7 +943,7 @@ local success, err = pcall(function()
 
     -- === PLAYER ESP ===
     -- Draws outlines around players and a dot over their head if they are far away
-    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 8)
+    local btnEsp = GH.createBtn("PLAYERS: OFF", Color3.fromRGB(200, 60, 60), 10)
     local esp_on = false
     local minDotDistance = 40
 
@@ -835,7 +1016,7 @@ local success, err = pcall(function()
 
     -- === SCAN BODY ===
     -- Deletes unneeded character accessories visually to clean up avatar
-    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(200, 60, 60), 9)
+    local btnScan = GH.createBtn("SCAN BODY", Color3.fromRGB(200, 60, 60), 11)
     GH.RegisterButton(btnScan, function()
         if not GH.player.Character then return end; local cnt = 0
         for _, v in pairs(GH.player.Character:GetDescendants()) do 
@@ -847,7 +1028,7 @@ local success, err = pcall(function()
 
     -- === NPC ESP ===
     -- Works identical to Player ESP but scans workspace for non-player Humanoids
-    local btnNpc = GH.createBtn("NPC: OFF", Color3.fromRGB(200, 60, 60), 10); local npc_on = false
+    local btnNpc = GH.createBtn("NPC: OFF", Color3.fromRGB(200, 60, 60), 12); local npc_on = false
     GH.RegisterButton(btnNpc, function() npc_on = not npc_on; btnNpc.Text = npc_on and "NPC: ON" or "NPC: OFF"; btnNpc.BackgroundColor3 = npc_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
         for _, v in pairs(workspace:GetDescendants()) do if v:IsA("Model") and (v:FindFirstChild("Humanoid") or v:FindFirstChild("HumanoidRootPart")) and not GH.Players:GetPlayerFromCharacter(v) then local h = v:FindFirstChild("GhostNPC"); if npc_on and not h then local nh = Instance.new("Highlight", v); nh.Name = "GhostNPC"; nh.FillColor = Color3.fromRGB(255, 215, 0); nh.OutlineColor = Color3.fromRGB(255, 215, 0); nh.FillTransparency = 0.5; nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop elseif not npc_on and h then h:Destroy() end end end 
     end)
@@ -855,7 +1036,7 @@ local success, err = pcall(function()
 
     -- === LIGHT ===
     -- Attaches a bright pointlight to your character for dark areas
-    local btnLight = GH.createBtn("LIGHT: OFF", Color3.fromRGB(200, 60, 60), 11); local light_on = false
+    local btnLight = GH.createBtn("LIGHT: OFF", Color3.fromRGB(200, 60, 60), 13); local light_on = false
     GH.RegisterButton(btnLight, function() light_on = not light_on; local char = GH.player.Character
         if light_on then btnLight.Text = "LIGHT: ON"; btnLight.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if char and char:FindFirstChild("HumanoidRootPart") then for _, v in pairs(char.HumanoidRootPart:GetChildren()) do if v.Name == "GhostHubLight" then v:Destroy() end end; local l = Instance.new("PointLight", char.HumanoidRootPart); l.Name = "GhostHubLight"; l.Range = 60; l.Brightness = 2; l.Color = Color3.new(1, 1, 1) end 
         else btnLight.Text = "LIGHT: OFF"; btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if char then for _, v in pairs(char:GetDescendants()) do if v.Name == "GhostHubLight" then v:Destroy() end end end end 
@@ -863,7 +1044,7 @@ local success, err = pcall(function()
 
     -- === FPS BOOST ===
     -- Removes shadows, fog, and complex materials to boost frame rate
-    local btnFps = GH.createBtn("FPS BOOST: OFF", Color3.fromRGB(200, 60, 60), 12)
+    local btnFps = GH.createBtn("FPS BOOST: OFF", Color3.fromRGB(200, 60, 60), 14)
     local fps_on, fps_cache, lighting_cache = false, {}, {}
     GH.RegisterButton(btnFps, function() fps_on = not fps_on; btnFps.Text = fps_on and "FPS BOOST: ON" or "FPS BOOST: OFF"; btnFps.BackgroundColor3 = fps_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
         if fps_on then lighting_cache = {GS = game.Lighting.GlobalShadows, FE = game.Lighting.FogEnd}; game.Lighting.GlobalShadows = false; game.Lighting.FogEnd = 9e9; for _, v in pairs(workspace:GetDescendants()) do if v:IsA("BasePart") and not v:IsA("Terrain") then if not fps_cache[v] then fps_cache[v] = {M = v.Material, R = v.Reflectance, C = v.CastShadow} end; v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0; v.CastShadow = false end end
@@ -872,24 +1053,156 @@ local success, err = pcall(function()
 
     -- === UNLOCK JUMP ===
     -- Forces jumping and overrides anti-jump constraints (Will lock jump if disabled after menu launch)
-    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 13); local jump_unlock_on, jumpLoop = false, nil
+    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 15); local jump_unlock_on, jumpLoop = false, nil
     GH.RegisterButton(btnJump, function()
         jump_unlock_on = not jump_unlock_on
         if jump_unlock_on then btnJump.Text = "UNLOCK JUMP: ON"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if jumpLoop then jumpLoop:Disconnect() end; jumpLoop = GH.RunService.Stepped:Connect(function() if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then if GH.player.Character.Humanoid.JumpPower < 50 then GH.player.Character.Humanoid.JumpPower = 50 end; if GH.player.Character.Humanoid.JumpHeight < 7.2 then GH.player.Character.Humanoid.JumpHeight = 7.2 end; GH.player.Character.Humanoid.UseJumpPower = true; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end end)
         else btnJump.Text = "UNLOCK JUMP: OFF"; btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end; if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.JumpPower = 0; GH.player.Character.Humanoid.JumpHeight = 0; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end end
     end)
 
-    -- === SET / LOAD WAYPOINT ===
-    -- Records current position for teleporting back to later
-    local btnSetCP = GH.createBtn("SET POINT", Color3.fromRGB(200, 60, 60), 14); local SavedCFrame = nil
-    GH.RegisterButton(btnSetCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then SavedCFrame = GH.player.Character.HumanoidRootPart.CFrame; btnSetCP.Text = "SAVED!"; btnSetCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.5); btnSetCP.Text = "SET POINT"; btnSetCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end end)
+    -- === WAYPOINTS (Dynamic Multiple Load Points) ===
+    local btnWaypoints = GH.createBtn("LOAD POINTS", Color3.fromRGB(200, 60, 60), 16)
+    btnWaypoints.ClipsDescendants = true
+    btnWaypoints.TextYAlignment = Enum.TextYAlignment.Center
 
-    local btnLoadCP = GH.createBtn("LOAD POINT", Color3.fromRGB(200, 60, 60), 15)
-    GH.RegisterButton(btnLoadCP, function() if GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") and SavedCFrame then GH.player.Character.HumanoidRootPart.CFrame = SavedCFrame; btnLoadCP.BackgroundColor3 = Color3.fromRGB(50, 150, 50); task.wait(0.2); btnLoadCP.BackgroundColor3 = Color3.fromRGB(200, 60, 60) else btnLoadCP.Text = "NO POINT!"; task.wait(0.5); btnLoadCP.Text = "LOAD POINT" end end)
+    local wayPadding = Instance.new("UIPadding", btnWaypoints)
+    wayPadding.PaddingTop = UDim.new(0, 0)
+
+    local arrowWay = Instance.new("TextButton", btnWaypoints)
+    arrowWay.Name = "ArrowToggle"
+    arrowWay.Size = UDim2.new(0, 30, 0, 30)
+    arrowWay.Position = UDim2.new(1, -30, 0, 0)
+    arrowWay.BackgroundTransparency = 1
+    arrowWay.Text = "V"
+    arrowWay.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrowWay.Font = Enum.Font.Arcade
+    arrowWay.TextSize = 14
+
+    local wayContainer = Instance.new("Frame", btnWaypoints)
+    wayContainer.Size = UDim2.new(1, 0, 0, 0)
+    wayContainer.Position = UDim2.new(0, 0, 0, 25)
+    wayContainer.BackgroundTransparency = 1
+    wayContainer.Visible = false
+
+    local wayLayout = Instance.new("UIListLayout", wayContainer)
+    wayLayout.Padding = UDim.new(0, 5)
+    wayLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    wayLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local btnAddPoint = Instance.new("TextButton", wayContainer)
+    btnAddPoint.Size = UDim2.new(0.85, 0, 0, 25)
+    btnAddPoint.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    btnAddPoint.Text = "+ ADD POINT"
+    btnAddPoint.TextColor3 = Color3.new(1, 1, 1)
+    btnAddPoint.Font = Enum.Font.Arcade
+    btnAddPoint.TextSize = 12
+    btnAddPoint.LayoutOrder = 9999 -- Keeps it at the bottom
+    Instance.new("UICorner", btnAddPoint).CornerRadius = UDim.new(0, 4)
+
+    local way_expanded = false
+    local activePointsCount = 0
+    local totalPointsCreated = 0
+
+    local function updateWaypointsUI()
+        local itemHeight = 30 -- 25 size + 5 padding
+        local totalItems = activePointsCount + 1 -- count of active load buttons plus the add button
+        local containerHeight = (totalItems * itemHeight) + 5
+
+        if way_expanded then
+            arrowWay.Text = "^"
+            btnWaypoints.TextYAlignment = Enum.TextYAlignment.Top
+            wayPadding.PaddingTop = UDim.new(0, 6)
+            wayContainer.Visible = true
+            btnWaypoints:TweenSize(UDim2.new(0.95, 0, 0, 30 + containerHeight), "Out", "Quad", 0.3, true)
+        else
+            arrowWay.Text = "V"
+            btnWaypoints.TextYAlignment = Enum.TextYAlignment.Center
+            wayPadding.PaddingTop = UDim.new(0, 0)
+            wayContainer.Visible = false
+            btnWaypoints:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true)
+        end
+    end
+
+    arrowWay.MouseButton1Click:Connect(function()
+        GH.playSound()
+        way_expanded = not way_expanded
+        updateWaypointsUI()
+    end)
+
+    GH.RegisterButton(btnWaypoints, function()
+        way_expanded = not way_expanded
+        updateWaypointsUI()
+    end)
+
+    btnAddPoint.MouseButton1Click:Connect(function()
+        GH.playSound()
+        local char = GH.player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            activePointsCount = activePointsCount + 1
+            totalPointsCreated = totalPointsCreated + 1
+            local savedCF = char.HumanoidRootPart.CFrame
+            local pointId = totalPointsCreated
+
+            -- The main LOAD button
+            local btnLoad = Instance.new("TextButton", wayContainer)
+            btnLoad.Size = UDim2.new(0.85, 0, 0, 25)
+            btnLoad.BackgroundColor3 = Color3.fromRGB(80, 100, 140)
+            btnLoad.Text = "LOAD POINT " .. pointId
+            btnLoad.TextColor3 = Color3.new(1, 1, 1)
+            btnLoad.Font = Enum.Font.Arcade
+            btnLoad.TextSize = 12
+            btnLoad.LayoutOrder = pointId
+            Instance.new("UICorner", btnLoad).CornerRadius = UDim.new(0, 4)
+
+            -- The DELETE ("X") button attached to it
+            local btnDel = Instance.new("TextButton", btnLoad)
+            btnDel.Size = UDim2.new(0, 25, 0, 25)
+            btnDel.Position = UDim2.new(1, -25, 0, 0)
+            btnDel.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+            btnDel.Text = "X"
+            btnDel.TextColor3 = Color3.new(1, 1, 1)
+            btnDel.Font = Enum.Font.Arcade
+            btnDel.TextSize = 12
+            Instance.new("UICorner", btnDel).CornerRadius = UDim.new(0, 4)
+
+            -- Loading Event
+            btnLoad.MouseButton1Click:Connect(function()
+                GH.playSound()
+                local currentChar = GH.player.Character
+                if currentChar and currentChar:FindFirstChild("HumanoidRootPart") then
+                    currentChar.HumanoidRootPart.CFrame = savedCF
+                    btnLoad.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+                    task.delay(0.2, function()
+                        if btnLoad and btnLoad.Parent then
+                            btnLoad.BackgroundColor3 = Color3.fromRGB(80, 100, 140)
+                        end
+                    end)
+                end
+            end)
+
+            -- Deletion Event
+            btnDel.MouseButton1Click:Connect(function()
+                GH.playSound()
+                btnLoad:Destroy()
+                activePointsCount = activePointsCount - 1
+                updateWaypointsUI()
+            end)
+
+            -- Temporarily pulse the add button to show feedback
+            btnAddPoint.Text = "SAVED!"
+            task.delay(0.5, function()
+                if btnAddPoint and btnAddPoint.Parent then
+                    btnAddPoint.Text = "+ ADD POINT"
+                end
+            end)
+
+            updateWaypointsUI()
+        end
+    end)
 
     -- === POCKET INVENTORY ===
     -- Creates a custom UI window to manually manage Backpack tools (useful if the game disables inventory)
-    local btnPocket = GH.createBtn("POCKET INV: OFF", Color3.fromRGB(200, 60, 60), 16)
+    local btnPocket = GH.createBtn("POCKET INV: OFF", Color3.fromRGB(200, 60, 60), 17)
     local invFrame, iScroll = nil, nil
     local invConnections = {}
 
@@ -969,7 +1282,7 @@ local success, err = pcall(function()
     btnPlatform.TextColor3 = Color3.new(1, 1, 1)
     btnPlatform.Font = Enum.Font.Arcade
     btnPlatform.TextSize = 12
-    btnPlatform.LayoutOrder = 17 -- (Optional: bump the ROBLOX INV layout order to 18)
+    btnPlatform.LayoutOrder = 18 
     btnPlatform.ClipsDescendants = true
     btnPlatform.AutoLocalize = false
     btnPlatform.TextYAlignment = Enum.TextYAlignment.Center
@@ -1050,7 +1363,6 @@ local success, err = pcall(function()
         local char = GH.player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             -- Optional: Delete the previous platform to prevent clutter. 
-            -- (Remove this loop if you want to be able to build staircases by jumping and spawning!)
             for _, v in pairs(workspace:GetChildren()) do
                 if v.Name == "GhostHubPlatform" then v:Destroy() end
             end
@@ -1085,7 +1397,7 @@ local success, err = pcall(function()
 
     -- === HOVER HIGHLIGHT ===
     -- Highlights objects your mouse hovers over. Bypasses CanQuery=false and invisible walls.
-    local btnHoverHighlight = GH.createBtn("HOVER HIGHLIGHT: OFF", Color3.fromRGB(200, 60, 60), 18) 
+    local btnHoverHighlight = GH.createBtn("HOVER HIGHLIGHT: OFF", Color3.fromRGB(200, 60, 60), 19) 
     local hover_high_on = false
     local hoverLoop = nil
     local hoverClickConn = nil
@@ -1192,7 +1504,7 @@ local success, err = pcall(function()
         
     -- === CLEAR HIGHLIGHTS ===
     -- Wipes all locked highlights from the map
-    local btnClearHighlights = GH.createBtn("CLEAR HIGHLIGHTS", Color3.fromRGB(200, 60, 60), 19)
+    local btnClearHighlights = GH.createBtn("CLEAR HIGHLIGHTS", Color3.fromRGB(200, 60, 60), 20)
     GH.RegisterButton(btnClearHighlights, function()
         btnClearHighlights.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
         local count = 0
@@ -1208,9 +1520,252 @@ local success, err = pcall(function()
         btnClearHighlights.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     end)
     
+    -- === FREE MOUSE ===
+    -- Unlocks the mouse and makes it visible, useful for games that lock the cursor to the center
+    local btnFreeMouse = GH.createBtn("FREE MOUSE: OFF", Color3.fromRGB(200, 60, 60), 21)
+    local mouse_freed = false
+    local mouseLoop = nil
+
+    GH.RegisterButton(btnFreeMouse, function()
+        mouse_freed = not mouse_freed
+        if mouse_freed then
+            btnFreeMouse.Text = "FREE MOUSE: ON"
+            btnFreeMouse.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            
+            -- Use RenderStepped to constantly fight any game scripts trying to lock it back
+            if not mouseLoop then
+                mouseLoop = GH.RunService.RenderStepped:Connect(function()
+                    GH.UserInputService.MouseIconEnabled = true
+                    GH.UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                end)
+            end
+        else
+            btnFreeMouse.Text = "FREE MOUSE: OFF"
+            btnFreeMouse.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            
+            if mouseLoop then
+                mouseLoop:Disconnect()
+                mouseLoop = nil
+            end
+        end
+    end)
+
+    -- === LOOP TARGET FLING ===
+    local btnLoopFling = GH.createBtn("LOOP FLING: OFF", Color3.fromRGB(200, 60, 60), 22)
+    
+    local boxLoopTarget = Instance.new("TextBox", scroll)
+    boxLoopTarget.Size = UDim2.new(0.95, 0, 0, 30)
+    boxLoopTarget.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    boxLoopTarget.TextColor3 = Color3.new(1, 1, 1)
+    boxLoopTarget.PlaceholderText = "Target Username..."
+    boxLoopTarget.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    boxLoopTarget.Font = Enum.Font.Arcade
+    boxLoopTarget.TextSize = 12
+    boxLoopTarget.LayoutOrder = 23
+    boxLoopTarget.ClearTextOnFocus = false
+    Instance.new("UICorner", boxLoopTarget).CornerRadius = UDim.new(0, 6)
+
+    local loop_target_on = false
+    local LOOPPROTECT = nil
+
+    local function startLoopTargetAction()
+        task.spawn(function()
+            while loop_target_on do
+                local targetName = boxLoopTarget.Text
+                if targetName == "" then 
+                    Wait(0.1)
+                    continue 
+                end
+
+                local AllBool = false
+                local GetPlayer = function(Name)
+                    Name = string.lower(Name)
+                    if Name == "all" or Name == "others" then
+                        AllBool = true
+                        return
+                    elseif Name == "random" then
+                        local GetPlayers = GH.Players:GetPlayers()
+                        if table.find(GetPlayers, GH.player) then table.remove(GetPlayers, table.find(GetPlayers, GH.player)) end
+                        return GetPlayers[math.random(#GetPlayers)]
+                    else
+                        for _, x in next, GH.Players:GetPlayers() do
+                            if x ~= GH.player then
+                                if x.Name:lower():match("^"..Name) then
+                                    return x
+                                elseif x.DisplayName:lower():match("^"..Name) then
+                                    return x
+                                end
+                            end
+                        end
+                    end
+                end
+
+                local FlingDeluxePro = function(TargetPlayer)
+                    if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end
+                    local Character = GH.player.Character
+                    local Humanoid = getPlrHum(Character)
+                    local HRP = Humanoid and Humanoid.RootPart
+                    local camera = workspace.CurrentCamera
+                    
+                    LOOPPROTECT = Instance.new("Part")
+                    LOOPPROTECT.Size = Vector3.new(1, 1, 1)
+                    LOOPPROTECT.Transparency = 1
+                    LOOPPROTECT.CanCollide = false
+                    LOOPPROTECT.Anchored = false
+                    LOOPPROTECT.Parent = camera
+                    
+                    local weld = Instance.new("WeldConstraint")
+                    weld.Part0 = HRP
+                    weld.Part1 = LOOPPROTECT
+                    weld.Parent = LOOPPROTECT
+                    
+                    local bodyGyro = Instance.new("BodyGyro")
+                    bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
+                    bodyGyro.D = 1000
+                    bodyGyro.P = 2000
+                    bodyGyro.Parent = LOOPPROTECT
+                    
+                    local RootPart = HRP
+                    local TCharacter = TargetPlayer.Character
+                    local THumanoid, TRootPart, THead, Accessory, Handle
+                    
+                    if not TCharacter then if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end return end
+                    if getPlrHum(TCharacter) then THumanoid = getPlrHum(TCharacter) end
+                    if THumanoid and THumanoid.RootPart then TRootPart = THumanoid.RootPart end
+                    if getHead(TCharacter) then THead = getHead(TCharacter) end
+                    if TCharacter:FindFirstChildOfClass("Accessory") then Accessory = TCharacter:FindFirstChildOfClass("Accessory") end
+                    if Accessory and Accessory:FindFirstChild("Handle") then Handle = Accessory.Handle end
+                    
+                    if Character and Humanoid and HRP then
+                        if not flingManager.lFlingOldPos or RootPart.Velocity.Magnitude < 50 then
+                            flingManager.lFlingOldPos = RootPart.CFrame
+                        end
+                        if THumanoid and THumanoid.Sit and not AllBool then return end
+                        
+                        if THead then
+                            workspace.CurrentCamera.CameraSubject = THead
+                        elseif not THead and Handle then
+                            workspace.CurrentCamera.CameraSubject = Handle
+                        elseif THumanoid and TRootPart then
+                            workspace.CurrentCamera.CameraSubject = THumanoid
+                        end
+                        
+                        if not TCharacter or not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
+                        
+                        local FPos = function(BasePart, Pos, Ang)
+                            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+                            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+                            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+                            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+                        end
+                        
+                        local SFBasePart = function(BasePart)
+                            local TimeToWait = 2
+                            local Time = tick()
+                            local Angle = 0
+                            repeat
+                                if RootPart and THumanoid and TCharacter and TCharacter.Parent then
+                                    if BasePart.Velocity.Magnitude < 50 then
+                                        Angle = Angle + 100
+                                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) Wait()
+                                    else
+                                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(-90), 0, 0)) Wait()
+                                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0)) Wait()
+                                    end
+                                else
+                                    break
+                                end
+                            until not BasePart or not BasePart.Parent or BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TargetPlayer.Character or TargetPlayer.Parent ~= GH.Players or TargetPlayer.Character ~= TCharacter or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
+                            if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end
+                        end
+                        
+                        local OrgDestroyHeight = workspace.FallenPartsDestroyHeight
+                        workspace.FallenPartsDestroyHeight = 0/0
+                        
+                        local BV = Instance.new("BodyVelocity")
+                        BV.Parent = RootPart
+                        BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+                        BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+                        
+                        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+                        
+                        if TRootPart and THead then
+                            if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then SFBasePart(THead) else SFBasePart(TRootPart) end
+                        elseif TRootPart and not THead then
+                            SFBasePart(TRootPart)
+                        elseif not TRootPart and THead then
+                            SFBasePart(THead)
+                        elseif not TRootPart and not THead and Accessory and Handle then
+                            SFBasePart(Handle)
+                        end
+                        
+                        if BV then BV:Destroy() end
+                        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+                        workspace.CurrentCamera.CameraSubject = Humanoid
+                        
+                        repeat
+                            if RootPart and flingManager.lFlingOldPos then
+                                RootPart.CFrame = flingManager.lFlingOldPos * CFrame.new(0, 0.5, 0)
+                                Character:SetPrimaryPartCFrame(flingManager.lFlingOldPos * CFrame.new(0, 0.5, 0))
+                                Humanoid:ChangeState("GettingUp")
+                                for _, x in next, Character:GetChildren() do
+                                    if x:IsA("BasePart") then
+                                        x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
+                                    end
+                                end
+                            end
+                            Wait()
+                        until not RootPart or (RootPart.Position - flingManager.lFlingOldPos.p).Magnitude < 25
+                        workspace.FallenPartsDestroyHeight = OrgDestroyHeight
+                        if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end
+                    end
+                end
+
+                if AllBool then
+                    for _, x in next, GH.Players:GetPlayers() do
+                        if not loop_target_on then break end
+                        FlingDeluxePro(x)
+                    end
+                else
+                    local TP = GetPlayer(targetName)
+                    if TP and TP ~= GH.player and TP.UserId ~= 1414978355 then
+                        FlingDeluxePro(TP)
+                    end
+                end
+                Wait(0.5)
+            end
+        end)
+    end
+
+    GH.RegisterButton(btnLoopFling, function()
+        loop_target_on = not loop_target_on
+        if loop_target_on then
+            btnLoopFling.Text = "LOOP FLING: ON"
+            btnLoopFling.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            startLoopTargetAction()
+        else
+            btnLoopFling.Text = "LOOP FLING: OFF"
+            btnLoopFling.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end
+        end
+    end)
+    
     -- === ROBLOX INV ===
     -- Turns the core Roblox inventory GUI bar on/off
-    local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 17)
+    local btnRobloxInv = GH.createBtn("ROBLOX INV: ON", Color3.fromRGB(0, 180, 100), 24)
     GH.RegisterButton(btnRobloxInv, function()
         if btnRobloxInv.Text == "ROBLOX INV: OFF" then pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end); btnRobloxInv.Text = "ROBLOX INV: ON"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(0, 180, 100)        
         else pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end); btnRobloxInv.Text = "ROBLOX INV: OFF"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end    
@@ -1295,6 +1850,39 @@ local success, err = pcall(function()
                 end
             end)
         end
+        if mouse_freed then
+            mouse_freed = false
+            pcall(function()
+                btnFreeMouse.Text = "FREE MOUSE: OFF"
+                btnFreeMouse.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if mouseLoop then
+                    mouseLoop:Disconnect()
+                    mouseLoop = nil
+                end
+            end)
+        end
+        if click_fling_on then
+            click_fling_on = false
+            pcall(function()
+                btnClickFling.Text = "CLICK FLING: OFF"
+                btnClickFling.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            end)
+        end
+        if walk_fling_on then
+            walk_fling_on = false
+            pcall(function()
+                btnWalkFling.Text = "WALK FLING: OFF"
+                btnWalkFling.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            end)
+        end
+        if loop_target_on then
+            loop_target_on = false
+            pcall(function()
+                btnLoopFling.Text = "LOOP FLING: OFF"
+                btnLoopFling.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if LOOPPROTECT then LOOPPROTECT:Destroy() LOOPPROTECT = nil end
+            end)
+        end
     end
 
     -- Hook up the reset functions to player death and respawn events
@@ -1322,7 +1910,9 @@ local success, err = pcall(function()
         [Enum.KeyCode.X] = btnSpeed,
         [Enum.KeyCode.C] = btnFly,
         [Enum.KeyCode.V] = btnNoclip,
-        [Enum.KeyCode.B] = btnAutoLock
+        [Enum.KeyCode.B] = btnAutoLock,
+        [Enum.KeyCode.F] = btnClickFling,
+        [Enum.KeyCode.G] = btnWalkFling
     }
 
     for key, button in pairs(defaultBinds) do
