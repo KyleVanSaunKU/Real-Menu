@@ -2154,47 +2154,43 @@ local success, err = pcall(function()
     end)
 
     -- === AUTO M1 / ANTI-AFK ===
-    -- Spams M1 in the background and hooks into the idle event to prevent the 20-minute kick
-    local btnAntiAfk = GH.createBtn("AUTO M1: OFF", Color3.fromRGB(200, 60, 60), 27)
-    local anti_afk_on = false
-    local antiAfkLoop = nil
-    local afkConnection = nil
-    local VirtualUser = game:GetService("VirtualUser")
+    GH.btnAntiAfk = GH.createBtn("AUTO M1: OFF", Color3.fromRGB(200, 60, 60), 27)
+    GH.anti_afk_on = false
+    GH.antiAfkLoop = nil
+    GH.afkConnection = nil
+    GH.VirtualUser = game:GetService("VirtualUser")
 
-    GH.RegisterButton(btnAntiAfk, function()
-        anti_afk_on = not anti_afk_on
-        if anti_afk_on then
-            btnAntiAfk.Text = "AUTO M1: ON"
-            btnAntiAfk.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+    GH.RegisterButton(GH.btnAntiAfk, function()
+        GH.anti_afk_on = not GH.anti_afk_on
+        if GH.anti_afk_on then
+            GH.btnAntiAfk.Text = "AUTO M1: ON"
+            GH.btnAntiAfk.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
             
-            -- 1. Anti-AFK: Hooks into the game's native idle timeout to prevent the kick
-            if not afkConnection then
-                afkConnection = GH.player.Idled:Connect(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton2(Vector2.new(0, 0)) -- Simulates a right-click to reset the AFK timer
+            if not GH.afkConnection then
+                GH.afkConnection = GH.player.Idled:Connect(function()
+                    GH.VirtualUser:CaptureController()
+                    GH.VirtualUser:ClickButton2(Vector2.new(0, 0)) 
                 end)
             end
 
-            -- 2. Auto M1: Loops a left-click at the top corner of the screen so your mouse is free
-            antiAfkLoop = task.spawn(function()
-                while anti_afk_on do
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+            GH.antiAfkLoop = task.spawn(function()
+                while GH.anti_afk_on do
+                    GH.VirtualUser:CaptureController()
+                    GH.VirtualUser:ClickButton1(Vector2.new(0, 0))
                     task.wait(0.1) -- Adjust this number to change how fast it clicks
                 end
             end)
         else
-            btnAntiAfk.Text = "AUTO M1: OFF"
-            btnAntiAfk.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            GH.btnAntiAfk.Text = "AUTO M1: OFF"
+            GH.btnAntiAfk.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
             
-            -- Clean up the loop and connection when turned off
-            if antiAfkLoop then
-                task.cancel(antiAfkLoop)
-                antiAfkLoop = nil
+            if GH.antiAfkLoop then
+                task.cancel(GH.antiAfkLoop)
+                GH.antiAfkLoop = nil
             end
-            if afkConnection then
-                afkConnection:Disconnect()
-                afkConnection = nil
+            if GH.afkConnection then
+                GH.afkConnection:Disconnect()
+                GH.afkConnection = nil
             end
         end
     end)
