@@ -885,14 +885,19 @@ local success, err = pcall(function()
             if v:IsA("Model") and not GH.Players:GetPlayerFromCharacter(v) then
                 local target = v:FindFirstChild(aimTargetPart) or v:FindFirstChild("HumanoidRootPart")
                 local root = v:FindFirstChild("HumanoidRootPart")
-                local hum = v:FindFirstChild("Humanoid")
+                
+                -- Use FindFirstChildOfClass to safely ignore things named "Humanoid" that aren't actually Humanoids
+                local hum = v:FindFirstChildOfClass("Humanoid")
 
-                -- Ensure the NPC is alive and has the necessary parts
-                if target and root and hum and hum.Health > 0 then
-                    local distance = (localRoot.Position - root.Position).Magnitude
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestTarget = target
+                -- Ensure the NPC has a physical root and target part
+                if target and root then
+                    -- If it has a real Humanoid, make sure it's alive. If it uses a custom health system without a Humanoid, target it anyway.
+                    if not hum or (hum and hum.Health > 0) then
+                        local distance = (localRoot.Position - root.Position).Magnitude
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            closestTarget = target
+                        end
                     end
                 end
             end
@@ -1036,11 +1041,116 @@ local success, err = pcall(function()
 
     -- === LIGHT ===
     -- Attaches a bright pointlight to your character for dark areas
-    local btnLight = GH.createBtn("LIGHT: OFF", Color3.fromRGB(200, 60, 60), 13); local light_on = false
-    GH.RegisterButton(btnLight, function() light_on = not light_on; local char = GH.player.Character
-        if light_on then btnLight.Text = "LIGHT: ON"; btnLight.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if char and char:FindFirstChild("HumanoidRootPart") then for _, v in pairs(char.HumanoidRootPart:GetChildren()) do if v.Name == "GhostHubLight" then v:Destroy() end end; local l = Instance.new("PointLight", char.HumanoidRootPart); l.Name = "GhostHubLight"; l.Range = 60; l.Brightness = 2; l.Color = Color3.new(1, 1, 1) end 
-        else btnLight.Text = "LIGHT: OFF"; btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if char then for _, v in pairs(char:GetDescendants()) do if v.Name == "GhostHubLight" then v:Destroy() end end end end 
+    local btnLight = Instance.new("TextButton", scroll)
+    btnLight.Name = ""
+    btnLight.Size = UDim2.new(0.95, 0, 0, 30)
+    btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    btnLight.Text = "LIGHT: OFF"
+    btnLight.TextColor3 = Color3.new(1, 1, 1)
+    btnLight.Font = Enum.Font.Arcade
+    btnLight.TextSize = 12
+    btnLight.LayoutOrder = 13
+    btnLight.ClipsDescendants = true
+    btnLight.AutoLocalize = false
+    btnLight.TextYAlignment = Enum.TextYAlignment.Center
+
+    local lightPadding = Instance.new("UIPadding", btnLight)
+    lightPadding.PaddingTop = UDim.new(0, 0)
+    Instance.new("UICorner", btnLight).CornerRadius = UDim.new(0, 6)
+
+    local arrowLight = Instance.new("TextButton", btnLight)
+    arrowLight.Name = "ArrowToggle"
+    arrowLight.Size = UDim2.new(0, 30, 0, 30)
+    arrowLight.Position = UDim2.new(1, -30, 0, 0)
+    arrowLight.BackgroundTransparency = 1
+    arrowLight.Text = "V"
+    arrowLight.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrowLight.Font = Enum.Font.Arcade
+    arrowLight.TextSize = 14
+    arrowLight.AutoLocalize = false
+
+    local lightSliderC = Instance.new("Frame", btnLight)
+    lightSliderC.Name = ""
+    lightSliderC.Size = UDim2.new(1, 0, 0, 35)
+    lightSliderC.Position = UDim2.new(0, 0, 0, 18)
+    lightSliderC.BackgroundTransparency = 1
+    lightSliderC.Visible = false
+    local lightSliderBg = Instance.new("Frame", lightSliderC)
+    lightSliderBg.Size = UDim2.new(0.8, 0, 0, 4)
+    lightSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
+    lightSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    lightSliderBg.BorderSizePixel = 0
+    Instance.new("UICorner", lightSliderBg).CornerRadius = UDim.new(1, 0)
+    local lightSliderFill = Instance.new("Frame", lightSliderBg)
+    lightSliderFill.Size = UDim2.new(60 / 120, 0, 1, 0)
+    lightSliderFill.BackgroundColor3 = Color3.new(1, 1, 1)
+    lightSliderFill.BorderSizePixel = 0
+    Instance.new("UICorner", lightSliderFill).CornerRadius = UDim.new(1, 0)
+    local lightSliderTrig = Instance.new("TextButton", lightSliderBg)
+    lightSliderTrig.Size = UDim2.new(1, 0, 6, 0)
+    lightSliderTrig.Position = UDim2.new(0, 0, -2.5, 0)
+    lightSliderTrig.BackgroundTransparency = 1
+    lightSliderTrig.Text = ""
+    lightSliderTrig.ZIndex = 10
+    local lightValText = Instance.new("TextLabel", lightSliderC)
+    lightValText.Size = UDim2.new(1, 0, 0, 15)
+    lightValText.Position = UDim2.new(0, 0, 0.45, 0)
+    lightValText.BackgroundTransparency = 1
+    lightValText.Text = "RADIUS: 60"
+    lightValText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    lightValText.Font = Enum.Font.Arcade
+    lightValText.TextSize = 10
+    lightValText.AutoLocalize = false
+
+    local light_on, light_expanded, dragLight, lightRadius, maxLightRadius = false, false, false, 60, 120
+
+    arrowLight.MouseButton1Click:Connect(function()
+        GH.playSound()
+        light_expanded = not light_expanded
+        if light_expanded then
+            arrowLight.Text = "^"; btnLight.TextYAlignment = Enum.TextYAlignment.Top; lightPadding.PaddingTop = UDim.new(0, 6)
+            btnLight:TweenSize(UDim2.new(0.95, 0, 0, 60), "Out", "Quad", 0.3, true); lightSliderC.Visible = true
+        else
+            arrowLight.Text = "V"; btnLight.TextYAlignment = Enum.TextYAlignment.Center; lightPadding.PaddingTop = UDim.new(0, 0)
+            btnLight:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true); lightSliderC.Visible = false
+        end
     end)
+
+    GH.RegisterButton(btnLight, function()
+        light_on = not light_on
+        local char = GH.player.Character
+        if light_on then 
+            btnLight.Text = "LIGHT: ON"
+            btnLight.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            if char and char:FindFirstChild("HumanoidRootPart") then 
+                for _, v in pairs(char.HumanoidRootPart:GetChildren()) do if v.Name == "GhostHubLight" then v:Destroy() end end
+                local l = Instance.new("PointLight", char.HumanoidRootPart)
+                l.Name = "GhostHubLight"
+                l.Range = lightRadius
+                l.Brightness = 2
+                l.Color = Color3.new(1, 1, 1) 
+            end 
+        else 
+            btnLight.Text = "LIGHT: OFF"
+            btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            if char then for _, v in pairs(char:GetDescendants()) do if v.Name == "GhostHubLight" then v:Destroy() end end end 
+        end 
+    end)
+
+    local function setLightScale(input)
+        local p = math.clamp((input.Position.X - lightSliderBg.AbsolutePosition.X) / lightSliderBg.AbsoluteSize.X, 0, 1)
+        lightSliderFill.Size = UDim2.new(p, 0, 1, 0)
+        lightRadius = math.floor(p * maxLightRadius)
+        lightValText.Text = "RADIUS: " .. lightRadius
+        if light_on and GH.player.Character and GH.player.Character:FindFirstChild("HumanoidRootPart") then
+            local l = GH.player.Character.HumanoidRootPart:FindFirstChild("GhostHubLight")
+            if l then l.Range = lightRadius end
+        end
+    end
+
+    lightSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragLight = true; setLightScale(i) end end)
+    GH.UserInputService.InputChanged:Connect(function(i) if dragLight and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setLightScale(i) end end)
+    GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragLight = false end end)
 
     -- === FPS BOOST ===
     -- Removes shadows, fog, and complex materials to boost frame rate
@@ -1051,14 +1161,121 @@ local success, err = pcall(function()
         else game.Lighting.GlobalShadows = true; game.Lighting.FogEnd = lighting_cache.FE or 100000; for part, props in pairs(fps_cache) do if part and part.Parent then part.Material = props.M; part.Reflectance = props.R; part.CastShadow = props.C end end; fps_cache = {} end
     end)
 
-    -- === UNLOCK JUMP ===
-    -- Forces jumping and overrides anti-jump constraints (Will lock jump if disabled after menu launch)
-    local btnJump = GH.createBtn("UNLOCK JUMP: OFF", Color3.fromRGB(200, 60, 60), 15); local jump_unlock_on, jumpLoop = false, nil
+    -- === JUMP (Slider) ===
+    -- Forces jumping and overrides anti-jump constraints
+    local btnJump = Instance.new("TextButton", scroll)
+    btnJump.Name = ""
+    btnJump.Size = UDim2.new(0.95, 0, 0, 30)
+    btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    btnJump.Text = "JUMP: OFF"
+    btnJump.TextColor3 = Color3.new(1, 1, 1)
+    btnJump.Font = Enum.Font.Arcade
+    btnJump.TextSize = 12
+    btnJump.LayoutOrder = 15
+    btnJump.ClipsDescendants = true
+    btnJump.AutoLocalize = false
+    btnJump.TextYAlignment = Enum.TextYAlignment.Center
+
+    local jumpPadding = Instance.new("UIPadding", btnJump)
+    jumpPadding.PaddingTop = UDim.new(0, 0)
+    Instance.new("UICorner", btnJump).CornerRadius = UDim.new(0, 6)
+
+    local arrowJump = Instance.new("TextButton", btnJump)
+    arrowJump.Name = "ArrowToggle"
+    arrowJump.Size = UDim2.new(0, 30, 0, 30)
+    arrowJump.Position = UDim2.new(1, -30, 0, 0)
+    arrowJump.BackgroundTransparency = 1
+    arrowJump.Text = "V"
+    arrowJump.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrowJump.Font = Enum.Font.Arcade
+    arrowJump.TextSize = 14
+    arrowJump.AutoLocalize = false
+
+    local jumpSliderC = Instance.new("Frame", btnJump)
+    jumpSliderC.Name = ""
+    jumpSliderC.Size = UDim2.new(1, 0, 0, 35)
+    jumpSliderC.Position = UDim2.new(0, 0, 0, 18)
+    jumpSliderC.BackgroundTransparency = 1
+    jumpSliderC.Visible = false
+    local jumpSliderBg = Instance.new("Frame", jumpSliderC)
+    jumpSliderBg.Size = UDim2.new(0.8, 0, 0, 4)
+    jumpSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
+    jumpSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    jumpSliderBg.BorderSizePixel = 0
+    Instance.new("UICorner", jumpSliderBg).CornerRadius = UDim.new(1, 0)
+    local jumpSliderFill = Instance.new("Frame", jumpSliderBg)
+    jumpSliderFill.Size = UDim2.new(50 / 300, 0, 1, 0)
+    jumpSliderFill.BackgroundColor3 = Color3.new(1, 1, 1)
+    jumpSliderFill.BorderSizePixel = 0
+    Instance.new("UICorner", jumpSliderFill).CornerRadius = UDim.new(1, 0)
+    local jumpSliderTrig = Instance.new("TextButton", jumpSliderBg)
+    jumpSliderTrig.Size = UDim2.new(1, 0, 6, 0)
+    jumpSliderTrig.Position = UDim2.new(0, 0, -2.5, 0)
+    jumpSliderTrig.BackgroundTransparency = 1
+    jumpSliderTrig.Text = ""
+    jumpSliderTrig.ZIndex = 10
+    local jumpValText = Instance.new("TextLabel", jumpSliderC)
+    jumpValText.Size = UDim2.new(1, 0, 0, 15)
+    jumpValText.Position = UDim2.new(0, 0, 0.45, 0)
+    jumpValText.BackgroundTransparency = 1
+    jumpValText.Text = "POWER: 50"
+    jumpValText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    jumpValText.Font = Enum.Font.Arcade
+    jumpValText.TextSize = 10
+    jumpValText.AutoLocalize = false
+
+    local jump_unlock_on, jump_expanded, dragJump, jumpPowerVal, maxJumpPower = false, false, false, 50, 300
+    local jumpLoop = nil
+
+    arrowJump.MouseButton1Click:Connect(function()
+        GH.playSound()
+        jump_expanded = not jump_expanded
+        if jump_expanded then
+            arrowJump.Text = "^"; btnJump.TextYAlignment = Enum.TextYAlignment.Top; jumpPadding.PaddingTop = UDim.new(0, 6)
+            btnJump:TweenSize(UDim2.new(0.95, 0, 0, 60), "Out", "Quad", 0.3, true); jumpSliderC.Visible = true
+        else
+            arrowJump.Text = "V"; btnJump.TextYAlignment = Enum.TextYAlignment.Center; jumpPadding.PaddingTop = UDim.new(0, 0)
+            btnJump:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true); jumpSliderC.Visible = false
+        end
+    end)
+
     GH.RegisterButton(btnJump, function()
         jump_unlock_on = not jump_unlock_on
-        if jump_unlock_on then btnJump.Text = "UNLOCK JUMP: ON"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 180, 100); if jumpLoop then jumpLoop:Disconnect() end; jumpLoop = GH.RunService.Stepped:Connect(function() if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then if GH.player.Character.Humanoid.JumpPower < 50 then GH.player.Character.Humanoid.JumpPower = 50 end; if GH.player.Character.Humanoid.JumpHeight < 7.2 then GH.player.Character.Humanoid.JumpHeight = 7.2 end; GH.player.Character.Humanoid.UseJumpPower = true; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end end)
-        else btnJump.Text = "UNLOCK JUMP: OFF"; btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60); if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end; if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then GH.player.Character.Humanoid.JumpPower = 0; GH.player.Character.Humanoid.JumpHeight = 0; GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end end
+        if jump_unlock_on then 
+            btnJump.Text = "JUMP: ON"; btnJump.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+            if jumpLoop then jumpLoop:Disconnect() end
+            jumpLoop = GH.RunService.Stepped:Connect(function() 
+                if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then 
+                    GH.player.Character.Humanoid.UseJumpPower = true
+                    GH.player.Character.Humanoid.JumpPower = jumpPowerVal
+                    if GH.player.Character.Humanoid.JumpHeight < (jumpPowerVal / 5) then GH.player.Character.Humanoid.JumpHeight = (jumpPowerVal / 5) end
+                    GH.player.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) 
+                end 
+            end)
+        else 
+            btnJump.Text = "JUMP: OFF"; btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end
+            if GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then 
+                GH.player.Character.Humanoid.JumpPower = 50
+                GH.player.Character.Humanoid.JumpHeight = 7.2
+            end 
+        end
     end)
+
+    local function setJumpScale(input)
+        local p = math.clamp((input.Position.X - jumpSliderBg.AbsolutePosition.X) / jumpSliderBg.AbsoluteSize.X, 0, 1)
+        jumpSliderFill.Size = UDim2.new(p, 0, 1, 0)
+        jumpPowerVal = math.floor(p * maxJumpPower)
+        if jumpPowerVal < 50 then jumpPowerVal = 50 end
+        jumpValText.Text = "POWER: " .. jumpPowerVal
+        if jump_unlock_on and GH.player.Character and GH.player.Character:FindFirstChild("Humanoid") then
+            GH.player.Character.Humanoid.JumpPower = jumpPowerVal
+        end
+    end
+
+    jumpSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragJump = true; setJumpScale(i) end end)
+    GH.UserInputService.InputChanged:Connect(function(i) if dragJump and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setJumpScale(i) end end)
+    GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragJump = false end end)
 
     -- === WAYPOINTS (Dynamic Multiple Load Points) ===
     local btnWaypoints = GH.createBtn("LOAD POINTS", Color3.fromRGB(200, 60, 60), 16)
@@ -1770,6 +1987,171 @@ local success, err = pcall(function()
         if btnRobloxInv.Text == "ROBLOX INV: OFF" then pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end); btnRobloxInv.Text = "ROBLOX INV: ON"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(0, 180, 100)        
         else pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end); btnRobloxInv.Text = "ROBLOX INV: OFF"; btnRobloxInv.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end    
     end)
+
+    -- === AUTO-HOVER (PLAYER & NPC) ===
+    local btnPlayerHover = Instance.new("TextButton", scroll)
+    btnPlayerHover.Name = ""
+    btnPlayerHover.Size = UDim2.new(0.95, 0, 0, 30)
+    btnPlayerHover.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    btnPlayerHover.Text = "PLAYER HOVER: OFF"
+    btnPlayerHover.TextColor3 = Color3.new(1, 1, 1)
+    btnPlayerHover.Font = Enum.Font.Arcade
+    btnPlayerHover.TextSize = 12
+    btnPlayerHover.LayoutOrder = 25
+    btnPlayerHover.ClipsDescendants = true
+    btnPlayerHover.AutoLocalize = false
+    btnPlayerHover.TextYAlignment = Enum.TextYAlignment.Center
+
+    local hoverPadding = Instance.new("UIPadding", btnPlayerHover)
+    hoverPadding.PaddingTop = UDim.new(0, 0)
+    Instance.new("UICorner", btnPlayerHover).CornerRadius = UDim.new(0, 6)
+
+    local arrowHover = Instance.new("TextButton", btnPlayerHover)
+    arrowHover.Name = "ArrowToggle"
+    arrowHover.Size = UDim2.new(0, 30, 0, 30)
+    arrowHover.Position = UDim2.new(1, -30, 0, 0)
+    arrowHover.BackgroundTransparency = 1
+    arrowHover.Text = "V"
+    arrowHover.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrowHover.Font = Enum.Font.Arcade
+    arrowHover.TextSize = 14
+    arrowHover.AutoLocalize = false
+
+    local hoverSliderC = Instance.new("Frame", btnPlayerHover)
+    hoverSliderC.Name = ""
+    hoverSliderC.Size = UDim2.new(1, 0, 0, 35)
+    hoverSliderC.Position = UDim2.new(0, 0, 0, 18)
+    hoverSliderC.BackgroundTransparency = 1
+    hoverSliderC.Visible = false
+    local hoverSliderBg = Instance.new("Frame", hoverSliderC)
+    hoverSliderBg.Size = UDim2.new(0.8, 0, 0, 4)
+    hoverSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
+    hoverSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    hoverSliderBg.BorderSizePixel = 0
+    Instance.new("UICorner", hoverSliderBg).CornerRadius = UDim.new(1, 0)
+    local hoverSliderFill = Instance.new("Frame", hoverSliderBg)
+    hoverSliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+    hoverSliderFill.BackgroundColor3 = Color3.new(1, 1, 1)
+    hoverSliderFill.BorderSizePixel = 0
+    Instance.new("UICorner", hoverSliderFill).CornerRadius = UDim.new(1, 0)
+    local hoverSliderTrig = Instance.new("TextButton", hoverSliderBg)
+    hoverSliderTrig.Size = UDim2.new(1, 0, 6, 0)
+    hoverSliderTrig.Position = UDim2.new(0, 0, -2.5, 0)
+    hoverSliderTrig.BackgroundTransparency = 1
+    hoverSliderTrig.Text = ""
+    hoverSliderTrig.ZIndex = 10
+    local hoverValText = Instance.new("TextLabel", hoverSliderC)
+    hoverValText.Size = UDim2.new(1, 0, 0, 15)
+    hoverValText.Position = UDim2.new(0, 0, 0.45, 0)
+    hoverValText.BackgroundTransparency = 1
+    hoverValText.Text = "Y-OFFSET: 0"
+    hoverValText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    hoverValText.Font = Enum.Font.Arcade
+    hoverValText.TextSize = 10
+    hoverValText.AutoLocalize = false
+
+    local btnNpcHover = GH.createBtn("NPC HOVER: OFF", Color3.fromRGB(200, 60, 60), 26)
+    
+    local player_hover_on, npc_hover_on = false, false
+    local playerHoverConn, npcHoverConn = nil, nil
+    local hover_expanded, dragHover, hoverOffset, maxHoverOffset = false, false, 0, 50
+
+    arrowHover.MouseButton1Click:Connect(function()
+        GH.playSound(); hover_expanded = not hover_expanded
+        if hover_expanded then
+            arrowHover.Text = "^"; btnPlayerHover.TextYAlignment = Enum.TextYAlignment.Top; hoverPadding.PaddingTop = UDim.new(0, 6)
+            btnPlayerHover:TweenSize(UDim2.new(0.95, 0, 0, 60), "Out", "Quad", 0.3, true); hoverSliderC.Visible = true
+        else
+            arrowHover.Text = "V"; btnPlayerHover.TextYAlignment = Enum.TextYAlignment.Center; hoverPadding.PaddingTop = UDim.new(0, 0)
+            btnPlayerHover:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true); hoverSliderC.Visible = false
+        end
+    end)
+
+    local function setHoverScale(input)
+        local p = math.clamp((input.Position.X - hoverSliderBg.AbsolutePosition.X) / hoverSliderBg.AbsoluteSize.X, 0, 1)
+        hoverSliderFill.Size = UDim2.new(p, 0, 1, 0)
+        hoverOffset = math.floor((p * (maxHoverOffset * 2)) - maxHoverOffset)
+        hoverValText.Text = "Y-OFFSET: " .. hoverOffset
+    end
+
+    hoverSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragHover = true; setHoverScale(i) end end)
+    GH.UserInputService.InputChanged:Connect(function(i) if dragHover and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setHoverScale(i) end end)
+    GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragHover = false end end)
+
+    -- Player Hover Logic
+    GH.RegisterButton(btnPlayerHover, function()
+        player_hover_on = not player_hover_on
+        btnPlayerHover.Text = player_hover_on and "PLAYER HOVER: ON" or "PLAYER HOVER: OFF"
+        btnPlayerHover.BackgroundColor3 = player_hover_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
+
+        if player_hover_on then
+            if npc_hover_on then
+                npc_hover_on = false
+                btnNpcHover.Text = "NPC HOVER: OFF"
+                btnNpcHover.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if npcHoverConn then npcHoverConn:Disconnect(); npcHoverConn = nil end
+            end
+
+            if not playerHoverConn then
+                playerHoverConn = GH.RunService.Heartbeat:Connect(function()
+                    local targetPart = getNearestPlayerTarget()
+                    local char = GH.player.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    if targetPart and hrp then
+                        local hoverPos = targetPart.Position + Vector3.new(0, hoverOffset, 0)
+                        local _, ry, _ = hrp.CFrame:ToOrientation()
+                        -- Center exactly on the target Part + Slider Offset. Force character to look down (pitch=-90) and maintain yaw (ry).
+                        hrp.CFrame = CFrame.new(hoverPos) * CFrame.fromOrientation(math.rad(-90), ry, 0)
+                        hrp.Velocity = Vector3.zero 
+                        hrp.RotVelocity = Vector3.zero
+                    end
+                end)
+            end
+        else
+            if playerHoverConn then
+                playerHoverConn:Disconnect()
+                playerHoverConn = nil
+            end
+        end
+    end)
+
+    -- NPC Hover Logic
+    GH.RegisterButton(btnNpcHover, function()
+        npc_hover_on = not npc_hover_on
+        btnNpcHover.Text = npc_hover_on and "NPC HOVER: ON" or "NPC HOVER: OFF"
+        btnNpcHover.BackgroundColor3 = npc_hover_on and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(200, 60, 60)
+
+        if npc_hover_on then
+            if player_hover_on then
+                player_hover_on = false
+                btnPlayerHover.Text = "PLAYER HOVER: OFF"
+                btnPlayerHover.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if playerHoverConn then playerHoverConn:Disconnect(); playerHoverConn = nil end
+            end
+
+            if not npcHoverConn then
+                npcHoverConn = GH.RunService.Heartbeat:Connect(function()
+                    local targetPart = getNearestNPCTarget()
+                    local char = GH.player.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    if targetPart and hrp then
+                        local hoverPos = targetPart.Position + Vector3.new(0, hoverOffset, 0)
+                        local _, ry, _ = hrp.CFrame:ToOrientation()
+                        hrp.CFrame = CFrame.new(hoverPos) * CFrame.fromOrientation(math.rad(-90), ry, 0)
+                        hrp.Velocity = Vector3.zero 
+                        hrp.RotVelocity = Vector3.zero
+                    end
+                end)
+            end
+        else
+            if npcHoverConn then
+                npcHoverConn:Disconnect()
+                npcHoverConn = nil
+            end
+        end
+    end)
     
     -- ==========================================
     -- RESET & DEATH HANDLING
@@ -1796,6 +2178,37 @@ local success, err = pcall(function()
     
     -- Safely disables active cheat loops when the player dies to prevent the game crashing
     local function resetToggles()
+        if player_hover_on then
+            player_hover_on = false
+            pcall(function()
+                btnPlayerHover.Text = "PLAYER HOVER: OFF"
+                btnPlayerHover.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if playerHoverConn then playerHoverConn:Disconnect(); playerHoverConn = nil end
+            end)
+        end
+        if npc_hover_on then
+            npc_hover_on = false
+            pcall(function()
+                btnNpcHover.Text = "NPC HOVER: OFF"
+                btnNpcHover.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if npcHoverConn then npcHoverConn:Disconnect(); npcHoverConn = nil end
+            end)
+        end
+        if light_on then
+            light_on = false
+            pcall(function()
+                btnLight.Text = "LIGHT: OFF"
+                btnLight.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+            end)
+        end
+        if jump_unlock_on then
+            jump_unlock_on = false
+            pcall(function()
+                btnJump.Text = "JUMP: OFF"
+                btnJump.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                if jumpLoop then jumpLoop:Disconnect(); jumpLoop = nil end
+            end)
+        end
         if invis_on then
             invis_on = false
             pcall(function() 
