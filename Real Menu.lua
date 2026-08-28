@@ -1,5 +1,5 @@
 -- ==========================================
--- REAL'S MENU
+-- REAL'S Universal Exploit Menu
 -- ==========================================
 
 -- A table to store script data globally
@@ -639,14 +639,16 @@ local success, err = pcall(function()
     local lock_on = false
     local lockConnection = nil
 
-    -- Function to iterate through all active players to find the closest target to the LocalPlayer
+    -- Function to iterate through all active players to find the closest visible target near crosshair
     local function getNearestPlayerTarget()
         local closestTarget = nil
         local shortestDistance = math.huge
+        local currentCamera = workspace.CurrentCamera
         local localChar = GH.player.Character
-        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
-        if not localRoot then return nil end
+        if not currentCamera or not localChar then return nil end
+
+        local screenCenter = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y / 2)
 
         for _, p in pairs(GH.Players:GetPlayers()) do
             if p ~= GH.player and p.Character then
@@ -657,10 +659,33 @@ local success, err = pcall(function()
 
                 -- Ensure the target is alive and has the required parts
                 if target and root and hum and hum.Health > 0 then
-                    local distance = (localRoot.Position - root.Position).Magnitude
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestTarget = target
+                    -- 1. Check if the enemy is rendered on your screen
+                    local screenPoint, onScreen = currentCamera:WorldToViewportPoint(target.Position)
+                    
+                    if onScreen then
+                        -- 2. Raycast to check if there are walls between you and the enemy
+                        local rayOrigin = currentCamera.CFrame.Position
+                        local rayDirection = target.Position - rayOrigin
+                        
+                        local raycastParams = RaycastParams.new()
+                        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                        -- Filter out both players so the raycast only hits structural parts
+                        raycastParams.FilterDescendantsInstances = {localChar, p.Character}
+                        
+                        local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                        
+                        -- If the ray hits nothing, it means we have a clear line of sight
+                        if not raycastResult then
+                            -- 3. Calculate the 2D distance from your crosshair to the enemy
+                            local screenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                            local distanceToCenter = (screenPos - screenCenter).Magnitude
+                            
+                            -- Target whoever is physically closest to your crosshair
+                            if distanceToCenter < shortestDistance then
+                                shortestDistance = distanceToCenter
+                                closestTarget = target
+                            end
+                        end
                     end
                 end
             end
@@ -866,37 +891,59 @@ local success, err = pcall(function()
     end)
 
     -- === NPC AIMBOT ===
-    -- Auto-locks the camera to the closest non-player Humanoid (NPC)
+    -- Auto-locks the camera to the closest visible non-player Humanoid (NPC) near crosshair
     local btnNpcAimbot = GH.createBtn("NPC AIMBOT: OFF", Color3.fromRGB(200, 60, 60), 8)
     local npc_lock_on = false
     local npcLockConnection = nil
 
-    -- Function to scan the workspace and find the closest NPC's target part
+    -- Function to scan the workspace and find the closest visible NPC's target part near crosshair
     local function getNearestNPCTarget()
         local closestTarget = nil
         local shortestDistance = math.huge
+        local currentCamera = workspace.CurrentCamera
         local localChar = GH.player.Character
-        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
-        if not localRoot then return nil end
+        if not currentCamera or not localChar then return nil end
+
+        local screenCenter = Vector2.new(currentCamera.ViewportSize.X / 2, currentCamera.ViewportSize.Y / 2)
 
         for _, v in pairs(workspace:GetDescendants()) do
             -- Look for Models that are NOT players
             if v:IsA("Model") and not GH.Players:GetPlayerFromCharacter(v) then
                 local target = v:FindFirstChild(aimTargetPart) or v:FindFirstChild("HumanoidRootPart")
                 local root = v:FindFirstChild("HumanoidRootPart")
-                
-                -- Use FindFirstChildOfClass to safely ignore things named "Humanoid" that aren't actually Humanoids
                 local hum = v:FindFirstChildOfClass("Humanoid")
 
                 -- Ensure the NPC has a physical root and target part
                 if target and root then
-                    -- If it has a real Humanoid, make sure it's alive. If it uses a custom health system without a Humanoid, target it anyway.
+                    -- If it has a real Humanoid, make sure it's alive. If custom health system, target anyway.
                     if not hum or (hum and hum.Health > 0) then
-                        local distance = (localRoot.Position - root.Position).Magnitude
-                        if distance < shortestDistance then
-                            shortestDistance = distance
-                            closestTarget = target
+                        -- 1. Check if the NPC is rendered on your screen
+                        local screenPoint, onScreen = currentCamera:WorldToViewportPoint(target.Position)
+                        
+                        if onScreen then
+                            -- 2. Raycast to check if there are walls between you and the NPC
+                            local rayOrigin = currentCamera.CFrame.Position
+                            local rayDirection = target.Position - rayOrigin
+                            
+                            local raycastParams = RaycastParams.new()
+                            raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                            -- Filter out your character and the NPC model
+                            raycastParams.FilterDescendantsInstances = {localChar, v}
+                            
+                            local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                            
+                            -- Clear line of sight
+                            if not raycastResult then
+                                -- 3. Calculate 2D distance from crosshair
+                                local screenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                                local distanceToCenter = (screenPos - screenCenter).Magnitude
+                                
+                                if distanceToCenter < shortestDistance then
+                                    shortestDistance = distanceToCenter
+                                    closestTarget = target
+                                end
+                            end
                         end
                     end
                 end
@@ -2195,6 +2242,124 @@ local success, err = pcall(function()
         end
     end)
     
+    -- === LAG SWITCH ===
+    -- Simulates high ping/lag to freeze you on other players' screens
+    GH.buildLagSwitch = function()
+        local btnLag = Instance.new("TextButton", scroll)
+        btnLag.Name = "" 
+        btnLag.Size = UDim2.new(0.95, 0, 0, 30)
+        btnLag.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        btnLag.Text = "LAG: OFF"
+        btnLag.TextColor3 = Color3.new(1, 1, 1)
+        btnLag.Font = Enum.Font.Arcade
+        btnLag.TextSize = 12
+        btnLag.LayoutOrder = 28 -- Placed after Anti-AFK
+        btnLag.ClipsDescendants = true
+        btnLag.AutoLocalize = false
+        btnLag.TextYAlignment = Enum.TextYAlignment.Center
+
+        local lagPadding = Instance.new("UIPadding", btnLag)
+        lagPadding.PaddingTop = UDim.new(0, 0)
+        Instance.new("UICorner", btnLag).CornerRadius = UDim.new(0, 6)
+
+        local arrowLag = Instance.new("TextButton", btnLag)
+        arrowLag.Name = "ArrowToggle"
+        arrowLag.Size = UDim2.new(0, 30, 0, 30)
+        arrowLag.Position = UDim2.new(1, -30, 0, 0)
+        arrowLag.BackgroundTransparency = 1
+        arrowLag.Text = "V"
+        arrowLag.TextColor3 = Color3.fromRGB(255, 255, 255)
+        arrowLag.Font = Enum.Font.Arcade
+        arrowLag.TextSize = 14
+        arrowLag.AutoLocalize = false
+
+        local lagSliderC = Instance.new("Frame", btnLag)
+        lagSliderC.Name = ""
+        lagSliderC.Size = UDim2.new(1, 0, 0, 35)
+        lagSliderC.Position = UDim2.new(0, 0, 0, 18)
+        lagSliderC.BackgroundTransparency = 1
+        lagSliderC.Visible = false
+
+        local lagSliderBg = Instance.new("Frame", lagSliderC)
+        lagSliderBg.Size = UDim2.new(0.8, 0, 0, 4)
+        lagSliderBg.Position = UDim2.new(0.1, 0, 0.2, 0)
+        lagSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        lagSliderBg.BorderSizePixel = 0
+        Instance.new("UICorner", lagSliderBg).CornerRadius = UDim.new(1, 0)
+
+        local lagSliderFill = Instance.new("Frame", lagSliderBg)
+        lagSliderFill.Size = UDim2.new(0.5, 0, 1, 0) 
+        lagSliderFill.BackgroundColor3 = Color3.new(1, 1, 1)
+        lagSliderFill.BorderSizePixel = 0
+        Instance.new("UICorner", lagSliderFill).CornerRadius = UDim.new(1, 0)
+
+        local lagSliderTrig = Instance.new("TextButton", lagSliderBg)
+        lagSliderTrig.Size = UDim2.new(1, 0, 6, 0)
+        lagSliderTrig.Position = UDim2.new(0, 0, -2.5, 0)
+        lagSliderTrig.BackgroundTransparency = 1
+        lagSliderTrig.Text = ""
+        lagSliderTrig.ZIndex = 10
+
+        local lagValText = Instance.new("TextLabel", lagSliderC)
+        lagValText.Size = UDim2.new(1, 0, 0, 15)
+        lagValText.Position = UDim2.new(0, 0, 0.45, 0)
+        lagValText.BackgroundTransparency = 1
+        lagValText.Text = "AMOUNT: 5"
+        lagValText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        lagValText.Font = Enum.Font.Arcade
+        lagValText.TextSize = 10
+        lagValText.AutoLocalize = false
+
+        local lag_expanded, dragLag = false, false
+        local lagVal, maxLagVal = 5, 10
+        
+        -- Store in GH so the death handler can access it later
+        GH.lag_on = false 
+        GH.btnLag = btnLag
+
+        arrowLag.MouseButton1Click:Connect(function()
+            GH.playSound()
+            lag_expanded = not lag_expanded
+            if lag_expanded then
+                arrowLag.Text = "^"; btnLag.TextYAlignment = Enum.TextYAlignment.Top; lagPadding.PaddingTop = UDim.new(0, 6)
+                btnLag:TweenSize(UDim2.new(0.95, 0, 0, 60), "Out", "Quad", 0.3, true); lagSliderC.Visible = true
+            else
+                arrowLag.Text = "V"; btnLag.TextYAlignment = Enum.TextYAlignment.Center; lagPadding.PaddingTop = UDim.new(0, 0)
+                btnLag:TweenSize(UDim2.new(0.95, 0, 0, 30), "Out", "Quad", 0.3, true); lagSliderC.Visible = false
+            end
+        end)
+
+        GH.RegisterButton(btnLag, function()
+            GH.lag_on = not GH.lag_on
+            if GH.lag_on then
+                btnLag.Text = "LAG: ON"
+                btnLag.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
+                pcall(function() settings().Network.IncomingReplicationLag = lagVal end)
+            else
+                btnLag.Text = "LAG: OFF"
+                btnLag.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                pcall(function() settings().Network.IncomingReplicationLag = 0 end)
+            end
+        end)
+
+        local function setLagScale(input)
+            local p = math.clamp((input.Position.X - lagSliderBg.AbsolutePosition.X) / lagSliderBg.AbsoluteSize.X, 0, 1)
+            lagSliderFill.Size = UDim2.new(p, 0, 1, 0)
+            lagVal = math.floor(p * maxLagVal * 10) / 10
+            lagValText.Text = "AMOUNT: " .. lagVal
+            if GH.lag_on then
+                pcall(function() settings().Network.IncomingReplicationLag = lagVal end)
+            end
+        end
+
+        lagSliderTrig.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragLag = true; setLagScale(i) end end)
+        GH.UserInputService.InputChanged:Connect(function(i) if dragLag and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then setLagScale(i) end end)
+        GH.UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragLag = false end end)
+    end
+    
+    -- Execute the function to build the button
+    GH.buildLagSwitch()
+
     -- ==========================================
     -- RESET & DEATH HANDLING
     -- ==========================================
@@ -2220,6 +2385,16 @@ local success, err = pcall(function()
     
     -- Safely disables active cheat loops when the player dies to prevent the game crashing
     local function resetToggles()
+    	if GH.lag_on then
+            GH.lag_on = false
+            pcall(function()
+                if GH.btnLag then
+                    GH.btnLag.Text = "LAG: OFF"
+                    GH.btnLag.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+                end
+                settings().Network.IncomingReplicationLag = 0
+            end)
+        end
         if player_hover_on then
             player_hover_on = false
             pcall(function()
@@ -2361,13 +2536,13 @@ local success, err = pcall(function()
         
     -- Initialize Default Keybinds on Script Launch
     local defaultBinds = {
-        [Enum.KeyCode.Z] = btnInvis,
-        [Enum.KeyCode.X] = btnSpeed,
-        [Enum.KeyCode.C] = btnFly,
-        [Enum.KeyCode.V] = btnNoclip,
-        [Enum.KeyCode.B] = btnAutoLock,
-        [Enum.KeyCode.F] = btnClickFling,
-        [Enum.KeyCode.G] = btnWalkFling
+        -- [Enum.KeyCode.Z] = btnInvis,
+        -- [Enum.KeyCode.X] = btnSpeed,
+        -- [Enum.KeyCode.C] = btnFly,
+        -- [Enum.KeyCode.V] = btnNoclip,
+        -- [Enum.KeyCode.B] = btnAutoLock,
+        -- [Enum.KeyCode.F] = btnClickFling,
+        -- [Enum.KeyCode.G] = btnWalkFling
     }
 
     for key, button in pairs(defaultBinds) do
