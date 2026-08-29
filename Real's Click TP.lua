@@ -1,5 +1,5 @@
 -- ==========================================
--- REAL'S Click TP
+-- Real's Click TP
 -- ==========================================
 
 local player = game.Players.LocalPlayer
